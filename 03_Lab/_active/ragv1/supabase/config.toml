@@ -1,0 +1,16 @@
+project_id = "ragv1"
+
+[functions.ragv1-process-document]
+verify_jwt = false
+
+[functions.ragv1-chat]
+verify_jwt = false
+
+[functions.ragv1-reembed]
+verify_jwt = false
+
+[functions.ragv1-api]
+verify_jwt = false
+
+[functions.ragv1-eval]
+verify_jwt = false

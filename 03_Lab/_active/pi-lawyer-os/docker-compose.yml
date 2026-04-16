@@ -1,0 +1,264 @@
+services:
+
+  traefik:
+    image: traefik:v3
+    container_name: pilaweros-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - pilaweros
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pilaweros-frontend
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${APP_DOMAIN}`) && !PathPrefix(`/api`) && !PathPrefix(`/auth`) && !PathPrefix(`/n8n`) && !PathPrefix(`/files`) && !PathPrefix(`/ai/`) && !PathPrefix(`/openclaw`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    networks:
+      - pilaweros
+    depends_on:
+      - postgrest
+
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: pilaweros-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - pilaweros
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: pilaweros-postgrest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_LOG_LEVEL: info
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.postgrest.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.postgrest.entrypoints=web"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.postgrest.middlewares=strip-api"
+      - "traefik.http.services.postgrest.loadbalancer.server.port=3000"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: pilaweros-auth
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      DB_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      OPENCLAW_CONFIG_PATH: /openclaw-config/openclaw.json
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-pilaweros_openclaw_token_changeme}
+    volumes:
+      - ./openclaw/config:/openclaw-config:rw
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.middlewares.strip-auth.stripprefix.prefixes=/auth"
+      - "traefik.http.routers.auth.middlewares=strip-auth"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: pilaweros-n8n
+    restart: unless-stopped
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      N8N_HOST: ${APP_DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://${APP_DOMAIN}/n8n/
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER}
+      TWILIO_TEST_MODE: ${TWILIO_TEST_MODE:-true}
+      TWILIO_TEST_TO_NUMBER: ${TWILIO_TEST_TO_NUMBER:-}
+      PGRST_SERVICE_KEY: ${PGRST_SERVICE_KEY}
+      # SMTP — optional. If SMTP_HOST is empty, email nodes are skipped (SMS-only path).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@pilaweros.local}
+    volumes:
+      - n8n-data:/home/node/.n8n
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/n8n`)"
+      - "traefik.http.routers.n8n.entrypoints=web"
+      - "traefik.http.routers.n8n.middlewares=strip-n8n-prefix@file"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  files:
+    build:
+      context: ./files
+      dockerfile: Dockerfile
+    container_name: pilaweros-files
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      DB_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATA_DIR: /data
+    volumes:
+      - uploads-data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.files.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/files`)"
+      - "traefik.http.routers.files.entrypoints=web"
+      - "traefik.http.middlewares.strip-files.stripprefix.prefixes=/files"
+      - "traefik.http.routers.files.middlewares=strip-files"
+      - "traefik.http.services.files.loadbalancer.server.port=8001"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: pilaweros-ai
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-stub}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-pilaweros_internal_key_changeme}
+      JWT_SECRET: ${JWT_SECRET}
+      DB_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATA_DIR: /data
+    volumes:
+      - uploads-data:/data:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/ai/`)"
+      - "traefik.http.routers.ai.entrypoints=web"
+      - "traefik.http.middlewares.strip-ai.stripprefix.prefixes=/ai"
+      - "traefik.http.routers.ai.middlewares=strip-ai"
+      - "traefik.http.services.ai.loadbalancer.server.port=8002"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: pilaweros-openclaw
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-pilaweros_openclaw_token_changeme}
+      OPENCLAW_PROFILE: ${OPENCLAW_PROFILE:-default}
+      OPENCLAW_WORKSPACE: ${OPENCLAW_WORKSPACE:-/workspace}
+      OPENCLAW_CONFIG_PATH: ${OPENCLAW_CONFIG_PATH:-/config/openclaw.json}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      PILAWEROS_API_URL: http://postgrest:3000
+      PILAWEROS_AUTH_URL: http://auth:8000
+      JWT_SECRET: ${JWT_SECRET:-pilaweros_jwt_secret_changeme}
+    volumes:
+      - ./openclaw/workspace:/workspace
+      - ./openclaw/config:/config:ro
+    expose:
+      - "47823"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pilaweros-openclaw.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/openclaw`)"
+      - "traefik.http.routers.pilaweros-openclaw.entrypoints=web"
+      - "traefik.http.middlewares.pilaweros-strip-openclaw.stripprefix.prefixes=/openclaw"
+      - "traefik.http.routers.pilaweros-openclaw.middlewares=pilaweros-strip-openclaw,openclaw-headers@file"
+      - "traefik.http.services.pilaweros-openclaw.loadbalancer.server.port=47823"
+    networks:
+      - pilaweros
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:47823/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  neo4j:
+    image: neo4j:5
+    container_name: pilaweros-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    networks:
+      - pilaweros
+    # Neo4j not exposed via Traefik — internal only in Phase 1
+
+volumes:
+  postgres-data:
+  traefik-certs:
+  n8n-data:
+  neo4j-data:
+  neo4j-logs:
+  uploads-data:
+
+networks:
+  pilaweros:
+    driver: bridge

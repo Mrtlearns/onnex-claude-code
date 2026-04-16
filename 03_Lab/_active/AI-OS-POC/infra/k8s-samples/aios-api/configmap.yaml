@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aios-api-config
+  namespace: aios
+data:
+  NODE_ENV: "production"
+  PORT: "3001"
+  AUTHENTIK_OIDC_URL: "http://authentik-server:9000"
+  TEMPORAL_ADDRESS: "temporal:7233"
+  TEMPORAL_NAMESPACE: "aios"
+  MINIO_ENDPOINT: "http://minio-core:9000"

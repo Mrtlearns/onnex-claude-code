@@ -1,0 +1,74 @@
+{
+  "name": "WF-6: Email Inbox Checker (On-Demand)",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "ndt-email-check",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "6558d34a-d239-472b-bfb4-d8ee6aad2fc9",
+      "name": "Webhook",
+      "webhookId": "162d4dd5-5dd8-4f05-ba43-d593ebaea5f0"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "filters": {
+          "readStatus": "unread",
+          "labelIds": ["INBOX"]
+        },
+        "simple": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [240, 0],
+      "id": "5344fd84-9b73-46db-90b6-d97d2891b31b",
+      "name": "Get Unread Emails",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0k1c9Kc19G9V99Rt",
+          "name": "Gmail ndtautoquotes@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [480, 0],
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Return Emails"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{"node": "Get Unread Emails", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Unread Emails": {
+      "main": [
+        [{"node": "Return Emails", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,1306 @@
+# Hasura v2.42 — tables.yaml
+# Source: cmmc_main (default)
+# Roles: msp_admin, client_admin, contributor, viewer
+# Generated: 2026-04-15
+
+# ─────────────────────────────────────────────
+# control_definitions — static CMMC control catalog (public read)
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: control_definitions
+  array_relationships:
+  - name: program_controls
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: program_controls
+        column: control_definition_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: contributor
+    permission:
+      columns: "*"
+      filter: {}
+  - role: viewer
+    permission:
+      columns: "*"
+      filter: {}
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# orgs — tenant organizations
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: orgs
+  array_relationships:
+  - name: programs
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: programs
+        column: org_id
+  - name: users
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: users
+        column: org_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        id:
+          _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        id:
+          _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        id:
+          _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# users
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: users
+  object_relationships:
+  - name: org
+    using:
+      foreign_key_constraint_on: org_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - display_name
+      - email
+      - role
+      - is_active
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# programs — CMMC assessment programs per org
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: programs
+  object_relationships:
+  - name: org
+    using:
+      foreign_key_constraint_on: org_id
+  array_relationships:
+  - name: program_controls
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: program_controls
+        column: program_id
+  - name: assignments
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assignments
+        column: program_id
+  - name: milestones
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: milestones
+        column: program_id
+  - name: program_members
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: program_members
+        column: program_id
+  - name: program_locations
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: program_locations
+        column: program_id
+  - name: activity_logs
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: activity_log
+        column: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - org_id
+      - name
+      - system_name
+      - status
+      check:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - name
+      - system_name
+      - topology_narrative
+      - ssp_system_description
+      - ssp_environment_of_operation
+      - ssp_information_types
+      - ssp_security_requirements
+      - ssp_interconnections
+      - ssp_authoring_date
+      - ssp_last_review_date
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# program_controls — per-program control instances
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: program_controls
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  - name: control_definition
+    using:
+      foreign_key_constraint_on: control_definition_id
+  array_relationships:
+  - name: assignments
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assignments
+        column: program_control_id
+  - name: artifacts
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: artifacts
+        column: program_control_id
+  - name: milestones
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: milestones
+        column: program_control_id
+  - name: assessments
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assessments
+        column: program_control_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - control_definition_id
+      - status
+      - implementation_status
+      - responsibility
+      - implementation_narrative
+      - plan_of_action
+      - target_date
+      - phase
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - status
+      - implementation_status
+      - responsibility
+      - implementation_narrative
+      - plan_of_action
+      - target_date
+      - phase
+      - score_override
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns:
+      - status
+      - implementation_status
+      - implementation_narrative
+      - plan_of_action
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# assignments — control tasks assigned to users
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: assignments
+  object_relationships:
+  - name: program_control
+    using:
+      foreign_key_constraint_on: program_control_id
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  - name: assigned_user
+    using:
+      foreign_key_constraint_on: assigned_to
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - program_control_id
+      - assigned_to
+      - due_date
+      - priority
+      - notes
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - assigned_to
+      - due_date
+      - priority
+      - status
+      - notes
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns:
+      - status
+      - notes
+      filter:
+        assigned_to:
+          _eq: X-Hasura-User-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# artifacts — evidence files uploaded per control
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: artifacts
+  object_relationships:
+  - name: program_control
+    using:
+      foreign_key_constraint_on: program_control_id
+  - name: assignment
+    using:
+      foreign_key_constraint_on: assignment_id
+  array_relationships:
+  - name: assessments
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assessments
+        column: artifact_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_control_id
+      - assignment_id
+      - file_name
+      - file_path
+      - file_size
+      - mime_type
+      - description
+      - uploaded_by
+      check:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns:
+      - program_control_id
+      - assignment_id
+      - file_name
+      - file_path
+      - file_size
+      - mime_type
+      - description
+      - uploaded_by
+      check:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - description
+      - file_name
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# assessments — Claude LLM scoring results per artifact
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: assessments
+  object_relationships:
+  - name: artifact
+    using:
+      foreign_key_constraint_on: artifact_id
+  - name: program_control
+    using:
+      foreign_key_constraint_on: program_control_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# milestones — POA&M milestone tracking
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: milestones
+  object_relationships:
+  - name: program_control
+    using:
+      foreign_key_constraint_on: program_control_id
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - program_control_id
+      - title
+      - description
+      - due_date
+      - status
+      - resources_required
+      - estimated_cost
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - title
+      - description
+      - due_date
+      - status
+      - resources_required
+      - estimated_cost
+      - completion_date
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns:
+      - status
+      - completion_date
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# program_members — users enrolled in a program
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: program_members
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  - name: user
+    using:
+      foreign_key_constraint_on: user_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - user_id
+      - member_role
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - member_role
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# program_locations — physical/logical scope boundaries
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: program_locations
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - name
+      - address
+      - location_type
+      - description
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - name
+      - address
+      - location_type
+      - description
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# hardware_inventory
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: hardware_inventory
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - asset_tag
+      - hostname
+      - ip_address
+      - mac_address
+      - asset_type
+      - manufacturer
+      - model
+      - serial_number
+      - os
+      - os_version
+      - location
+      - owner
+      - in_cui_boundary
+      - notes
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - asset_tag
+      - hostname
+      - ip_address
+      - mac_address
+      - asset_type
+      - manufacturer
+      - model
+      - serial_number
+      - os
+      - os_version
+      - location
+      - owner
+      - in_cui_boundary
+      - notes
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# software_inventory
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: software_inventory
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - name
+      - vendor
+      - version
+      - license_type
+      - install_count
+      - in_cui_boundary
+      - approved
+      - notes
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - name
+      - vendor
+      - version
+      - license_type
+      - install_count
+      - in_cui_boundary
+      - approved
+      - notes
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# cloud_services_inventory
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: cloud_services_inventory
+  object_relationships:
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+      - program_id
+      - service_name
+      - provider
+      - service_type
+      - fedramp_authorized
+      - data_types_stored
+      - in_cui_boundary
+      - notes
+      check:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+      - service_name
+      - provider
+      - service_type
+      - fedramp_authorized
+      - data_types_stored
+      - in_cui_boundary
+      - notes
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# activity_log — audit trail (append-only for non-admins)
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: activity_log
+  object_relationships:
+  - name: org
+    using:
+      foreign_key_constraint_on: org_id
+  - name: program
+    using:
+      foreign_key_constraint_on: program_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  - role: viewer
+    permission:
+      columns: "*"
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# control_dependencies — control prerequisite graph
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: control_dependencies
+  object_relationships:
+  - name: control
+    using:
+      manual_configuration:
+        remote_table:
+          schema: public
+          name: control_definitions
+        column_mapping:
+          control_id: id
+  - name: depends_on_control
+    using:
+      manual_configuration:
+        remote_table:
+          schema: public
+          name: control_definitions
+        column_mapping:
+          depends_on_id: id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: contributor
+    permission:
+      columns: "*"
+      filter: {}
+  - role: viewer
+    permission:
+      columns: "*"
+      filter: {}
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}

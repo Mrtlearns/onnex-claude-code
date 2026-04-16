@@ -1,0 +1,149 @@
+{
+  "id": "wf-ndt-feedback-001",
+  "name": "WF-6 Portal Feedback → Gmail",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Feedback Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ndt-feedback",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "code-format",
+      "name": "Format Email Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "parameters": {
+        "jsCode": "const body = $input.all()[0].json.body;\n\nconst now = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';\n\nconst priorityEmoji = {\n  Critical: '🔴',\n  High:     '🟠',\n  Medium:   '🟡',\n  Low:      '🟢',\n}[body.priority] ?? '⚪';\n\nconst subject = `[NDT Feedback] ${body.type} | ${priorityEmoji} ${body.priority}`;\n\nconst htmlBody = `\n<html><body style=\"font-family:sans-serif;color:#1a1a1a;max-width:700px;\">\n  <h2 style=\"color:#2563eb;border-bottom:2px solid #e5e7eb;padding-bottom:8px;\">NDT Portal Feedback</h2>\n  <table cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;width:100%;margin-bottom:16px;\">\n    <tr style=\"background:#f9fafb;\">\n      <td style=\"font-weight:bold;width:140px;border:1px solid #e5e7eb;\">Type</td>\n      <td style=\"border:1px solid #e5e7eb;\">${body.type}</td>\n    </tr>\n    <tr>\n      <td style=\"font-weight:bold;border:1px solid #e5e7eb;\">Priority</td>\n      <td style=\"border:1px solid #e5e7eb;\">${priorityEmoji} ${body.priority}</td>\n    </tr>\n    <tr style=\"background:#f9fafb;\">\n      <td style=\"font-weight:bold;border:1px solid #e5e7eb;\">Submitted by</td>\n      <td style=\"border:1px solid #e5e7eb;\">${body.user_name} &lt;${body.user_email}&gt;</td>\n    </tr>\n    <tr>\n      <td style=\"font-weight:bold;border:1px solid #e5e7eb;\">Page</td>\n      <td style=\"border:1px solid #e5e7eb;\"><a href=\"${body.page_url}\">${body.page_url}</a></td>\n    </tr>\n    <tr style=\"background:#f9fafb;\">\n      <td style=\"font-weight:bold;border:1px solid #e5e7eb;\">Submitted at</td>\n      <td style=\"border:1px solid #e5e7eb;\">${now}</td>\n    </tr>\n  </table>\n  <h3 style=\"margin-bottom:4px;\">Description</h3>\n  <div style=\"background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;white-space:pre-wrap;\">${body.description}</div>\n  ${body.screenshot_b64 ? '<p style=\"margin-top:16px;color:#6b7280;font-size:13px;\">📎 Screenshot attached (feedback-screenshot.png)</p>' : ''}\n</body></html>\n`;\n\nconst hasScreenshot = !!(body.screenshot_b64);\nlet screenshotBase64 = '';\nif (hasScreenshot) {\n  screenshotBase64 = body.screenshot_b64.replace(/^data:image\\/\\w+;base64,/, '');\n}\n\nreturn [{\n  json: {\n    subject,\n    htmlBody,\n    hasScreenshot,\n    screenshotBase64,\n    toEmail: 'mrt@mrt.cc',\n  }\n}];"
+      }
+    },
+    {
+      "id": "if-screenshot",
+      "name": "Has Screenshot?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "screenshot-check",
+              "leftValue": "={{ $json.hasScreenshot }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "code-binary",
+      "name": "Convert Screenshot to Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200],
+      "parameters": {
+        "jsCode": "const item = $input.all()[0];\nconst base64 = item.json.screenshotBase64;\nconst buffer = Buffer.from(base64, 'base64');\n\nreturn [{\n  json: item.json,\n  binary: {\n    screenshot: await this.helpers.prepareBinaryData(\n      buffer,\n      'feedback-screenshot.png',\n      'image/png'\n    )\n  }\n}];"
+      }
+    },
+    {
+      "id": "gmail-with-attachment",
+      "name": "Gmail (with screenshot)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1120, 200],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.toEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.htmlBody }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "screenshot"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "gmail-no-attachment",
+      "name": "Gmail (no screenshot)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1120, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.toEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Feedback Webhook": {
+      "main": [
+        [{ "node": "Format Email Content", "type": "main", "index": 0 }]
+      ]
+    },
+    "Format Email Content": {
+      "main": [
+        [{ "node": "Has Screenshot?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Screenshot?": {
+      "main": [
+        [{ "node": "Convert Screenshot to Binary", "type": "main", "index": 0 }],
+        [{ "node": "Gmail (no screenshot)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Convert Screenshot to Binary": {
+      "main": [
+        [{ "node": "Gmail (with screenshot)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    { "name": "ndtv1" },
+    { "name": "feedback" }
+  ]
+}

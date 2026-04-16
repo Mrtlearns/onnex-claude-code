@@ -1,0 +1,30 @@
+=== Smoke Test: mem0 + Chroma + OpenRouter ===
+
+[1] Adding 5 facts across 3 scopes...
+  1. [global] Mr. T is Tilesh Maharaj, owner of Onnex AI Agency in La... → ['UPDATE', 'UPDATE']
+  2. [global] Onnex delivery framework is ATOM: Audit Transform Optim... → ['UPDATE', 'UPDATE']
+  3. [global] Tool rule: On Windows use Filesystem MCP for D:\Code\ f... → ['UPDATE', 'ADD']
+  4. [ndtv1] ndtv1 is ITAR-aware NDT portal. Three services: comply,... → ['UPDATE', 'UPDATE', 'ADD']
+  5. [pi_lawyer_os] PI Growth OS: speed-to-lead under 60s wins 80% of PI ca... → ['UPDATE', 'UPDATE']
+
+  Done in 76.1s
+
+[2] Verifying retrieval...
+
+Q: "What is Onnex and who is Mr T?" (scope=global)
+   [0.650] Mr. T's homelab runs MinIO
+   [0.552] Onnex active verticals: PI Law Firms (PI Growth OS), NDT/Aerospace (ndtv1 portal
+
+Q: "Windows MCP tool selection rules" (scope=global)
+   [0.650] File placement: scripts/ for .py/.sh, outputs/ for deliverables, plans/ for plan
+   [0.639] Pro template TELOS framework has 8 files: MISSION, GOALS, PROJECTS, STRATEGIES, 
+
+Q: "NDT ITAR pipeline architecture" (scope=ndtv1)
+   [0.650] Using PostgreSQL/pgvector
+   [0.588] Three services offered: comply, sanitize, gateway
+
+Q: "PI law speed to lead" (scope=pi_lawyer_os)
+   [0.650] All SMS must have documented opt-in consent
+   [0.629] OS: $500–$1500 per unsolicited message
+
+=== SMOKE TEST COMPLETE ===

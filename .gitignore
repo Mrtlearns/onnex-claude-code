@@ -1,0 +1,96 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+bower_components/
+
+# ── Build outputs ─────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+.output/
+standalone/
+*.tsbuildinfo
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+
+# ── Secrets — NEVER commit ────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.pem
+*.key
+secrets.json
+service-account*.json
+
+# ── Test & coverage artifacts ─────────────────────────────────
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+*.lcov
+
+# ── Tooling caches ────────────────────────────────────────────
+.vite/
+.vite-temp/
+.lovable/
+.turbo/
+.parcel-cache/
+.cache/
+.eslintcache
+.stylelintcache
+
+# ── Claude AI runtime data (session state, not source) ────────
+.claude-global/projects/
+.claude-global/file-history/
+.claude-global/session-env/
+.claude-global/paste-cache/
+.claude-global/shell-snapshots/
+.claude-global/telemetry/
+.claude-global/statsig/
+.claude-global/todos/
+.claude-global/tasks/
+.claude-global/plans/
+.claude-global/state/
+.claude-global/chrome/
+.claude-global/cache/
+
+# ── OS cruft ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# ── IDE ───────────────────────────────────────────────────────
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*.suo
+*.user
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Claude AI credentials (never commit) ──────────────────────
+.claude-global/.credentials.json
+.claude-global/.credentials.json*
+.claude-global/.claude.json
+.claude-global/.claude.json*
+.claude-global/backups/

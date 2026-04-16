@@ -1,0 +1,44 @@
+{
+  "sessions": [
+    {
+      "date": "2026-03-30",
+      "tools": {
+        "Edit": 7,
+        "TaskUpdate": 13,
+        "Write": 15,
+        "Bash": 2,
+        "Read": 1
+      },
+      "total_calls": 38,
+      "weight_total": 37
+    },
+    {
+      "date": "2026-04-03",
+      "tools": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "AskUserQuestion": 1,
+        "Bash": 36,
+        "Read": 11,
+        "Write": 5,
+        "Edit": 5,
+        "Agent": 1,
+        "ExitPlanMode": 1
+      },
+      "total_calls": 62,
+      "weight_total": 60
+    },
+    {
+      "date": "2026-04-15",
+      "tools": {
+        "Bash": 23,
+        "Read": 15,
+        "Edit": 6,
+        "Glob": 3,
+        "Write": 7
+      },
+      "total_calls": 54,
+      "weight_total": 36
+    }
+  ]
+}

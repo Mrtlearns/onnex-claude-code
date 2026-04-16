@@ -1,0 +1,215 @@
+{
+  "id": "a1000008-0000-0000-0000-000000000008",
+  "name": "PI OS — After-Hours IVR",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-ahivr-webhook",
+      "name": "Twilio Voice Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "after-hours-call",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "b8e2c4a1-9f3d-4b7e-a1c5-2d8f0e6a9b3c"
+    },
+    {
+      "id": "node-ahivr-extract",
+      "name": "Extract Caller Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-caller",
+              "name": "caller_phone",
+              "value": "={{ $json.body.From ?? $json.body.Caller ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-recording",
+              "name": "recording_url",
+              "value": "={{ $json.body.RecordingUrl ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-timestamp",
+              "name": "call_hour",
+              "value": "={{ new Date().getHours() }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-check-hours",
+      "name": "After Hours?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-after-hours",
+              "leftValue": "={{ $json.call_hour >= 18 || $json.call_hour < 8 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-create-lead",
+      "name": "Create Lead from Caller",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ source: 'phone', status: 'new', phone: $('Extract Caller Fields').item.json.caller_phone, notes: 'After-hours call — auto-captured. Voicemail: ' + ($('Extract Caller Fields').item.json.recording_url || 'pending') }) }}",
+        "rawContentType": "application/json",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-test-mode",
+      "name": "SMS Test Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-test",
+              "leftValue": "={{ $env.TWILIO_TEST_MODE ?? 'true' }}",
+              "rightValue": "true",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-log-sms",
+      "name": "Log Stub SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ lead_id: $('Create Lead from Caller').item.json[0]?.id, channel: 'sms', direction: 'outbound', message: '[STUB] We missed your after-hours call! We\\'re reviewing your case and will call back first thing tomorrow. — Your Law Firm', status: 'stub' }) }}",
+        "rawContentType": "application/json",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-log-voicemail",
+      "name": "Log Voicemail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ JSON.stringify({ lead_id: $('Create Lead from Caller').item.json[0]?.id, channel: 'voicemail', direction: 'inbound', message: $('Extract Caller Fields').item.json.recording_url || 'voicemail-pending', status: 'received' }) }}",
+        "rawContentType": "application/json",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-ahivr-skip",
+      "name": "Business Hours — Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Twilio Voice Webhook": {
+      "main": [[{ "node": "Extract Caller Fields", "type": "main", "index": 0 }]]
+    },
+    "Extract Caller Fields": {
+      "main": [[{ "node": "After Hours?", "type": "main", "index": 0 }]]
+    },
+    "After Hours?": {
+      "main": [
+        [{ "node": "Create Lead from Caller", "type": "main", "index": 0 }],
+        [{ "node": "Business Hours — Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Lead from Caller": {
+      "main": [[{ "node": "SMS Test Mode?", "type": "main", "index": 0 }]]
+    },
+    "SMS Test Mode?": {
+      "main": [
+        [
+          { "node": "Log Stub SMS", "type": "main", "index": 0 },
+          { "node": "Log Voicemail", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Log Voicemail", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [{ "name": "pi-lawyer-os" }]
+}

@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "plugins": {
+    "codex@openai-codex": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\mrtma\\.claude\\plugins\\cache\\openai-codex\\codex\\1.0.2",
+        "version": "1.0.2",
+        "installedAt": "2026-04-05T21:00:24.715Z",
+        "lastUpdated": "2026-04-11T06:38:05.308Z",
+        "gitCommitSha": "8e403f9d4b496b0b0aff50fa3673f889f6a22cb1"
+      }
+    ],
+    "frontend-design@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\mrtma\\.claude\\plugins\\cache\\claude-plugins-official\\frontend-design\\unknown",
+        "version": "unknown",
+        "installedAt": "2026-04-05T23:00:41.799Z",
+        "lastUpdated": "2026-04-11T06:38:05.308Z"
+      }
+    ],
+    "playwright@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\mrtma\\.claude\\plugins\\cache\\claude-plugins-official\\playwright\\unknown",
+        "version": "unknown",
+        "installedAt": "2026-04-11T06:38:05.308Z",
+        "lastUpdated": "2026-04-11T06:38:05.308Z"
+      }
+    ]
+  }
+}

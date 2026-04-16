@@ -1,0 +1,337 @@
+{
+  "name": "PI Lawyer OS — SOL Alert",
+  "nodes": [
+    {
+      "id": "cron-trigger",
+      "name": "Daily 8am Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "query-sol-cases",
+      "name": "Query SOL Cases",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  c.id,\n  c.case_number,\n  c.case_type,\n  c.sol_date,\n  c.status,\n  cl.first_name || ' ' || cl.last_name AS client_name,\n  u.name AS attorney_name,\n  u.phone AS attorney_phone,\n  EXTRACT(DAY FROM (c.sol_date - CURRENT_DATE))::INT AS days_until_sol,\n  CASE\n    WHEN c.sol_date - CURRENT_DATE <= 30 THEN 'CRITICAL'\n    WHEN c.sol_date - CURRENT_DATE <= 60 THEN 'URGENT'\n    ELSE 'WARNING'\n  END AS urgency\nFROM cases c\nJOIN clients cl ON cl.id = c.client_id\nLEFT JOIN users u ON u.id = c.assigned_attorney\nWHERE c.status NOT IN ('closed', 'settlement')\n  AND c.sol_date IS NOT NULL\n  AND c.sol_date - CURRENT_DATE IN (90, 60, 30)\nORDER BY c.sol_date ASC",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "postgres-pilaweros",
+          "name": "PI Lawyer OS — PostgreSQL"
+        }
+      }
+    },
+    {
+      "id": "check-results",
+      "name": "Any Cases Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-results",
+              "leftValue": "={{ $items().length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "no-op",
+      "name": "No Cases — Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 460],
+      "parameters": {}
+    },
+    {
+      "id": "loop-cases",
+      "name": "Loop Over Cases",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "check-phone",
+      "name": "Has Attorney Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-phone-not-null",
+              "leftValue": "={{ $json.attorney_phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send-sms",
+      "name": "Send SOL SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1340, 220],
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $vars.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $json.attorney_phone }}",
+        "message": "={{ '⚠️ SOL ALERT [' + $json.urgency + ']: ' + $json.client_name + ' (' + $json.case_number + ') — SOL in ' + $json.days_until_sol + ' days (' + $json.sol_date + '). Action required.' }}"
+      },
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-pilaweros",
+          "name": "PI Lawyer OS — Twilio"
+        }
+      }
+    },
+    {
+      "id": "log-communication",
+      "name": "Log to Communications",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 220],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $vars.POSTGREST_JWT }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  case_id: $('Loop Over Cases').item.json.id,\n  channel: 'sms',\n  direction: 'outbound',\n  status: 'sent',\n  recipient: $('Loop Over Cases').item.json.attorney_phone,\n  body: '⚠️ SOL ALERT [' + $('Loop Over Cases').item.json.urgency + ']: ' + $('Loop Over Cases').item.json.client_name + ' (' + $('Loop Over Cases').item.json.case_number + ') — SOL in ' + $('Loop Over Cases').item.json.days_until_sol + ' days (' + $('Loop Over Cases').item.json.sol_date + '). Action required.',\n  metadata: {\n    case_id: $('Loop Over Cases').item.json.id,\n    alert_type: 'sol_' + $('Loop Over Cases').item.json.urgency.toLowerCase(),\n    days_until_sol: $('Loop Over Cases').item.json.days_until_sol,\n    attorney_name: $('Loop Over Cases').item.json.attorney_name\n  }\n}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "skip-no-phone",
+      "name": "Skip — No Phone",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "parameters": {}
+    },
+    {
+      "id": "loop-back-sms",
+      "name": "Back to Loop (SMS path)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 220],
+      "parameters": {}
+    },
+    {
+      "id": "loop-back-skip",
+      "name": "Back to Loop (Skip path)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1560, 400],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Daily 8am Trigger": {
+      "main": [
+        [
+          {
+            "node": "Query SOL Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query SOL Cases": {
+      "main": [
+        [
+          {
+            "node": "Any Cases Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Cases Found?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Cases",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Cases — Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Cases": {
+      "main": [
+        [
+          {
+            "node": "Has Attorney Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Attorney Phone?": {
+      "main": [
+        [
+          {
+            "node": "Send SOL SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip — No Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SOL SMS": {
+      "main": [
+        [
+          {
+            "node": "Log to Communications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Communications": {
+      "main": [
+        [
+          {
+            "node": "Back to Loop (SMS path)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Back to Loop (SMS path)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip — No Phone": {
+      "main": [
+        [
+          {
+            "node": "Back to Loop (Skip path)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Back to Loop (Skip path)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "pi-lawyer-os"
+    },
+    {
+      "name": "sol"
+    },
+    {
+      "name": "alerts"
+    }
+  ],
+  "pinData": {}
+}

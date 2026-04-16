@@ -1,0 +1,99 @@
+{
+  "title": "AI-Sentinel",
+  "uid": "ai-sentinel-v1",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "stat", "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "title": "Total Requests",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "blue", "mode": "fixed" }, "unit": "short" } },
+      "targets": [{ "datasource": "Prometheus", "expr": "ai_sentinel_requests_total", "legendFormat": "requests" }]
+    },
+    {
+      "id": 2, "type": "stat", "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "title": "Avg Latency (ms)",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "green", "mode": "fixed" }, "unit": "ms" } },
+      "targets": [{ "datasource": "Prometheus", "expr": "rate(ai_sentinel_latency_ms_sum[5m]) / rate(ai_sentinel_latency_ms_count[5m])", "legendFormat": "avg latency" }]
+    },
+    {
+      "id": 3, "type": "stat", "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "title": "E-Stop Active",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{ "type": "value", "options": { "0": { "text": "INACTIVE", "color": "green" }, "1": { "text": "ACTIVE", "color": "red" } } }],
+          "thresholds": { "steps": [{ "value": 0, "color": "green" }, { "value": 1, "color": "red" }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": "Prometheus", "expr": "ai_sentinel_estop_active", "legendFormat": "e-stop" }]
+    },
+    {
+      "id": 4, "type": "stat", "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "title": "Audit Chain Length",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "purple", "mode": "fixed" }, "unit": "short" } },
+      "targets": [{ "datasource": "Prometheus", "expr": "ai_sentinel_audit_chain_length", "legendFormat": "records" }]
+    },
+    {
+      "id": 5, "type": "stat", "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "title": "PII Stripped",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "fieldConfig": { "defaults": { "color": { "fixedColor": "yellow", "mode": "fixed" }, "unit": "short" } },
+      "targets": [{ "datasource": "Prometheus", "expr": "ai_sentinel_pii_stripped_total", "legendFormat": "redacted" }]
+    },
+    {
+      "id": 6, "type": "stat", "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "title": "Layer Faults (fail-open)",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "steps": [{ "value": 0, "color": "green" }, { "value": 1, "color": "orange" }] },
+          "color": { "mode": "thresholds" }, "unit": "short"
+        }
+      },
+      "targets": [{ "datasource": "Prometheus", "expr": "ai_sentinel_layer_faults_total", "legendFormat": "faults" }]
+    },
+    {
+      "id": 7, "type": "timeseries", "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "title": "Request Rate (req/s)",
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(ai_sentinel_requests_total[1m])", "legendFormat": "requests/s" }
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "title": "Request Latency (ms)",
+      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "palette-classic" } } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.50, rate(ai_sentinel_latency_ms_bucket[5m]))", "legendFormat": "p50" },
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.95, rate(ai_sentinel_latency_ms_bucket[5m]))", "legendFormat": "p95" },
+        { "datasource": "Prometheus", "expr": "histogram_quantile(0.99, rate(ai_sentinel_latency_ms_bucket[5m]))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "title": "Security Events",
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "rate(ai_sentinel_pii_stripped_total[5m])", "legendFormat": "PII stripped/s" },
+        { "datasource": "Prometheus", "expr": "rate(ai_sentinel_rate_limit_total[5m])", "legendFormat": "rate limited/s" },
+        { "datasource": "Prometheus", "expr": "rate(ai_sentinel_trust_replay_attempts_total[5m])", "legendFormat": "replay attempts/s" }
+      ]
+    },
+    {
+      "id": 10, "type": "timeseries", "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "title": "Audit Chain Growth",
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "ai_sentinel_audit_chain_length", "legendFormat": "records" }
+      ]
+    }
+  ]
+}

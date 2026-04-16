@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "80000",
+    "BASH_DEFAULT_TIMEOUT_MS": "120000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "LS",
+      "WebFetch",
+      "WebSearch",
+      "NotebookRead",
+      "NotebookEdit",
+      "TodoWrite",
+      "ExitPlanMode",
+      "Task",
+      "Skill",
+      "mcp__*"
+    ],
+    "deny": [],
+    "ask": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /:*)",
+      "Bash(sudo rm -rf /)",
+      "Bash(sudo rm -rf /:*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf ~/.claude)",
+      "Bash(rm -rf ~/.claude:*)",
+      "Bash(diskutil eraseDisk:*)",
+      "Bash(diskutil zeroDisk:*)",
+      "Bash(diskutil partitionDisk:*)",
+      "Bash(dd if=/dev/zero:*)",
+      "Bash(mkfs:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh repo edit --visibility public:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(~/.ssh/id_*)",
+      "Read(~/.ssh/*.pem)",
+      "Read(~/.aws/credentials)",
+      "Write(~/.ssh/*)",
+      "Edit(~/.ssh/*)"
+    ],
+    "defaultMode": "default"
+  },
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/.claude-global/hooks/session-start.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/.claude-global/hooks/pre-tool-safety.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/.claude-global/hooks/session-end.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/.claude-global/hooks/auto-commit.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MSYS_NO_PATHCONV=1 wsl python3 /mnt/d/Code/Claude/.claude-global/skills/memory/scripts/auto_capture.py",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"D:/Code/Claude/.claude-global/statusline.sh\"",
+    "padding": 0
+  },
+  "enabledPlugins": {
+    "codex@openai-codex": true,
+    "frontend-design@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "autoUpdatesChannel": "latest",
+  "skipDangerousModePermissionPrompt": true,
+  "voiceEnabled": true,
+  "model": "sonnet"
+}

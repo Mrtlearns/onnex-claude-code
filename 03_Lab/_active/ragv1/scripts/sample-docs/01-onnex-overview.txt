@@ -1,0 +1,25 @@
+Onnex AI Agency — Company Overview
+
+Onnex is an AI agency founded by Mr. T, an AI Development Engineer and Software Architect with expertise spanning 18 SAP modules, cybersecurity, and business process optimization. Onnex delivers AI-assisted Operating Systems (AI-OS) to small and medium enterprise (SME) clients across multiple verticals including NDT/aerospace, medical services, MSPs, and PI law firms.
+
+Mission and Vision
+
+Onnex's primary mission is to leverage technology and artificial intelligence to help SME businesses operate with the efficiency and intelligence of enterprise companies — without the enterprise cost or complexity. SMEs represent the majority of businesses globally but lack access to the tools and systems that make large companies effective. Onnex fills this gap by delivering unified, intelligent systems that replace fragmented manual processes.
+
+The flagship product, AI-OS (AI-assisted Operating System), is a modular platform that integrates AI capabilities into core business operations: document intelligence, workflow automation, analytics, and client communication.
+
+Delivery Methodology
+
+Onnex follows the ATOM methodology: Audit, Transform, Optimize, and Maintain. Every client engagement begins with a comprehensive audit of existing processes, followed by a structured transformation phase where AI-OS components are deployed and customized. The Optimize phase tunes the system based on real usage data, and the Maintain phase ensures ongoing performance and adaptation.
+
+Quality gates follow the QDOAA framework: Quality, Delivery, Operations, Analytics, and Adoption. These gates ensure every engagement meets Onnex's standards before moving to the next phase.
+
+Technology Foundation
+
+Onnex builds on a modern technology stack. The core infrastructure runs on Supabase for database, authentication, and storage services. RAGv1 is Onnex's internal document intelligence module, providing retrieval-augmented generation capabilities. The RAGv1 system uses pgvector for semantic vector search and Google Gemini for language model inference and embeddings.
+
+SAP Integration
+
+Mr. T brings deep SAP expertise to Onnex engagements. Onnex integrates AI-OS with SAP S/4HANA, leveraging ABAP programming, SAP BTP, and standard SAP APIs to connect enterprise data with AI-powered workflows. SAP clients benefit from AI-assisted data extraction, automated process documentation, and intelligent reporting.
+
+Onnex serves as a bridge between SAP's enterprise ecosystem and modern AI tooling, enabling clients to extract maximum value from their SAP investment while adopting AI-native workflows.

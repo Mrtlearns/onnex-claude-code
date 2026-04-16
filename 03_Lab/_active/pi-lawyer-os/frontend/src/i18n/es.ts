@@ -1,0 +1,135 @@
+// Spanish (es) translations for PI Lawyer OS
+// Usage: import { es } from '@/i18n/es'
+//        const t = (key: string) => es[key] ?? key
+
+export const es: Record<string, string> = {
+  // ── Navigation ────────────────────────────────────────────────────────────
+  Dashboard: 'Panel',
+  Leads: 'Prospectos',
+  Cases: 'Casos',
+  Partners: 'Socios',
+  Analytics: 'Análisis',
+  Settings: 'Configuración',
+  'Client Portal': 'Portal del Cliente',
+  'AI Agent': 'Agente IA',
+  'Sign out': 'Cerrar sesión',
+
+  // ── Lead statuses ─────────────────────────────────────────────────────────
+  new: 'nuevo',
+  contacted: 'contactado',
+  'intake-in-progress': 'en proceso',
+  signed: 'firmado',
+  lost: 'perdido',
+
+  // ── Case statuses ─────────────────────────────────────────────────────────
+  intake: 'admisión',
+  investigation: 'investigación',
+  demand: 'demanda',
+  negotiation: 'negociación',
+  settlement: 'acuerdo',
+  litigation: 'litigio',
+  closed: 'cerrado',
+
+  // ── Common labels ─────────────────────────────────────────────────────────
+  Name: 'Nombre',
+  Email: 'Correo',
+  Phone: 'Teléfono',
+  Status: 'Estado',
+  Source: 'Fuente',
+  Date: 'Fecha',
+  Notes: 'Notas',
+  Save: 'Guardar',
+  Cancel: 'Cancelar',
+  Delete: 'Eliminar',
+  Edit: 'Editar',
+  Back: 'Atrás',
+  Next: 'Siguiente',
+  Submit: 'Enviar',
+  Loading: 'Cargando',
+  Search: 'Buscar',
+  Filter: 'Filtrar',
+  'All statuses': 'Todos los estados',
+  'Add note': 'Agregar nota',
+  'Convert to Case': 'Convertir a Caso',
+
+  // ── Lead fields ───────────────────────────────────────────────────────────
+  'First Name': 'Nombre',
+  'Last Name': 'Apellido',
+  'Injury Type': 'Tipo de lesión',
+  'Date of Loss': 'Fecha del accidente',
+  'Fault': 'Responsabilidad',
+  'Has Medical': '¿Recibió tratamiento médico?',
+  'Lead Score': 'Puntuación',
+  'Possible Duplicate': 'Posible Duplicado',
+
+  // ── Case fields ───────────────────────────────────────────────────────────
+  'Case Number': 'Número de caso',
+  'Assigned Attorney': 'Abogado asignado',
+  'Open Date': 'Fecha de apertura',
+  'Client': 'Cliente',
+  'Insurance Carrier': 'Aseguradora',
+
+  // ── Intake form ───────────────────────────────────────────────────────────
+  'Free Case Evaluation': 'Evaluación gratuita de su caso',
+  'Step 1 of 3': 'Paso 1 de 3',
+  'Step 2 of 3': 'Paso 2 de 3',
+  'Step 3 of 3': 'Paso 3 de 3',
+  'Contact Information': 'Información de contacto',
+  'About Your Injury': 'Sobre su lesión',
+  'Medical Treatment': 'Tratamiento médico',
+  'Type of injury': 'Tipo de lesión',
+  'Auto accident': 'Accidente automovilístico',
+  'Slip and fall': 'Caída o resbalón',
+  'Workplace injury': 'Lesión laboral',
+  'Dog bite': 'Mordedura de perro',
+  Other: 'Otro',
+  'Was another party at fault?': '¿Hubo otra parte responsable?',
+  Yes: 'Sí',
+  No: 'No',
+  Unsure: 'No estoy seguro',
+  'Have you received medical treatment?': '¿Ha recibido tratamiento médico?',
+  'Tell us more (optional)': 'Cuéntenos más (opcional)',
+  'Thank you!': '¡Gracias!',
+  "We've received your information. An attorney will contact you within 15 minutes.":
+    'Hemos recibido su información. Un abogado se comunicará con usted en los próximos 15 minutos.',
+  'Start another': 'Iniciar otro',
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  Account: 'Cuenta',
+  'AI Assistant — LLM': 'Asistente IA — LLM',
+  'Demo Data': 'Datos de demostración',
+  Language: 'Idioma',
+  'Interface Language': 'Idioma de interfaz',
+  English: 'Inglés',
+  Spanish: 'Español',
+  Team: 'Equipo',
+  'Manage staff user accounts.': 'Administrar cuentas de usuario del personal.',
+  'Add User': 'Agregar usuario',
+  Role: 'Rol',
+  'Deactivate': 'Desactivar',
+  'Activate': 'Activar',
+  admin: 'administrador',
+  attorney: 'abogado',
+  paralegal: 'paralegal',
+
+  // ── Analytics ─────────────────────────────────────────────────────────────
+  'Case Summary': 'Resumen de casos',
+  'Lead Funnel': 'Embudo de prospectos',
+  'Source Attribution': 'Atribución de fuentes',
+  'Partner Performance': 'Rendimiento de socios',
+  'Attorney Performance': 'Rendimiento de abogados',
+  'Total Cases': 'Casos totales',
+  'Settled': 'Resueltos',
+  'Avg Settlement': 'Acuerdo promedio',
+  'Total Attorney Fees': 'Honorarios totales',
+  'Open Cases': 'Casos abiertos',
+  'Settled This Year': 'Resueltos este año',
+  'Avg Days to Settle': 'Días promedio de resolución',
+  'Total Fees': 'Honorarios totales',
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  'New Leads': 'Nuevos prospectos',
+  'Active Cases': 'Casos activos',
+  'Pending Tasks': 'Tareas pendientes',
+  Automations: 'Automatizaciones',
+};

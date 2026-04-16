@@ -1,0 +1,358 @@
+{
+  "name": "WF-4: Unified Intake Classifier",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000001",
+      "name": "Webhook: Unified Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "ndt-unified-intake",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ndt-quote",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "notes": "Single entry point for all quote requests.\nPayload can be raw email text, SF payload, or pre-structured items.\nWebhook URL: https://n8n.botonomy.xyz/webhook/ndt-quote"
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000002",
+      "name": "Detect Payload Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst headers = $input.first().json.headers || {};\n\n// Determine payload type\nlet payloadType;\nif (body.opportunityId) {\n  payloadType = 'salesforce';\n} else if (body.items && Array.isArray(body.items) && body.items[0]?.geometryType) {\n  // Pre-structured UT items\n  payloadType = 'structured-ut';\n} else if (body.views && Array.isArray(body.views)) {\n  // Pre-structured RT views\n  payloadType = 'structured-rt';\n} else if (body.emailBody || body.text || body.messageText) {\n  // Raw email text needs Claude classification\n  payloadType = 'unstructured-email';\n} else {\n  payloadType = 'unknown';\n}\n\nreturn [{ json: { payloadType, body, headers } }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000003",
+      "name": "Route by Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [720, 300],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payloadType }}",
+                    "rightValue": "salesforce",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "salesforce"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payloadType }}",
+                    "rightValue": "structured-ut",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "structured-ut"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payloadType }}",
+                    "rightValue": "structured-rt",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "structured-rt"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.payloadType }}",
+                    "rightValue": "unstructured-email",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "unstructured"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Claude: Classify + Extract",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [960, 480],
+      "parameters": {
+        "promptType": "define",
+        "text": "You are an NDT quote classifier. Analyze the following message and determine:\n1. The inspection method required: UT (Ultrasonic Testing) or RT (Radiographic Testing)\n2. Extract all relevant fields for the detected method\n\nFor UT extract: customerName, items[] with geometryType, dimensions (thickness/width/length/diameter/etc), quantity\nFor RT extract: customerName, partNumber, views[] with shotType(0-3), qtyPartsPerFilm, filmSizeLabel, timing fields\n\nMessage:\n{{ $json.body.emailBody || $json.body.text || $json.body.messageText }}\n\nReturn JSON:\n{\"method\":\"UT\"|\"RT\"|\"BOTH\",\"customerName\":\"...\",\"items\":[...] OR \"views\":[...],\"partNumber\":\"...\"}\n\nReturn ONLY valid JSON."
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000005",
+      "name": "Claude Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [960, 700],
+      "parameters": {
+        "model": "claude-sonnet-4-6",
+        "options": { "temperature": 0 }
+      },
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic (Claude)"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000006",
+      "name": "Route Classified",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1200, 480],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ JSON.parse($('Claude: Classify + Extract').first().json.text || $('Claude: Classify + Extract').first().json.output || '{}').method }}",
+                    "rightValue": "UT",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ut"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ JSON.parse($('Claude: Classify + Extract').first().json.text || $('Claude: Classify + Extract').first().json.output || '{}').method }}",
+                    "rightValue": "RT",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rt"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000007",
+      "name": "POST /api/ut/quote (structured)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-Token", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ ...($json.body), source: $json.body.source || 'api' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000008",
+      "name": "POST /api/rt/quote (structured)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/rt/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ ...($json.body), source: $json.body.source || 'api' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000009",
+      "name": "POST UT from Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-Token", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify(JSON.parse($('Claude: Classify + Extract').first().json.text || $('Claude: Classify + Extract').first().json.output || '{}')) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000010",
+      "name": "POST RT from Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 560],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/rt/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify(JSON.parse($('Claude: Classify + Extract').first().json.text || $('Claude: Classify + Extract').first().json.output || '{}')) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000011",
+      "name": "Respond: Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1680, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, quoteId: $json.quoteId, quoteNumber: $json.quoteNumber, grandTotal: $json.summary?.totalGrand || $json.totals?.totalPrice || $json.grandTotal }) }}",
+        "options": { "responseCode": 201 }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000012",
+      "name": "Trigger WF-3 (SF path)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [960, 420],
+      "parameters": {
+        "workflowId": { "__rl": true, "value": "WF-3", "mode": "id" },
+        "options": {}
+      },
+      "notes": "Hands off SF payloads to WF-3 which handles signature check, quote, and SF writeback."
+    }
+  ],
+  "connections": {
+    "Webhook: Unified Intake": {
+      "main": [
+        [{ "node": "Detect Payload Type", "type": "main", "index": 0 }]
+      ]
+    },
+    "Detect Payload Type": {
+      "main": [
+        [{ "node": "Route by Type", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route by Type": {
+      "main": [
+        [{ "node": "Trigger WF-3 (SF path)", "type": "main", "index": 0 }],
+        [{ "node": "POST /api/ut/quote (structured)", "type": "main", "index": 0 }],
+        [{ "node": "POST /api/rt/quote (structured)", "type": "main", "index": 0 }],
+        [{ "node": "Claude: Classify + Extract", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude: Classify + Extract": {
+      "main": [
+        [{ "node": "Route Classified", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude Model": {
+      "ai_languageModel": [
+        [{ "node": "Claude: Classify + Extract", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Route Classified": {
+      "main": [
+        [{ "node": "POST UT from Claude", "type": "main", "index": 0 }],
+        [{ "node": "POST RT from Claude", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST /api/ut/quote (structured)": {
+      "main": [
+        [{ "node": "Respond: Success", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST /api/rt/quote (structured)": {
+      "main": [
+        [{ "node": "Respond: Success", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST UT from Claude": {
+      "main": [
+        [{ "node": "Respond: Success", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST RT from Claude": {
+      "main": [
+        [{ "node": "Respond: Success", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "wf4-v1-0-0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "ndt-portal"
+  },
+  "id": "WF-4",
+  "tags": [
+    { "id": "ndt", "name": "ndt-portal" },
+    { "id": "classifier", "name": "unified-classifier" }
+  ]
+}

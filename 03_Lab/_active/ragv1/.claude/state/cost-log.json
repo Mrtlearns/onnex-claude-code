@@ -1,0 +1,82 @@
+{
+  "sessions": [
+    {
+      "date": "2026-04-04",
+      "tools": {
+        "AskUserQuestion": 1,
+        "Read": 8,
+        "Bash": 38,
+        "Write": 5,
+        "Edit": 11
+      },
+      "total_calls": 63,
+      "weight_total": 55
+    },
+    {
+      "date": "2026-04-05",
+      "tools": {
+        "Glob": 14,
+        "Read": 91,
+        "Bash": 151,
+        "WebSearch": 8,
+        "WebFetch": 10,
+        "Agent": 10,
+        "Grep": 6,
+        "ToolSearch": 3,
+        "AskUserQuestion": 1,
+        "Write": 29,
+        "ExitPlanMode": 2,
+        "Edit": 47,
+        "EnterPlanMode": 1,
+        "RemoteTrigger": 1
+      },
+      "total_calls": 374,
+      "weight_total": 379
+    },
+    {
+      "date": "2026-04-06",
+      "tools": {
+        "Bash": 332,
+        "Read": 107,
+        "Agent": 5,
+        "Write": 16,
+        "ToolSearch": 2,
+        "Grep": 2,
+        "Edit": 12,
+        "Glob": 8,
+        "ExitPlanMode": 1
+      },
+      "total_calls": 485,
+      "weight_total": 413
+    },
+    {
+      "date": "2026-04-07",
+      "tools": {
+        "Read": 105,
+        "Glob": 9,
+        "Bash": 297,
+        "Write": 20,
+        "ToolSearch": 4,
+        "ExitPlanMode": 4,
+        "TaskCreate": 1,
+        "Grep": 7,
+        "Edit": 24,
+        "TaskUpdate": 3,
+        "Agent": 6,
+        "EnterPlanMode": 1
+      },
+      "total_calls": 481,
+      "weight_total": 414
+    },
+    {
+      "date": "2026-04-14",
+      "tools": {
+        "Glob": 1,
+        "Read": 1,
+        "Bash": 2
+      },
+      "total_calls": 4,
+      "weight_total": 2
+    }
+  ]
+}

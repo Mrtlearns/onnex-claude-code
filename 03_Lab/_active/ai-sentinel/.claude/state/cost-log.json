@@ -1,0 +1,15 @@
+{
+  "sessions": [
+    {
+      "date": "2026-04-13",
+      "tools": {
+        "Bash": 69,
+        "Read": 22,
+        "Edit": 15,
+        "Grep": 1
+      },
+      "total_calls": 107,
+      "weight_total": 84
+    }
+  ]
+}

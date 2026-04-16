@@ -1,0 +1,63 @@
+{
+  "sessions": [
+    {
+      "date": "2026-03-30",
+      "tools": {
+        "Edit": 7,
+        "TaskUpdate": 13,
+        "Write": 15,
+        "Bash": 2,
+        "Read": 1
+      },
+      "total_calls": 38,
+      "weight_total": 37
+    },
+    {
+      "date": "2026-04-03",
+      "tools": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "AskUserQuestion": 1,
+        "Bash": 36,
+        "Read": 11,
+        "Write": 5,
+        "Edit": 5,
+        "Agent": 1,
+        "ExitPlanMode": 1
+      },
+      "total_calls": 62,
+      "weight_total": 60
+    },
+    {
+      "date": "2026-04-15",
+      "tools": {
+        "Bash": 250,
+        "Read": 76,
+        "Edit": 42,
+        "Skill": 1,
+        "Write": 107,
+        "ToolSearch": 2,
+        "AskUserQuestion": 1,
+        "Agent": 8,
+        "Glob": 7,
+        "ExitPlanMode": 1
+      },
+      "total_calls": 495,
+      "weight_total": 484
+    },
+    {
+      "date": "2026-04-16",
+      "tools": {
+        "Bash": 698,
+        "Read": 67,
+        "Write": 24,
+        "Edit": 56,
+        "Glob": 9,
+        "Grep": 5,
+        "ToolSearch": 1
+      },
+      "total_calls": 860,
+      "weight_total": 779
+    }
+  ]
+}

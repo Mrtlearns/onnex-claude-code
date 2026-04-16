@@ -1,0 +1,27 @@
+Onnex Team Structure and Roles
+
+Onnex operates as a lean AI agency with Mr. T at the center of all technical and strategic decisions. As founder and principal engineer, Mr. T combines deep expertise in AI engineering, software architecture, SAP consulting, cybersecurity, and business process optimization.
+
+Mr. T — Founder and Principal AI Engineer
+
+Mr. T leads all aspects of Onnex's technical delivery. He holds expertise across 18 SAP modules, making Onnex uniquely positioned to serve enterprise clients running SAP environments. His cybersecurity background ensures that every Onnex deployment follows security-by-default principles with no hardcoded secrets, proper authentication, and encrypted data at rest and in transit.
+
+In the AI development domain, Mr. T designs and builds AI-native systems using Python, TypeScript, and Deno. He runs a personal homelab on Proxmox with dual RTX 3090 GPUs and Ollama for local model inference, enabling offline AI development and testing without cloud dependency.
+
+Onnex uses Claude Code as the primary AI development assistant and Claude as the conversational AI layer for client-facing applications. Mr. T collaborates with Claude in a structured way, using the ATOM methodology to plan, build, and deliver AI-OS systems.
+
+Delivery Roles
+
+Onnex engagements follow clear role definitions. As Audit Lead, Mr. T conducts deep process analysis, interviews stakeholders, and maps existing workflows before proposing AI transformation. As Architect, he designs the AI-OS integration plan, selects technology components, and defines data models. As Engineer, he builds edge functions, database schemas, and frontend components. As AI Trainer, he crafts prompts, tunes retrieval strategies, and evaluates output quality using the RAGv1 evaluation dashboard.
+
+ATOM Methodology in Practice
+
+The ATOM methodology structures every Onnex engagement into four phases. The Audit phase produces a gap analysis document identifying manual, fragmented, or high-cost processes that AI can improve. The Transform phase deploys AI-OS modules, integrates data sources, and trains staff. The Optimize phase uses the RAGv1 eval dashboard to measure retrieval quality, chat faithfulness, and response groundedness. The Maintain phase provides ongoing monitoring, prompt updates, and model upgrades.
+
+QDOAA Quality Framework
+
+Every Onnex delivery is evaluated against five quality gates. Quality ensures technical correctness and security compliance. Delivery ensures milestones are met on time. Operations ensures the deployed system runs reliably without manual intervention. Analytics ensures measurable outcomes are tracked and reported. Adoption ensures client staff can use the system effectively and that usage grows over time.
+
+Client Engagement Model
+
+Onnex serves clients across NDT/aerospace, medical services, managed service providers (MSPs), and PI law firms. Each vertical has a dedicated knowledge base maintained by Mr. T using Onnex's internal RAGv1 system. For NDT clients, Onnex integrates inspection report processing with AI-powered defect classification. For PI law firms, Onnex automates case intake, document extraction, and settlement calculation workflows.

@@ -1,0 +1,79 @@
+{
+  "id": "wf000007-0000-0000-0000-000000000007",
+  "name": "WF-7: Email Auto-Reply (Check Failure)",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ndt-email-reply",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "id": "b0000001-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "webhookId": "wf7-reply-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate required fields before sending the reply.\n// Webhook wraps POST body under .body — unwrap first.\nconst raw = $input.first().json;\nconst item = raw.body ?? raw;\nconst to      = item.to      ?? '';\nconst subject = item.subject ?? '';\nconst body    = item.body    ?? '';\n\nif (!to || !subject || !body) {\n  throw new Error(`Missing required field(s): to=${to || 'MISSING'}, subject=${subject || 'MISSING'}, body=${body ? 'ok' : 'MISSING'}`);\n}\n\nreturn [{\n  json: {\n    to,\n    subject: subject.startsWith('Re:') ? subject : `Re: ${subject}`,\n    body,\n    emailQuoteId: item.emailQuoteId ?? null,\n    checkCode:    item.checkCode    ?? null,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "id": "b0000001-0000-0000-0000-000000000002",
+      "name": "Validate & Prepare"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [480, 0],
+      "id": "b0000001-0000-0000-0000-000000000003",
+      "name": "Send Reply via Gmail",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "0k1c9Kc19G9V99Rt",
+          "name": "Gmail ndtautoquotes@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, gmailMessageId: $json.id ?? null, to: $('Validate & Prepare').first().json.to }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 0],
+      "id": "b0000001-0000-0000-0000-000000000004",
+      "name": "Return Result"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Validate & Prepare", "type": "main", "index": 0 }]]
+    },
+    "Validate & Prepare": {
+      "main": [[{ "node": "Send Reply via Gmail", "type": "main", "index": 0 }]]
+    },
+    "Send Reply via Gmail": {
+      "main": [[{ "node": "Return Result", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  }
+}

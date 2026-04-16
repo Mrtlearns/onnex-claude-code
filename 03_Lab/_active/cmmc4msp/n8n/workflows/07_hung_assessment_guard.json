@@ -1,0 +1,330 @@
+{
+  "name": "07 \u00e2\u20ac\u201d Hung Assessment Guard",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000002",
+      "name": "Find Hung Processing",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, program_control_id, minio_bucket, minio_key FROM artifacts WHERE assessment_status = 'processing' AND last_attempted_at < NOW() - INTERVAL '10 minutes'",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000003",
+      "name": "Has Hung Items",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "largerEqual",
+              "value2": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000004",
+      "name": "Reset Hung to Pending",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        850,
+        180
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE artifacts SET assessment_status = 'pending', updated_at = NOW() WHERE assessment_status = 'processing' AND last_attempted_at < NOW() - INTERVAL '10 minutes'",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000005",
+      "name": "Find Retry Candidates",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, program_control_id, minio_bucket, minio_key FROM artifacts WHERE assessment_status IN ('pending', 'failed') AND assessment_attempts < 3 ORDER BY last_attempted_at ASC LIMIT 20",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000006",
+      "name": "Has Retry Candidates",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "largerEqual",
+              "value2": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "Split Retry Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        180
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000008",
+      "name": "Get Fresh Presigned URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1650,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://fastapi:8000/api/artifacts/{{ $json.id }}/presigned-url",
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ bucket: $json.minio_bucket, key: $json.minio_key }) }}",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000009",
+      "name": "Re-trigger Assessment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/artifact-submitted",
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ artifact_id: $('Split Retry Batches').first().json.id, program_control_id: $('Split Retry Batches').first().json.program_control_id, presigned_url: $json.presigned_url || 'RETRY' }) }}",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000010",
+      "name": "Log Guard Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        460
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO activity_log (event_type, description, metadata) VALUES ('hung_guard_run', 'Hung assessment guard: no retry candidates', $1::jsonb)",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify({ run_date: new Date().toISOString() }) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Hung Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Hung Processing": {
+      "main": [
+        [
+          {
+            "node": "Has Hung Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Hung Items": {
+      "main": [
+        [
+          {
+            "node": "Reset Hung to Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Retry Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Hung to Pending": {
+      "main": [
+        [
+          {
+            "node": "Find Retry Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Retry Candidates": {
+      "main": [
+        [
+          {
+            "node": "Has Retry Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Retry Candidates": {
+      "main": [
+        [
+          {
+            "node": "Split Retry Batches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Guard Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Retry Batches": {
+      "main": [
+        [
+          {
+            "node": "Get Fresh Presigned URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Fresh Presigned URL": {
+      "main": [
+        [
+          {
+            "node": "Re-trigger Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-trigger Assessment": {
+      "main": [
+        [
+          {
+            "node": "Split Retry Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC"
+  },
+  "staticData": null,
+  "tags": [],
+  "id": "3636f908-0bdb-51a6-9da2-1338e6c807bf"
+}

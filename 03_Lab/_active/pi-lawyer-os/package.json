@@ -1,0 +1,16 @@
+{
+  "name": "pi-lawyer-os",
+  "version": "1.0.0",
+  "description": "AI-native operating system for Personal Injury law firms. Multi-tenant SaaS built and deployed by Onnex.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

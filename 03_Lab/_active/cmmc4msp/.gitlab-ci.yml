@@ -1,0 +1,41 @@
+stages:
+  - deploy
+
+# ── {{PROJECT_NAME}} — build + deploy ────────────────────────────────────────
+#
+# Runner requirements:
+#   - Tag:     {{CI_RUNNER_TAG}}       ← set in GitLab project CI/CD variables
+#   - Executor: shell
+#   - User:    gitlab-runner
+#
+# Server directory layout expected at {{DEPLOYMENT_PATH}}/:
+#   dist/              ← compiled/built output
+#   docker-compose.yml
+#   .env               ← never committed, must exist on server
+#
+# Replace all {{PLACEHOLDERS}} before first push, or set as CI/CD variables.
+# See RUNNER_SETUP.md for first-time runner configuration.
+# ─────────────────────────────────────────────────────────────────────────────
+
+deploy:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  tags:
+    - {{CI_RUNNER_TAG}}
+  environment:
+    name: production
+    url: https://{{PRODUCTION_URL}}
+  script:
+    # ── 1. Build ───────────────────────────────────────────────────────
+    - cd "$CI_PROJECT_DIR"
+    - npm ci --prefer-offline
+    - npm run build
+
+    # ── 2. Deploy to server ────────────────────────────────────────────
+    - sudo mkdir -p {{DEPLOYMENT_PATH}}/dist
+    - sudo rsync -a --delete dist/ {{DEPLOYMENT_PATH}}/dist/
+    - sudo cp docker-compose.yml {{DEPLOYMENT_PATH}}/
+
+    # ── 3. Restart services ────────────────────────────────────────────
+    - cd {{DEPLOYMENT_PATH}} && sudo docker compose up -d --remove-orphans

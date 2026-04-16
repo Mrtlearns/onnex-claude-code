@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "project": "pi-lawyer-os",
+  "mode": "interactive",
+  "granularity": "standard",
+  "profile": "balanced",
+  "git_strategy": "phase",
+  "toggles": {
+    "research": false,
+    "discuss": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist": false
+  },
+  "workflow": {
+    "_auto_chain_active": false
+  }
+}

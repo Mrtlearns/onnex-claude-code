@@ -1,0 +1,55 @@
+{
+  "cookies": [
+    {
+      "name": "__Host-authjs.csrf-token",
+      "value": "e8f594bf88bc6331c18d41e6b73b4db9131fbfdfc1e1c840273cd6f66bdaf186%7C83fe710ee2f299a0af5f0dd1e3a50e258e0ce8207d96ff60c2049c7beaf5d97f",
+      "domain": "agencyos-v1.on-nex.us",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__Secure-authjs.callback-url",
+      "value": "https%3A%2F%2Fagencyos-v1.on-nex.us%2F",
+      "domain": "agencyos-v1.on-nex.us",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authentik_csrf",
+      "value": "zXRrnVTBZIKQaA5jUaGHoeXNtNuVegCb",
+      "domain": "10.10.110.31",
+      "path": "/",
+      "expires": 1805232375.939188,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "authentik_session",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzaWQiOiJsbDE0NjhsZGRta3NxeGNvYW10OTdsemEzNXprZ2czeSIsImlzcyI6ImF1dGhlbnRpayIsInN1YiI6IjA2NDhhZWZjZThhYTk2ZmQxMWMyYzYyMzUyYjFlM2JiNzA4Y2I2NjQ5YzI0YWZkYmNmZWUzZmVmY2NiMjk3OTAiLCJhdXRoZW50aWNhdGVkIjp0cnVlLCJhY3IiOiJnb2F1dGhlbnRpay5pby9jb3JlL2RlZmF1bHQifQ.tCOCpV5xOJjRoh9xUfxWq4Gnde9QRjZuRn2ciqfGkCk",
+      "domain": "10.10.110.31",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__Secure-authjs.session-token",
+      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiUXJiUUlGYVJXX3RGZFFQNXBfOFhuR0lFYXZHSjA3VXYyZ1hSTXRkY3JuZjVaU1pGZlBXZDdkU3psYThrQzM5T0ZTdHdxWTJ6YV9FQTBjaGo5LWQxaFEifQ..YMn_zU3oOV69Z8F08DWxdg.3o6ZhdgXWP4VrkldcngBfcb9ekqZqrqgnRj4IxZ46nbQJIKX4JoF_2TmnfR6yovrmMKUY8wU21FD8gK7B0sejyW2Ply_EQc6bkTa7KvI7jxqr5-1Rg6RHHJTDSpsAQJn1EcXDZvDzd4JYSSaBhe3EsymEom2HmxxE7DYciGAQ2i1dORzVd5lMVumCEyE7smXpHGPiUovnOfNJUTqPj-huENDCACfjdzmQetpqFRYaeWmgDO0nUUte2-disdLkehUhKtMwQ-HO37965Wg_0Q5ca7I6sbClm1-LlvLvCcxeq9C1wbuidrKayPK0OoYCnKrgdzTcAeaYAqFIM1BUDxsTUjELtnEqa63ZBtUQYNd1xpDz4gEiPZZCACliRbP4aLqylAiw5OPBWF90kUCYGVpZ03Czt8GRSHfTxcxe1_iVXcK3mo6x8gGtOg_i7-GnPKUp49wntNzXPlCoNF4eftNhGNQyiPEDQ_254zNzCMSqDr9tXfEftZ8xSi75-C8CY3g7IQ8FLlKkiY3Wv6WUNMDPG0YYcgkvirHgmq9pU24cBtFSkmHGitfSDHI4vtYIdclxLSPwiG73v8IcQXJEOrje0xtJ0A5ZX6KrUMagAJU0-JFIGGFwyJFZIsiF7sVaFBO_b6g7mBWkYBbTloZhJdFVsca9mwErjfBCTCjaux6f3BXzRF4giAYpdqYf-skHz7PW5HtKt2wFhX0v0MH71SCbrMM2ki8lxMGVNufjK4KRY0-PYIODt1KUya1hp4RY9Zps78keh5Iuf88q15rxSrWMQwpu5Ex1hQ0mFKy-54j7XyskTI3j8HrjErPnDaWby2q2sl7t3dFT4GNPZ8TkZTCs5NvMcf1v-wQUg0zHcRSKgmDPo4OMwOL-vPHi5gMv3ucM3C-kQ1m3gJWM_px88uHywm6iIDNEziXnWGSwXJzSUNLMgDHePsAS68DEEQJBnpr21zLzf3d6LcXnV6FSFUbZj9MxSh5FbAFadjfBqGf6QXPqxQ4_XmkQG5EmedfChzGiw9zTWtWe8ySCiPgMxWOa7zU0-3TpIj74sdmQ5u5VbmJE6knirc_e--sVU3CWnKpTXuzyEtzg19hsLG-cG_49Gdsg7BRsQMh1109w9QXuhqs1yspQ7Om5kp95jkMmO8fSo4Gbn9HLzSGSUMlG3W8U8pN7--uqhTs_v6kgPSCpETOojDAXtuVzbFBawjLqVdtoQOc0HYEUL6UwXEz4-CS1Wv-0QsK_vX3e4yyFi05Fuy3ZeJxvHrUyhmTwKsY4XjA6L7fxiPrEm1xogjQMolcUIIPSqsB4uo9kM44E3q8ifsmifdVkQEf7gQDmkq2htVsXhRCBdwlmWgfG12Nu0MixgIu6gPedyjXMLPMCvItdLjhW_oXoPEWGCoURBfuY5bC8iZpy0xSkqdHS0YK21hI--WTnEU-cR1SluhhFhyJT3xUj1Bow5Wn-HJX0KQ7ddzq3-dMh-BwB-aMAJmAzLOQdOu--XbYNFMUNyj2XhrA5Giy7nF3E6M-Smzt568qvj9nkWlt9mYpuH5WiKZNaWvhx2iSw4TyNGDRGVlD0iaqUX8RvG3k27lqa3U0N0lUOc-hnB4RnN6j8EwQGa-X7ukbYJdAJnFA8brdsjG70z-iwY7eItvux5i5VwuNzJc45H_A-MbEJ2tMr1r9fBzuO9D4JQMBSOXmcehX2IsFwKkMENBP51dHnUrkjJg-2GAR_kejv9_kgEXTIrvEtRJkIst9U9s6J2IRVlMN4BueZ6eN_7XeHymcHJ-bd_jxQLnHANPUQbxkIUuqlhwvjyL6XstG1uDujmXic6Ih28SrYSrrusDOTtpySS1M3jP_dMmQ4KCgP_g4dNS2t4cXNfA1mEv-qwn1ne4kzWvhGRGY_JOlAcYv5ymOmRn01BLN1PhAkLjFyka9D5qPdg0Qog-OzncXD2GjvRPyuyEmcvLI-40PALnJVQwPqbCbbF2CdHLQJPq3BbCO9N3odVutwV5bBWkOMVFJaqyLFOL-st91I4m8dFx7cXxbNb7CPZZb0Zjnn8cNEkgpBMmSQLzVu4vZAWg2DrjMvY6nP8zqUNZiPt0_MKM0fMF-5cyTQF2xUta_gsnk7TcHoUXNwOPVaoKLWv5RaX8S37mnvT_zYH2Waa0AvKfyRAYiIZAHUFe4rukflAkJ0Zk6HqSr7ZRplmr5zPs43LPLA4riIrktH5IqtTuUKlX-VRmSi_y4ymd-w9zsT8oi5663GmhywMBGVVqcXbvSAbUDJH2ReUPsx7eHBXCWQyRZiazAWw8ctgtXra4yWo-vWwG1NZVtlN27oDTfokCxFejPO8GyDRM3sJLNE-pXSB5BufTGfyb4HFPqv5UyLpiPXnXbFsX_jEx2Q4BiCdUVSigiT3KtLdBUgnS2RcreB4GIGE504bG2xG4BI5pJ1sFZpX7k3ukSQHqSyIuD3pzeCYv1txMpSKc2Vh7W8ir4iR4R-q7pgkEsIsSHsHtNS5sApVsiTLMgSpse-xEBo8zws3pMnSNxjPNBReDAMv0l-qHxQMzIUJwsOATprQFdeNSB.quRwqisLDF2_SiyqhgQ41IXNuvZgq55EVVXp8UKtc0g",
+      "domain": "agencyos-v1.on-nex.us",
+      "path": "/",
+      "expires": 1776374777.384283,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

@@ -1,0 +1,35 @@
+# AI-Sentinel default configuration
+# All values can be overridden with AI_SENTINEL_* environment variables
+
+host = "0.0.0.0"
+port = 8080
+log_level = "info"
+
+store_backend = "memory"
+
+telemetry_level = "standard"
+telemetry_backend = "stdout"
+telemetry_pii_redact = true
+
+feed_interval_secs = 3600
+
+rate_max_actions_per_hour = 1000
+rate_max_cost_per_day = 100.0
+rate_max_tokens_per_request = 100000
+
+presidio_url = "http://presidio:3000"
+
+layer_l0_enabled = true
+layer_l1_enabled = true
+layer_l2_enabled = true
+layer_l3_enabled = true
+layer_l4_enabled = true
+layer_l5_enabled = true
+layer_l6_enabled = true
+layer_l7_enabled = true
+
+# L3 semantic drift: -0.1 blocks strongly anti-correlated topic shifts only.
+# Hash-projection embeddings produce ~0.0 similarity for related-but-lexically-diverse queries.
+# Use 0.7-0.85 if switching to real semantic embeddings (e.g., AI_SENTINEL_EMBEDDING_URL).
+l3_drift_threshold = -0.1
+l3_baseline_window = 5

@@ -1,0 +1,14 @@
+{
+  "sessions": [
+    {
+      "date": "2026-04-14",
+      "tools": {
+        "Bash": 4,
+        "Read": 6,
+        "Glob": 3
+      },
+      "total_calls": 13,
+      "weight_total": 4
+    }
+  ]
+}

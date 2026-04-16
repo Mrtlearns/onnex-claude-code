@@ -1,0 +1,331 @@
+{
+  "name": "WF-1: Email → UT Quote",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "action": "read",
+        "postProcessAction": "read",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 3600
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "IMAP_CREDENTIAL_ID",
+          "name": "NDT Portal IMAP"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000002",
+      "name": "Claude: Extract UT Fields",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [480, 300],
+      "parameters": {
+        "promptType": "define",
+        "text": "You are an NDT quote parser. Extract all relevant information from this email and return ONLY a JSON object.\n\nExtract:\n- customerName (string, required)\n- geometryType: one of FLAT_BAR, ROUND_BAR, RING, TUBING, CSCAN_FLAT, CSCAN_ROUND, THIN_SHEET\n- thickness (number, inches, optional)\n- width (number, inches, optional)\n- length (number, inches, optional)\n- diameter (number, inches, optional)\n- outerDiameter (number, inches, optional)\n- innerDiameter (number, inches, optional)\n- quantity (integer, required)\n- notes (any additional info)\n\nIf multiple parts/line items exist, return an array under the key \"items\".\nIf only one part, still wrap it in an array.\n\nEmail subject: {{ $json.subject }}\nEmail from: {{ $json.from.text }}\nEmail body:\n{{ $json.text }}\n\nReturn ONLY valid JSON, no explanation. Example:\n{\"customerName\":\"PREMCO\",\"items\":[{\"geometryType\":\"FLAT_BAR\",\"thickness\":3.625,\"width\":11.625,\"length\":15.75,\"quantity\":200}]}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000003",
+      "name": "Claude Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [480, 520],
+      "parameters": {
+        "model": "claude-sonnet-4-6",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic (Claude)"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000004",
+      "name": "Validate UT Prerequisites",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "jsCode": "// Parse Claude output\nlet parsed;\ntry {\n  const raw = $('Claude: Extract UT Fields').first().json.text || $('Claude: Extract UT Fields').first().json.output || '';\n  parsed = JSON.parse(raw);\n} catch (e) {\n  return [{ json: { valid: false, missing: ['Could not parse Claude output: ' + e.message], extracted: null } }];\n}\n\nconst { customerName, items } = parsed;\nconst missing = [];\n\nif (!customerName) missing.push('customerName (company/customer name)');\nif (!items || items.length === 0) missing.push('at least one part/line item with geometry details');\n\nconst GEOMETRY_REQUIREMENTS = {\n  FLAT_BAR:    ['thickness', 'width', 'length'],\n  CSCAN_FLAT:  ['thickness', 'width', 'length'],\n  THIN_SHEET:  ['thickness', 'width', 'length'],\n  ROUND_BAR:   ['diameter', 'length'],\n  CSCAN_ROUND: ['diameter', 'length'],\n  RING:        ['outerDiameter', 'innerDiameter', 'length'],\n  TUBING:      ['diameter', 'length'],\n};\n\nif (items) {\n  items.forEach((item, i) => {\n    const prefix = items.length > 1 ? `Item ${i+1}: ` : '';\n    if (!item.geometryType) {\n      missing.push(`${prefix}geometryType (one of: FLAT_BAR, ROUND_BAR, RING, TUBING, CSCAN_FLAT, CSCAN_ROUND, THIN_SHEET)`);\n    } else {\n      const required = GEOMETRY_REQUIREMENTS[item.geometryType] || [];\n      for (const field of required) {\n        if (!item[field] || item[field] <= 0) {\n          missing.push(`${prefix}${field} (required for ${item.geometryType})`);\n        }\n      }\n    }\n    if (!item.quantity || item.quantity < 1) {\n      missing.push(`${prefix}quantity`);\n    }\n  });\n}\n\nreturn [{ json: {\n  valid: missing.length === 0,\n  missing,\n  extracted: parsed,\n  emailFrom: $('IMAP Email Trigger').first().json.from.text,\n  emailMessageId: $('IMAP Email Trigger').first().json.messageId,\n  emailSubject: $('IMAP Email Trigger').first().json.subject,\n} }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000005",
+      "name": "All Fields Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000006",
+      "name": "Reply: Missing Fields",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1200, 460],
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $('Validate UT Prerequisites').first().json.emailFrom }}",
+        "subject": "Re: {{ $('Validate UT Prerequisites').first().json.emailSubject }}",
+        "emailType": "text",
+        "message": "Thank you for your quote request.\n\nWe were unable to generate a quote because the following information is missing:\n\n{{ $('Validate UT Prerequisites').first().json.missing.map(m => '  • ' + m).join('\\n') }}\n\nPlease reply with the missing details and we will process your quote promptly.\n\nNDT Portal Quoting System",
+        "options": {
+          "replyTo": "",
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "NDT Portal SMTP"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000007",
+      "name": "POST /api/ut/quote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-N8N-Token", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ customerName: $('Validate UT Prerequisites').first().json.extracted.customerName, source: 'email', externalRef: $('Validate UT Prerequisites').first().json.emailMessageId, requestedBy: $('Validate UT Prerequisites').first().json.emailFrom, items: $('Validate UT Prerequisites').first().json.extracted.items }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000008",
+      "name": "PATCH status → pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 180],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://api:3100/quote/{{ $('POST /api/ut/quote').first().json.quoteId }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "{\"status\":\"pending\"}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000009",
+      "name": "Build Quote HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 180],
+      "parameters": {
+        "jsCode": "const quote = $('POST /api/ut/quote').first().json;\nconst items = quote.items || [];\n\nconst rowsHtml = items.map(item => {\n  const dims = item.dimensions || {};\n  const dimStr = Object.entries(dims)\n    .filter(([, v]) => v !== undefined && v !== null)\n    .map(([k, v]) => `${k}: ${v}\"`)\n    .join(', ');\n  return `\n    <tr>\n      <td>${item.geometryType}</td>\n      <td>${dimStr}</td>\n      <td>${item.pricing.quantity}</td>\n      <td>$${item.pricing.grandTotal.toFixed(2)}</td>\n    </tr>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<style>\n  body { font-family: Arial, sans-serif; padding: 40px; color: #222; }\n  h1 { color: #1a56db; }\n  table { width: 100%; border-collapse: collapse; margin-top: 20px; }\n  th { background: #1a56db; color: white; padding: 10px; text-align: left; }\n  td { padding: 10px; border-bottom: 1px solid #ddd; }\n  .summary { margin-top: 20px; text-align: right; font-size: 1.1em; }\n  .total { font-weight: bold; font-size: 1.3em; color: #1a56db; }\n  .footer { margin-top: 40px; font-size: 0.85em; color: #888; }\n</style>\n</head>\n<body>\n<h1>NDT Ultrasonic Testing Quote</h1>\n<p><strong>Quote #:</strong> ${quote.quoteNumber}<br>\n<strong>Customer:</strong> ${quote.customer.name}<br>\n<strong>Date:</strong> ${new Date(quote.generatedAt).toLocaleDateString()}<br>\n<strong>Lead Time:</strong> ${quote.customer.leadTime || 'Standard'}</p>\n\n<table>\n  <thead><tr><th>Geometry</th><th>Dimensions</th><th>Qty</th><th>Total</th></tr></thead>\n  <tbody>${rowsHtml}</tbody>\n</table>\n\n<div class=\"summary\">\n  <p>Subtotal: $${(quote.summary.totalGrand - quote.summary.totalEnvFees - quote.summary.totalTechFees).toFixed(2)}</p>\n  <p>Tech Fees: $${quote.summary.totalTechFees.toFixed(2)}</p>\n  <p>Env Fees: $${quote.summary.totalEnvFees.toFixed(2)}</p>\n  <p class=\"total\">Grand Total: $${quote.summary.totalGrand.toFixed(2)}</p>\n</div>\n\n<div class=\"footer\">\n  <p>This quote is valid for 30 days. Contact us to confirm delivery and scheduling.</p>\n</div>\n</body></html>`;\n\nreturn [{ json: { html, quoteNumber: quote.quoteNumber, quoteId: quote.quoteId, grandTotal: quote.summary.totalGrand } }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000010",
+      "name": "Generate PDF (Gotenberg)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "html_content"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "pdf"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000010b",
+      "name": "Prepare HTML File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1800, 180],
+      "parameters": {
+        "operation": "toBinaryFile",
+        "sourceProperty": "html",
+        "options": {
+          "fileName": "quote.html",
+          "mimeType": "text/html"
+        },
+        "binaryPropertyName": "html_content"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000011",
+      "name": "Send Quote Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2160, 180],
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $('Validate UT Prerequisites').first().json.emailFrom }}",
+        "subject": "=Quote #{{ $('Build Quote HTML').first().json.quoteNumber }} — NDT UT Inspection",
+        "emailType": "text",
+        "message": "=Please find your NDT Ultrasonic Testing quote attached.\n\nQuote #: {{ $('Build Quote HTML').first().json.quoteNumber }}\nGrand Total: ${{ $('Build Quote HTML').first().json.grandTotal.toFixed(2) }}\n\nThis quote is valid for 30 days. Please reply to this email to confirm.\n\nNDT Portal Quoting System",
+        "options": {
+          "attachments": "pdf",
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "NDT Portal SMTP"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000012",
+      "name": "PATCH status → sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2400, 180],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://api:3100/quote/{{ $('Build Quote HTML').first().json.quoteId }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "{\"status\":\"sent\"}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [{ "node": "Claude: Extract UT Fields", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude: Extract UT Fields": {
+      "main": [
+        [{ "node": "Validate UT Prerequisites", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude Model": {
+      "ai_languageModel": [
+        [{ "node": "Claude: Extract UT Fields", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Validate UT Prerequisites": {
+      "main": [
+        [{ "node": "All Fields Present?", "type": "main", "index": 0 }]
+      ]
+    },
+    "All Fields Present?": {
+      "main": [
+        [{ "node": "POST /api/ut/quote", "type": "main", "index": 0 }],
+        [{ "node": "Reply: Missing Fields", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST /api/ut/quote": {
+      "main": [
+        [{ "node": "PATCH status → pending", "type": "main", "index": 0 }]
+      ]
+    },
+    "PATCH status → pending": {
+      "main": [
+        [{ "node": "Build Quote HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Quote HTML": {
+      "main": [
+        [{ "node": "Prepare HTML File", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare HTML File": {
+      "main": [
+        [{ "node": "Generate PDF (Gotenberg)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate PDF (Gotenberg)": {
+      "main": [
+        [{ "node": "Send Quote Email", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Quote Email": {
+      "main": [
+        [{ "node": "PATCH status → sent", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "versionId": "wf1-v1-0-0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "ndt-portal"
+  },
+  "id": "WF-1",
+  "tags": [
+    { "id": "ndt", "name": "ndt-portal" },
+    { "id": "ut", "name": "ut-quote" }
+  ]
+}

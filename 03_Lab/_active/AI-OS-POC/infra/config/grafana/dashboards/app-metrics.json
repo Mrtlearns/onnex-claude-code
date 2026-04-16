@@ -1,0 +1,60 @@
+{
+  "id": null,
+  "uid": "app-metrics",
+  "title": "App Metrics",
+  "tags": ["aios-api", "fastify"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Request Rate (req/s)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "sum(rate(http_request_duration_seconds_count{job=\"aios-api\"}[5m]))",
+        "legendFormat": "req/s",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP p95 Latency (ms)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"aios-api\"}[5m])) * 1000",
+        "legendFormat": "p95 ms",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP Error Rate (5xx req/s)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "sum(rate(http_request_duration_seconds_count{job=\"aios-api\",statusCode=~\"5..\"}[5m]))",
+        "legendFormat": "5xx/s",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Node.js Heap Used (MB)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{
+        "expr": "nodejs_heap_size_used_bytes{job=\"aios-api\"} / 1024 / 1024",
+        "legendFormat": "Heap MB",
+        "refId": "A"
+      }]
+    }
+  ]
+}

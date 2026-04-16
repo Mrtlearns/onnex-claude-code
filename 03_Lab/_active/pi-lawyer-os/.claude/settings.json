@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "command": "python \".claude/hooks/cost-tracker.py\"",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "command": "python \".claude/hooks/pre-compact.py\"",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}

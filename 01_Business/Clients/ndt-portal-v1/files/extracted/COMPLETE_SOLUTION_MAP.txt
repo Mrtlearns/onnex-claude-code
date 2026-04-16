@@ -1,0 +1,339 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    MSG EXTRACTION + WEB INTEGRATION                          ║
+║                          COMPLETE SOLUTION MAP                               ║
+║                                                                              ║
+║                    Ready for Onnex RT/UT Calculator Platform                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+YOUR NEXT.JS PLATFORM GETS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  DRAG-DROP FILE UPLOAD
+    ┌──────────────────────────────────────────────────────┐
+    │  📧 Drop .msg file here                              │
+    │     or click to browse                               │
+    │  Supported: Microsoft Outlook messages (.msg)        │
+    └──────────────────────────────────────────────────────┘
+    Component: MSGExtractor.tsx
+
+
+2️⃣  EXTRACTED EMAIL DISPLAY
+    ┌──────────────────────────────────────────────────────┐
+    │ FROM: Derek Arthurs <derek@taricco.com>              │
+    │ TO: Erica Azucena <EricaA@NDTesting.com>             │
+    │ SUBJECT: 250706 RT                                   │
+    │ DATE: 2025-10-21 20:29:40+00:00                     │
+    │                                                      │
+    │ Message:                                             │
+    │ Could I schedule RT to be done on the round seams   │
+    │ of a large vessel...                                 │
+    └──────────────────────────────────────────────────────┘
+    Rendered from: email result data
+
+
+3️⃣  ATTACHMENT DOWNLOADS
+    ┓ Attachments (2)
+    ├─ 250706-004-1.pdf  [177 KB] [📥 Download]
+    ├─ image001.png      [19 KB]  [📥 Download]
+    ┗
+    Attachment links: GET /api/download/{folder}/{filename}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+              BROWSER (localhost:3000)
+                       │
+        ┌──────────────┴──────────────┐
+        │  Your Next.js Calculator    │
+        │  + MSG Extractor Component  │
+        │                             │
+        │  <MSGExtractor              │
+        │    apiUrl="http://...8000"  │
+        │    onExtract={callback}     │
+        │  />                         │
+        └──────────────┬──────────────┘
+                       │ HTTP POST /api/upload
+                       │ (.msg file)
+                       ▼
+              FastAPI Backend Server
+              (localhost:8000)
+              
+              msg_api_server.py
+              - Receives .msg file
+              - Extracts email body
+              - Extracts attachments
+              - Returns JSON response
+              
+              Uses: msg_extractor.py
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FILES YOU HAVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKEND (Python):
+  ✓ msg_api_server.py          FastAPI REST API server
+  ✓ msg_extractor.py           Extraction engine (reused from Phase 1)
+
+FRONTEND (React/Next.js):
+  ✓ MSGExtractor.tsx           Complete React component
+  ✓ MSGExtractor.module.css    Beautiful styling (Tailwind + custom)
+
+DOCUMENTATION:
+  ✓ WEB_INTEGRATION_QUICKSTART.md     👈 START HERE (5 min read)
+  ✓ INTEGRATION_GUIDE.md              Complete reference with examples
+  ✓ WEB_INTEGRATION_SUMMARY.txt       This solution map
+  ✓ MSG_EXTRACTION_GUIDE.md           Batch processing guide
+  ✓ INTEGRATION_GUIDE.md              Deployment scenarios
+
+SAMPLE DATA:
+  ✓ extraction_report.json            From your test file
+  ✓ email_text/250706 RT.txt          Extracted email body
+  ✓ attachments/250706 RT/            Extracted files (PDF + PNG)
+  ✓ metadata/250706 RT_metadata.json   Email metadata
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5-MINUTE SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Start Backend (1 min)
+  $ python3 msg_api_server.py
+  → Server runs on http://localhost:8000
+  → Leave this terminal open
+
+STEP 2: Add Component to Next.js (2 min)
+  
+  a) Copy files:
+     cp MSGExtractor.tsx → your-app/app/components/
+     cp MSGExtractor.module.css → your-app/app/components/
+  
+  b) Create page: app/msg-extractor/page.tsx
+     
+     'use client'
+     import MSGExtractor from '@/components/MSGExtractor'
+     
+     export default function Page() {
+       return (
+         <main style={{ padding: '2rem' }}>
+           <h1>📧 Email Extractor</h1>
+           <MSGExtractor apiUrl="http://localhost:8000" />
+         </main>
+       )
+     }
+
+STEP 3: Test (2 min)
+  → Go to: http://localhost:3000/msg-extractor
+  → Drop a .msg file
+  → See email + attachments
+  → Download attachment files
+
+✅ DONE! Email extraction in your Next.js app!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INTEGRATE WITH YOUR CALCULATOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option A: Separate Page
+  New page: /msg-extractor
+  Users: Email extraction only
+  
+Option B: Combined Workflow (RECOMMENDED)
+  Add to calculator page:
+  
+  <MSGExtractor 
+    apiUrl="http://localhost:8000"
+    onExtract={(result) => {
+      // Auto-populate calculator with email data
+      setMaterial(extractMaterial(result.email.body))
+      setThickness(extractThickness(result.email.body))
+      // etc...
+    }}
+  />
+
+Option C: Database Integration
+  onExtract callback → POST to /api/save-email
+  Store email data + attachments
+  Link to vector embeddings for RAG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+API ENDPOINTS (Available on Backend)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POST /api/upload
+  Upload single .msg file
+  Response: { email: {...}, attachments: [...] }
+  
+POST /api/batch
+  Upload multiple .msg files
+  Response: { batch: [...], summary: {...} }
+  
+GET /api/download/{folder}/{filename}
+  Download extracted attachment file
+  
+GET /api/health
+  Check backend status
+  
+GET /docs
+  Interactive Swagger API docs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RESPONSE FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{
+  "success": true,
+  "email": {
+    "from": "Derek Arthurs <derek@taricco.com>",
+    "to": "Erica Azucena <EricaA@NDTesting.com>",
+    "subject": "250706 RT",
+    "date": "2025-10-21T20:29:40+00:00",
+    "body": "Hi Erica,\r\n\r\nCould I schedule RT..."
+  },
+  "attachments": [
+    {
+      "filename": "250706-004-1.pdf",
+      "size": 181120,
+      "size_kb": 177.0,
+      "downloadUrl": "/api/download/250706%20RT/250706-004-1.pdf"
+    },
+    {
+      "filename": "image001.png",
+      "size": 18626,
+      "size_kb": 18.2,
+      "downloadUrl": "/api/download/250706%20RT/image001.png"
+    }
+  ],
+  "attachmentCount": 2,
+  "extractedAt": "2026-03-15T10:35:00"
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LOCAL:
+  Backend:  python3 msg_api_server.py → localhost:8000
+  Frontend: npm run dev → localhost:3000
+  URL in component: apiUrl="http://localhost:8000"
+
+PROXMOX VMs:
+  Backend VM:  192.168.x.x:8000 (run msg_api_server.py)
+  Frontend VM: 192.168.x.y:3000 (Next.js)
+  URL in component: apiUrl="http://192.168.x.x:8000"
+
+PRODUCTION:
+  Use reverse proxy (Nginx) or API Gateway
+  Backend hidden behind /api proxy path
+  URL in component: apiUrl="/api"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FOR MR. T:
+
+1. 📖 Read: WEB_INTEGRATION_QUICKSTART.md (5 min)
+
+2. ✅ Set up backend: python3 msg_api_server.py
+
+3. 💻 Add component to Next.js app
+      - Copy .tsx + .css files
+      - Create page or add to existing route
+      - Update apiUrl if needed
+
+4. 🧪 Test with sample .msg file
+      - Verify extraction works
+      - Check attachment downloads
+      - Review extracted data
+
+5. 🔗 Integrate with calculator
+      - Use onExtract callback
+      - Parse email body for specs
+      - Auto-populate RT calculator form
+
+6. 🚀 Deploy to Proxmox
+      - Run msg_api_server.py on backend VM
+      - Update apiUrl to backend IP
+      - Deploy Next.js to frontend VM
+      - (See INTEGRATION_GUIDE.md for systemd setup)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUICK REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Component Props:
+  apiUrl: string                    Backend URL (default: localhost:8000)
+  onExtract: (result) => void       Called when extraction completes
+
+Result Object:
+  success: boolean                  True if extraction succeeded
+  email.from: string                Sender email address
+  email.to: string                  Recipient email address
+  email.subject: string             Email subject line
+  email.date: string                ISO datetime
+  email.body: string                Full email body text
+  attachments: Array                List of attachment objects
+  attachmentCount: number           Number of attachments
+
+Browser Events:
+  Drag-drop: Automatically detected
+  File click: Click anywhere in drop zone
+  Download: Built-in download buttons per attachment
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Cannot POST /api/upload"
+  → Is FastAPI running? python3 msg_api_server.py
+  → Check apiUrl matches server address
+  
+"CORS error in console"
+  → Edit msg_api_server.py line 30, add your domain
+  
+"File upload fails silently"
+  → Press F12, check browser console for error
+  → Check backend terminal for server errors
+  
+"Attachments won't download"
+  → Check /tmp/msg_extractions/ has extracted files
+  → Verify download URL in browser network tab
+
+Full help: INTEGRATION_GUIDE.md (Troubleshooting section)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOU NOW HAVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Email extraction from .msg files
+✅ Attachment extraction & downloads
+✅ Beautiful drag-drop UI component
+✅ FastAPI backend for processing
+✅ Full integration guide with examples
+✅ Deployment scenarios (local/Proxmox/cloud)
+✅ Sample output for testing
+✅ Ready to connect to RT/UT calculator
+
+READY TO USE. NO ADDITIONAL CONFIG NEEDED.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Questions? See:
+  📋 WEB_INTEGRATION_QUICKSTART.md (setup)
+  📚 INTEGRATION_GUIDE.md (reference)
+  💻 msg_api_server.py (API code)
+  🎨 MSGExtractor.tsx (React code)
+
+Built for Onnex RT/UT Calculator Platform
+Delivered: 2026-03-15

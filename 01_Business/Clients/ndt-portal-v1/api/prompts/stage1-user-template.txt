@@ -1,0 +1,74 @@
+Classify the following engineering drawing for RT inspection planning.
+
+<drawing_data>
+<raw_text>{ocr_extracted_text}</raw_text>
+<title_block>
+  <drawing_number>{drawing_number}</drawing_number>
+  <revision>{revision}</revision>
+  <title>{title}</title>
+  <material_spec>{material_callout}</material_spec>
+  <code_stamp>{code_stamp_if_visible}</code_stamp>
+</title_block>
+<notes>{drawing_notes_text}</notes>
+<weld_symbols>{extracted_weld_symbols_json}</weld_symbols>
+<dimensions>{key_dimensions_json}</dimensions>
+</drawing_data>
+
+Respond with ONLY valid JSON matching this schema:
+{
+  "part_id": "string (drawing number or serial)",
+  "part_type": "string (from allowed list)",
+  "part_description": "string (1-2 sentence summary)",
+  "applicable_codes": {
+    "primary": "string",
+    "supplementary": ["string"]
+  },
+  "geometry": {
+    "bounding_box": {
+      "length": { "value": 0, "unit": "in|mm" },
+      "width":  { "value": 0, "unit": "in|mm" },
+      "height": { "value": 0, "unit": "in|mm" }
+    },
+    "primitives": [
+      {
+        "id": "string (e.g. SHELL-1, HEAD-FWD, ELBOW-1)",
+        "type": "string (from allowed primitives)",
+        "dimensions": { "od": 0, "id": 0, "length": 0, "thickness": 0, "angle": 0, "radius": 0, "unit": "in|mm" },
+        "position": { "x": 0, "y": 0, "z": 0, "rotation_deg": { "rx": 0, "ry": 0, "rz": 0 } },
+        "material": "string"
+      }
+    ]
+  },
+  "features": [
+    {
+      "id": "string (e.g. LS-1, GS-3, FW-2, BH-1)",
+      "type": "string (from allowed features)",
+      "connects": ["primitive_id_a", "primitive_id_b"],
+      "weld_type": "CJP|PJP|fillet|socket|seal|NA",
+      "location_description": "string",
+      "position": { "x_normalized": 0.0, "y_normalized": 0.0, "z_normalized": 0.0, "angle_degrees": 0 }
+    }
+  ],
+  "materials": [
+    {
+      "spec": "string (e.g. SA-516-70)",
+      "form": "rolled_plate|forged|cast|extruded|wrought",
+      "applied_to": ["primitive_id"],
+      "metallurgical_concerns": ["string"]
+    }
+  ],
+  "design_conditions": {
+    "pressure": { "value": 0, "unit": "psi|bar|MPa" },
+    "temperature": { "value": 0, "unit": "F|C" },
+    "service": "string (general|lethal|hydrogen|cyclic|cryogenic)",
+    "pwht_required": false,
+    "impact_test_required": false,
+    "additional_notes": "string"
+  },
+  "rt_requirements_from_drawing": {
+    "stated_rt_extent": "string (raw text from drawing notes)",
+    "acceptance_standard": "string (if stated)"
+  },
+  "analysis_module": "string (asme_viii_vessel|asme_b31_piping|aws_structural|casting_radiography|forging_inspection|aerospace_ndt|heat_exchanger|api_tank|generic_rt)",
+  "confidence": 0.0
+}

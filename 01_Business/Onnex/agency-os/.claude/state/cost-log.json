@@ -1,0 +1,45 @@
+{
+  "sessions": [
+    {
+      "date": "2026-04-09",
+      "tools": {
+        "Bash": 4,
+        "Read": 7
+      },
+      "total_calls": 11,
+      "weight_total": 4
+    },
+    {
+      "date": "2026-04-10",
+      "tools": {
+        "Glob": 15,
+        "Bash": 375,
+        "Grep": 13,
+        "Read": 67,
+        "Agent": 3,
+        "Write": 4,
+        "ToolSearch": 4,
+        "ExitPlanMode": 1,
+        "Edit": 45,
+        "Monitor": 13,
+        "WebFetch": 5,
+        "WebSearch": 2
+      },
+      "total_calls": 547,
+      "weight_total": 488
+    },
+    {
+      "date": "2026-04-11",
+      "tools": {
+        "Bash": 68,
+        "Read": 26,
+        "Agent": 2,
+        "Glob": 2,
+        "Write": 15,
+        "Edit": 12
+      },
+      "total_calls": 125,
+      "weight_total": 115
+    }
+  ]
+}

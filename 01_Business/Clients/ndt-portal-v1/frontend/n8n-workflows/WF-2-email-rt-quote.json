@@ -1,0 +1,262 @@
+{
+  "name": "WF-2: Email → RT Quote",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000001",
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "mailbox": "INBOX",
+        "action": "read",
+        "postProcessAction": "read",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": 3600
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "IMAP_CREDENTIAL_ID",
+          "name": "NDT Portal IMAP"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "RT Planning API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/rt/plan",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ rawInput: $json.text + '\\n\\nSubject: ' + $json.subject + '\\nFrom: ' + $json.from.text }) }}",
+        "options": {
+          "timeout": 90000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000004",
+      "name": "Validate RT Prerequisites",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "jsCode": "// Parse RT Planning API response (RtPlanningResult)\nconst result = $input.first().json;\n\nif (!result || typeof result !== 'object') {\n  return [{ json: { valid: false, missing: ['RT Planning API returned no data'], extracted: null } }];\n}\n\nif (result.error) {\n  return [{ json: { valid: false, missing: ['RT Planning API error: ' + result.error], extracted: null } }];\n}\n\n// Get part info from extraction\nconst partNumber = result.extraction?.partNumber ?? '';\nconst customerName = result.extraction?.customerName\n  || $('IMAP Email Trigger').first().json.from?.text\n  || $('IMAP Email Trigger').first().json.from?.address\n  || 'Unknown';\n\n// Map techniqueCards → RtViewRequest[]\nconst rawCards = result.techniqueCards || [];\nconst views = rawCards.map((card, i) => ({\n  viewNumber:       card.viewNumber ?? i + 1,\n  shotType:         card.shotType ?? 1,\n  qtyPartsPerFilm:  card.qtyPartsPerFilm ?? 1,\n  filmSizeLabel:    card.filmSizeLabel || '7X17',\n  unpackLoadTime:   card.unpackLoadTime ?? 5,\n  darkroomSortTime: card.darkroomSortTime ?? 3,\n  shotTime:         card.shotTime ?? 5,\n  readTime:         card.readTime ?? 3,\n}));\n\n// Validate required fields\nconst missing = [];\nif (!partNumber) missing.push('partNumber (could not extract from email)');\nif (views.length === 0) missing.push('at least one RT view / technique card');\n\n// Normalize filmSizeLabel format (e.g. 4x10 → 4X10)\nfor (const view of views) {\n  if (view.filmSizeLabel) {\n    view.filmSizeLabel = view.filmSizeLabel.replace(/[xX*]/, 'X').replace(/[^0-9X]/g, '');\n  }\n}\n\nreturn [{ json: {\n  valid: missing.length === 0,\n  missing,\n  extracted: { partNumber, customerName, views },\n  planningResult: result,\n  emailFrom: $('IMAP Email Trigger').first().json.from.text,\n  emailMessageId: $('IMAP Email Trigger').first().json.messageId,\n  emailSubject: $('IMAP Email Trigger').first().json.subject,\n} }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000005",
+      "name": "All Fields Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000006",
+      "name": "Reply: Missing Fields",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1200, 460],
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $('Validate RT Prerequisites').first().json.emailFrom }}",
+        "subject": "Re: {{ $('Validate RT Prerequisites').first().json.emailSubject }}",
+        "emailType": "text",
+        "message": "Thank you for your RT quote request.\n\nWe were unable to generate a quote because the following information is missing:\n\n{{ $('Validate RT Prerequisites').first().json.missing.map(m => '  • ' + m).join('\\n') }}\n\nPlease reply with the missing details and we will process your quote promptly.\n\nNDT Portal Quoting System",
+        "options": { "appendAttribution": false }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "NDT Portal SMTP"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000007",
+      "name": "POST /api/rt/quote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:3100/rt/quote",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ partNumber: $('Validate RT Prerequisites').first().json.extracted.partNumber, customerName: $('Validate RT Prerequisites').first().json.extracted.customerName, source: 'email', externalRef: $('Validate RT Prerequisites').first().json.emailMessageId, requestedBy: $('Validate RT Prerequisites').first().json.emailFrom, views: $('Validate RT Prerequisites').first().json.extracted.views }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000008",
+      "name": "Build RT Quote HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 180],
+      "parameters": {
+        "jsCode": "const quote = $('POST /api/rt/quote').first().json;\nconst views = quote.views || [];\nconst recommended = quote.selectedTier || {};\nconst planning = $('Validate RT Prerequisites').first().json.planningResult || {};\n\nconst rowsHtml = views.map(view => {\n  return `\n    <tr>\n      <td>View ${view.viewNumber}</td>\n      <td>${view.shotTypeLabel || view.shotType}</td>\n      <td>${view.qtyPartsPerFilm}</td>\n      <td>${view.filmSize ? view.filmSize.label : 'N/A'}</td>\n      <td>$${(view.costs ? view.costs.pricePerView : 0).toFixed(2)}</td>\n    </tr>`;\n}).join('');\n\nconst tierRowsHtml = (quote.tierComparison || []).map(tier => {\n  return `<tr${tier.isRecommended ? ' style=\"background:#e8f5e9;font-weight:bold\"' : ''}>\n    <td>${tier.tierLabel}${tier.isRecommended ? ' ★' : ''}</td>\n    <td>$${tier.grandTotal.toFixed(2)}</td>\n  </tr>`;\n}).join('');\n\nconst warningsHtml = (planning.planningWarnings || []).length > 0\n  ? `<h2>Planning Warnings</h2><ul>${planning.planningWarnings.map(w => `<li>${w}</li>`).join('')}</ul>`\n  : '';\n\nconst techCardRows = (planning.techniqueCards || []).map(card => {\n  return `<tr>\n    <td>View ${card.viewNumber}</td>\n    <td>${card.location || ''}</td>\n    <td>${card.selectedMachineId || ''}</td>\n    <td>${card.kV || '—'} kV</td>\n    <td>${card.filmClass || '—'}</td>\n    <td>${card.xray_wash_risk || '—'}</td>\n  </tr>`;\n}).join('');\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<style>\n  body { font-family: Arial, sans-serif; padding: 40px; color: #222; }\n  h1 { color: #1a56db; }\n  h2 { color: #444; margin-top: 30px; font-size: 1em; text-transform: uppercase; letter-spacing: 1px; }\n  table { width: 100%; border-collapse: collapse; margin-top: 10px; }\n  th { background: #1a56db; color: white; padding: 10px; text-align: left; }\n  td { padding: 10px; border-bottom: 1px solid #ddd; }\n  .summary { margin-top: 20px; }\n  .total { font-weight: bold; font-size: 1.3em; color: #1a56db; }\n  .footer { margin-top: 40px; font-size: 0.85em; color: #888; }\n</style>\n</head>\n<body>\n<h1>NDT Radiographic Testing Quote</h1>\n<p><strong>Quote #:</strong> ${quote.quoteNumber}<br>\n<strong>Part Number:</strong> ${quote.partNumber}<br>\n<strong>Customer:</strong> ${quote.customerName}<br>\n<strong>Date:</strong> ${new Date(quote.generatedAt).toLocaleDateString()}</p>\n\n${planning.imageQualitySummary ? `<p><em>${planning.imageQualitySummary}</em></p>` : ''}\n\n<h2>View Breakdown</h2>\n<table>\n  <thead><tr><th>View</th><th>Shot Type</th><th>Parts/Film</th><th>Film Size</th><th>Price/View</th></tr></thead>\n  <tbody>${rowsHtml}</tbody>\n</table>\n\n${techCardRows ? `<h2>Technique Cards</h2>\n<table>\n  <thead><tr><th>View</th><th>Location</th><th>Machine</th><th>kV</th><th>Film Class</th><th>Wash Risk</th></tr></thead>\n  <tbody>${techCardRows}</tbody>\n</table>` : ''}\n\n<h2>Tier Pricing Options</h2>\n<table>\n  <thead><tr><th>Pricing Tier</th><th>Grand Total</th></tr></thead>\n  <tbody>${tierRowsHtml}</tbody>\n</table>\n\n<div class=\"summary\">\n  <p>Labor: $${(quote.totals ? quote.totals.totalLabor : 0).toFixed(2)}</p>\n  <p>Film: $${(quote.totals ? quote.totals.totalFilm : 0).toFixed(2)}</p>\n  <p class=\"total\">Grand Total (Recommended): $${recommended.grandTotal ? recommended.grandTotal.toFixed(2) : 'N/A'}</p>\n</div>\n\n${warningsHtml}\n\n<div class=\"footer\">\n  <p>★ Recommended tier. Quote valid 30 days. Contact us to confirm scheduling.</p>\n</div>\n</body></html>`;\n\nreturn [{ json: { html, quoteNumber: quote.quoteNumber, quoteId: quote.quoteId, grandTotal: recommended.grandTotal || quote.totals?.totalPrice || 0 } }];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000009",
+      "name": "Prepare HTML File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1680, 180],
+      "parameters": {
+        "operation": "toBinaryFile",
+        "sourceProperty": "html",
+        "options": {
+          "fileName": "rt-quote.html",
+          "mimeType": "text/html"
+        },
+        "binaryPropertyName": "html_content"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000010",
+      "name": "Generate PDF (Gotenberg)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 180],
+      "parameters": {
+        "method": "POST",
+        "url": "http://gotenberg:3000/forms/chromium/convert/html",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "html_content"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "pdf"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000011",
+      "name": "Send RT Quote Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2160, 180],
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $('Validate RT Prerequisites').first().json.emailFrom }}",
+        "subject": "=Quote #{{ $('Build RT Quote HTML').first().json.quoteNumber }} — NDT RT Inspection",
+        "emailType": "text",
+        "message": "=Please find your NDT Radiographic Testing quote attached.\n\nQuote #: {{ $('Build RT Quote HTML').first().json.quoteNumber }}\nGrand Total (Recommended Tier): ${{ $('Build RT Quote HTML').first().json.grandTotal.toFixed(2) }}\n\nThe quote includes multiple pricing tier options — the recommended tier is highlighted.\nThis quote is valid for 30 days. Please reply to confirm.\n\nNDT Portal Quoting System",
+        "options": {
+          "attachments": "pdf",
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "NDT Portal SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [{ "node": "RT Planning API", "type": "main", "index": 0 }]
+      ]
+    },
+    "RT Planning API": {
+      "main": [
+        [{ "node": "Validate RT Prerequisites", "type": "main", "index": 0 }]
+      ]
+    },
+    "Validate RT Prerequisites": {
+      "main": [
+        [{ "node": "All Fields Present?", "type": "main", "index": 0 }]
+      ]
+    },
+    "All Fields Present?": {
+      "main": [
+        [{ "node": "POST /api/rt/quote", "type": "main", "index": 0 }],
+        [{ "node": "Reply: Missing Fields", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST /api/rt/quote": {
+      "main": [
+        [{ "node": "Build RT Quote HTML", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build RT Quote HTML": {
+      "main": [
+        [{ "node": "Prepare HTML File", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare HTML File": {
+      "main": [
+        [{ "node": "Generate PDF (Gotenberg)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate PDF (Gotenberg)": {
+      "main": [
+        [{ "node": "Send RT Quote Email", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "wf2-v2-0-0",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "ndt-portal"
+  },
+  "id": "WF-2",
+  "tags": [
+    { "id": "ndt", "name": "ndt-portal" },
+    { "id": "rt", "name": "rt-quote" }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "name": "PI OS \u2014 Intake Reminder",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-schedule-hourly",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-http-get-stale-leads",
+      "name": "Fetch Stale Intake Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://postgrest:3000/leads?status=eq.intake-in-progress&reminder_count=lt.3&updated_at=lt.{{ DateTime.now().minus({hours: 24}).toISO() }}&select=id,firm_id,first_name,phone,reminder_count",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-split-batches",
+      "name": "Split Into Leads",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-if-test-mode",
+      "name": "Test Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-test-mode",
+              "leftValue": "={{ $env.TWILIO_TEST_MODE }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-stub-sms",
+      "name": "Stub Log Intake Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Split Into Leads').item.json.id }}\",\n  \"firm_id\": \"{{ $('Split Into Leads').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"[TEST] Hi {{ $('Split Into Leads').item.json.first_name }}, we still have your case on file. Ready to move forward? Reply YES and we'll call you right away.\",\n  \"status\": \"stub\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-twilio-reminder-sms",
+      "name": "Send Intake Reminder SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        440
+      ],
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $env.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $('Split Into Leads').item.json.phone }}",
+        "message": "=Hi {{ $('Split Into Leads').item.json.first_name }}, we still have your case on file. Ready to move forward? Reply YES and we'll call you right away.",
+        "options": {}
+      },
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-account-cred",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "id": "node-http-update-reminder-count",
+      "name": "Increment Reminder Count",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=http://postgrest:3000/leads?id=eq.{{ $('Split Into Leads').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"reminder_count\": {{ $('Split Into Leads').item.json.reminder_count + 1 }},\n  \"updated_at\": \"{{ DateTime.now().toISO() }}\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-http-log-reminder",
+      "name": "Log Intake Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Split Into Leads').item.json.id }}\",\n  \"firm_id\": \"{{ $('Split Into Leads').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"Intake reminder #{{ $('Split Into Leads').item.json.reminder_count + 1 }} sent\",\n  \"status\": \"sent\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Fetch Stale Intake Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Stale Intake Leads": {
+      "main": [
+        [
+          {
+            "node": "Split Into Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Leads": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Test Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Mode?": {
+      "main": [
+        [
+          {
+            "node": "Stub Log Intake Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Intake Reminder SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stub Log Intake Reminder": {
+      "main": [
+        [
+          {
+            "node": "Increment Reminder Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Intake Reminder SMS": {
+      "main": [
+        [
+          {
+            "node": "Increment Reminder Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Reminder Count": {
+      "main": [
+        [
+          {
+            "node": "Log Intake Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Intake Reminder": {
+      "main": [
+        [
+          {
+            "node": "Split Into Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "pi-lawyer-os"
+    }
+  ]
+}

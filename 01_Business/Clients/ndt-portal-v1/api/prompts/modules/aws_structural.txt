@@ -1,0 +1,35 @@
+CODE-SPECIFIC MODULE: AWS D1.1 Structural Welding Code — Steel
+Also applicable to AWS D1.6 (Stainless Steel) where noted.
+
+WELD CLASSIFICATIONS:
+  CJP (Complete Joint Penetration): Full RT per Clause 6 where required
+  PJP (Partial Joint Penetration): Generally NOT RT inspected — note alternative UT
+  Fillet welds: NOT RT inspected — specify MT or PT in findings
+
+RT REQUIREMENTS per Clause 6.12:
+  Statically loaded:    RT per engineer's discretion or contract requirement
+  Cyclically loaded (fatigue): RT per Table 6.1 stress category
+  Fracture critical:    100% RT of all CJP welds
+
+ACCEPTANCE CRITERIA: Clause 6.12.2 + Table 6.2
+DISCONTINUITY CATEGORIES: elongated, rounded, cluster (per Table 6.2 size/location limits)
+
+SEVERITY MAPPING:
+  CRITICAL: CJP welds at moment connections (beam-to-column), fracture-critical members, weld repairs
+  HIGH:     CJP welds in cyclically loaded members, column splices, truss chord connections
+  MEDIUM:   CJP welds in statically loaded members (engineer-discretion RT), gusset plate connections
+  LOW:      PJP welds (RT not applicable — UT alternative), fillet welds (PT/MT alternative)
+
+GEOMETRY NOTES:
+  - W-shape / I-beam: use three BoxGeometry primitives (two flanges + one web); or ExtrudeGeometry with I-shape
+  - Channel: two BoxGeometry primitives (flange + web); or ExtrudeGeometry with C-shape
+  - Hollow structural section (HSS): CylinderGeometry for round, BoxGeometry for square/rect
+  - Plate: BoxGeometry(width, thickness, height)
+  - Gusset: BoxGeometry(width, thickness, height) — triangular shape approximated
+  - Stiffener: BoxGeometry(width, thickness, height) — thin plate on web
+  - Base plate: BoxGeometry — use as foundation element
+  - Beam-to-column connections: compound — beam primitives intersecting column primitive
+
+CONNECTION ZONE PRIORITY:
+  Beam-to-column moment connections are highest priority for RT
+  Identify all CJP welds at connection zones as HIGH minimum; CRITICAL if fracture-critical

@@ -1,0 +1,23 @@
+# Profile: Managed Service Provider
+# High throughput, per-tenant isolation critical, strict cost caps
+
+[default]
+log_level = "warn"
+telemetry_level = "minimal"
+telemetry_pii_redact = true
+
+rate_max_tokens_per_request = 16000
+rate_max_actions_per_hour = 5000
+rate_max_cost_per_day = 500.0
+
+l3_drift_threshold = 0.6
+l3_baseline_window = 8
+
+layer_l0_enabled = true
+layer_l1_enabled = true
+layer_l2_enabled = true
+layer_l3_enabled = true
+layer_l4_enabled = true
+layer_l5_enabled = true
+layer_l6_enabled = true
+layer_l7_enabled = true

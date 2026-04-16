@@ -1,0 +1,23 @@
+# Profile: Non-Destructive Testing / Industrial
+# Tool-use heavy, strict RBAC, lower drift threshold for specialized domain
+
+[default]
+log_level = "info"
+telemetry_level = "verbose"
+telemetry_pii_redact = false  # NDT data is not typically PII
+
+rate_max_tokens_per_request = 32000
+rate_max_actions_per_hour = 2000
+rate_max_cost_per_day = 200.0
+
+l3_drift_threshold = 0.5
+l3_baseline_window = 10
+
+layer_l0_enabled = true
+layer_l1_enabled = true
+layer_l2_enabled = true
+layer_l3_enabled = true
+layer_l4_enabled = true
+layer_l5_enabled = true
+layer_l6_enabled = true
+layer_l7_enabled = true

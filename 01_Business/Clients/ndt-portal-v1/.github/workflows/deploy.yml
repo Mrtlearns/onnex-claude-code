@@ -1,0 +1,224 @@
+name: Deploy NDT Portal
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, ndt-runner]
+    environment:
+      name: production
+      url: https://ndt-v1.on-nex.us
+
+    env:
+      DEPLOY_DIR: /opt/ndt-portal
+      API_IMAGE:  ndt-api:latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # ── 0. Detect what changed ───────────────────────────────────────────
+      - name: Detect changed services
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "ALL")
+          echo "Changed files: $CHANGED"
+          echo "$CHANGED" | grep -qE '^api/(src|package.*\.json|tsconfig|Dockerfile)' && API_CHANGED=yes || API_CHANGED=no
+          echo "$CHANGED" | grep -qE '^frontend/(src|package.*\.json|index\.html)'    && FRONT_CHANGED=yes || FRONT_CHANGED=no
+          echo "$CHANGED" | grep -q '^pipeline/comply/'                                && COMPLY_CHANGED=yes  || COMPLY_CHANGED=no
+          echo "$CHANGED" | grep -q '^pipeline/sanitize/'                              && SANITIZE_CHANGED=yes || SANITIZE_CHANGED=no
+          echo "$CHANGED" | grep -q '^pipeline/gateway/'                               && GATEWAY_CHANGED=yes || GATEWAY_CHANGED=no
+          echo "$CHANGED" | grep -q '^pipeline/shared/' && COMPLY_CHANGED=yes && SANITIZE_CHANGED=yes && GATEWAY_CHANGED=yes || true
+          if [ "$CHANGED" = "ALL" ]; then
+            API_CHANGED=yes; FRONT_CHANGED=yes; COMPLY_CHANGED=yes; SANITIZE_CHANGED=yes; GATEWAY_CHANGED=yes
+          fi
+          # Frontend always rebuilds — dist/ is gitignored so HEAD~1 diff is unreliable.
+          # 35s build cost is acceptable vs risk of deploying stale frontend.
+          FRONT_CHANGED=yes
+          echo "Build flags — API:$API_CHANGED  FRONTEND:$FRONT_CHANGED  COMPLY:$COMPLY_CHANGED  SANITIZE:$SANITIZE_CHANGED  GATEWAY:$GATEWAY_CHANGED"
+          echo "API_CHANGED=$API_CHANGED"         >> $GITHUB_ENV
+          echo "FRONT_CHANGED=$FRONT_CHANGED"     >> $GITHUB_ENV
+          echo "COMPLY_CHANGED=$COMPLY_CHANGED"   >> $GITHUB_ENV
+          echo "SANITIZE_CHANGED=$SANITIZE_CHANGED" >> $GITHUB_ENV
+          echo "GATEWAY_CHANGED=$GATEWAY_CHANGED" >> $GITHUB_ENV
+
+      # ── 1. Build pipeline images ─────────────────────────────────────────
+      - name: Build pipeline images
+        run: |
+          cd "$GITHUB_WORKSPACE/pipeline"
+          if [ "$COMPLY_CHANGED" = "yes" ]; then
+            echo "Rebuilding comply image..."
+            docker build -t ndt-comply:latest   -f comply/Dockerfile   .
+          else
+            echo "comply unchanged — skipping."
+          fi
+          if [ "$SANITIZE_CHANGED" = "yes" ]; then
+            echo "Rebuilding sanitize image..."
+            docker build -t ndt-sanitize:latest -f sanitize/Dockerfile .
+          else
+            echo "sanitize unchanged — skipping."
+          fi
+          if [ "$GATEWAY_CHANGED" = "yes" ]; then
+            echo "Rebuilding gateway image..."
+            docker build -t ndt-gateway:latest  -f gateway/Dockerfile  .
+          else
+            echo "gateway unchanged — skipping."
+          fi
+
+      # ── 2. Build API Docker image ─────────────────────────────────────────
+      - name: Build API image
+        run: |
+          if [ "$API_CHANGED" = "yes" ]; then
+            echo "Building API image..."
+            docker build -t "$API_IMAGE" "$GITHUB_WORKSPACE/api/"
+            echo "✓ API image built"
+          else
+            echo "API unchanged — skipping."
+          fi
+
+      # ── 3. Build frontend ─────────────────────────────────────────────────
+      - name: Write frontend env + build
+        run: |
+          # Resolve VITE vars: prefer GitHub Actions vars (if set), else hardcoded defaults.
+          # IMPORTANT: We do NOT set these in the step `env:` block because GitHub Actions
+          # sets unresolved vars to empty string, which Vite's process-env overrides
+          # .env.production — causing the OIDC issuer to be empty and the login loop.
+          RESOLVED_ISSUER="${{ vars.VITE_AUTHENTIK_ISSUER }}"
+          RESOLVED_CLIENT="${{ vars.VITE_AUTHENTIK_CLIENT_ID }}"
+          [ -z "$RESOLVED_ISSUER" ]  && RESOLVED_ISSUER="https://ndt-v1.on-nex.us/application/o/ndt-portal/"
+          [ -z "$RESOLVED_CLIENT" ]  && RESOLVED_CLIENT="ndt-portal-606dbe86-3d7"
+          # Write .env.production (used by vite build)
+          {
+            echo "VITE_AUTHENTIK_ISSUER=${RESOLVED_ISSUER}"
+            echo "VITE_AUTHENTIK_CLIENT_ID=${RESOLVED_CLIENT}"
+          } > "$GITHUB_WORKSPACE/frontend/.env.production"
+          echo "✓ frontend/.env.production written: ISSUER=${RESOLVED_ISSUER}"
+          # Export resolved values so Vite process-env is consistent with .env.production
+          export VITE_AUTHENTIK_ISSUER="${RESOLVED_ISSUER}"
+          export VITE_AUTHENTIK_CLIENT_ID="${RESOLVED_CLIENT}"
+          if [ "$FRONT_CHANGED" = "yes" ]; then
+            cd "$GITHUB_WORKSPACE/frontend" && npm ci --prefer-offline && npm run build
+            echo "✓ Frontend built"
+          else
+            echo "Frontend unchanged — skipping."
+          fi
+
+      # ── 4. Sync config + assets to DEPLOY_DIR ────────────────────────────
+      - name: Sync files to deploy dir
+        run: |
+          sudo mkdir -p "$DEPLOY_DIR"
+          # Sync freshly-built dist/ (always built above).
+          sudo rsync -rlDt --delete "$GITHUB_WORKSPACE/dist/" "$DEPLOY_DIR/dist/"
+          sudo rsync -rlDt --delete \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            --exclude='.env*' \
+            "$GITHUB_WORKSPACE/frontend/" "$DEPLOY_DIR/frontend/"
+          {
+            echo "VITE_AUTHENTIK_ISSUER=${VITE_AUTHENTIK_ISSUER:-https://ndt-v1.on-nex.us/application/o/ndt-portal/}"
+            echo "VITE_AUTHENTIK_CLIENT_ID=${VITE_AUTHENTIK_CLIENT_ID:-ndt-portal-606dbe86-3d7}"
+          } > /tmp/ndt-frontend-env.production
+          sudo cp /tmp/ndt-frontend-env.production "$DEPLOY_DIR/frontend/.env.production"
+          rm /tmp/ndt-frontend-env.production
+          sudo rsync -rlDt --delete "$GITHUB_WORKSPACE/api/prompts/"         "$DEPLOY_DIR/api/prompts/"
+          sudo rsync -rlDt --delete "$GITHUB_WORKSPACE/pipeline/migrations/" "$DEPLOY_DIR/pipeline/migrations/"
+          sudo rsync -rlDt          "$GITHUB_WORKSPACE/pipeline/scripts/"    "$DEPLOY_DIR/pipeline/scripts/"
+          sudo cp "$GITHUB_WORKSPACE/docker-compose.yml"  "$DEPLOY_DIR/docker-compose.yml"
+          sudo cp "$GITHUB_WORKSPACE/traefik-dynamic.yml" "$DEPLOY_DIR/traefik-dynamic.yml"
+          sudo cp "$GITHUB_WORKSPACE/nginx.conf"          "$DEPLOY_DIR/nginx.conf"
+          sudo mkdir -p "$DEPLOY_DIR/claude-token-store"
+          echo "✓ Files synced"
+        env:
+          VITE_AUTHENTIK_ISSUER:    ${{ vars.VITE_AUTHENTIK_ISSUER }}
+          VITE_AUTHENTIK_CLIENT_ID: ${{ vars.VITE_AUTHENTIK_CLIENT_ID }}
+
+      # ── 5. Write .env ─────────────────────────────────────────────────────
+      - name: Write .env
+        env:
+          PIPELINE_VAULT_KEY:     ${{ secrets.PIPELINE_VAULT_KEY }}
+          ANTHROPIC_API_KEY:      ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY:     ${{ secrets.OPENROUTER_API_KEY }}
+          AUTHENTIK_SECRET_KEY:   ${{ secrets.AUTHENTIK_SECRET_KEY }}
+          AUTHENTIK_DB_PASSWORD:  ${{ secrets.AUTHENTIK_DB_PASSWORD }}
+          JWT_SECRET:             ${{ secrets.JWT_SECRET }}
+          AUTHENTIK_API_TOKEN:    ${{ secrets.AUTHENTIK_API_TOKEN }}
+          N8N_INTERNAL_SECRET:    ${{ secrets.N8N_INTERNAL_SECRET }}
+        run: |
+          EXISTING_VAULT=$(grep -m1 '^PIPELINE_VAULT_KEY=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2-)
+          RESOLVED_VAULT="${PIPELINE_VAULT_KEY:-${EXISTING_VAULT}}"
+          if [ -z "$RESOLVED_VAULT" ]; then
+            RESOLVED_VAULT=$(openssl rand -hex 32)
+            echo "INFO: generated new PIPELINE_VAULT_KEY"
+          fi
+          # Preserve existing AUTHENTIK_API_TOKEN if not provided via secret
+          EXISTING_AK_TOKEN=$(grep -m1 '^AUTHENTIK_API_TOKEN=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2-)
+          RESOLVED_AK_TOKEN="${AUTHENTIK_API_TOKEN:-${EXISTING_AK_TOKEN}}"
+          {
+            echo "PORTAL_DOMAIN=ndt-v1.on-nex.us"
+            echo "PIPELINE_VAULT_KEY=${RESOLVED_VAULT}"
+            echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}"
+            echo "OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}"
+            echo "NEXTCLOUD_ADMIN_USER=ncadmin"
+            echo "NEXTCLOUD_ADMIN_PASSWORD=ncadmin_dev_2024"
+            echo "NEXTCLOUD_DB_PASSWORD=nextcloud_dev"
+            echo "NEXTCLOUD_PUBLIC_URL=http://10.10.110.32:8090"
+            echo "AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY:-}"
+            echo "AUTHENTIK_DB_PASSWORD=${AUTHENTIK_DB_PASSWORD:-}"
+            echo "JWT_SECRET=${JWT_SECRET:-}"
+            echo "AUTHENTIK_API_TOKEN=${RESOLVED_AK_TOKEN:-}"
+            echo "N8N_INTERNAL_SECRET=${N8N_INTERNAL_SECRET:-}"
+          } > /tmp/ndt-portal.env
+          sudo cp /tmp/ndt-portal.env "$DEPLOY_DIR/.env" && rm /tmp/ndt-portal.env
+          echo "✓ .env written"
+
+      # ── 6. DB migrations ──────────────────────────────────────────────────
+      - name: Run DB migrations
+        run: |
+          PGCTR=$(docker compose -f "$DEPLOY_DIR/docker-compose.yml" ps -q postgres 2>/dev/null)
+          if [ -n "$PGCTR" ]; then
+            docker cp "$DEPLOY_DIR/pipeline/migrations/001_pipeline_schema.sql" "$PGCTR:/tmp/001.sql"
+            docker compose -f "$DEPLOY_DIR/docker-compose.yml" exec -T postgres psql -U ndtapp -d ndtportal -f /tmp/001.sql 2>/dev/null || true
+            docker cp "$GITHUB_WORKSPACE/db/migrate.sql" "$PGCTR:/tmp/migrate.sql"
+            docker compose -f "$DEPLOY_DIR/docker-compose.yml" exec -T postgres psql -U ndtapp -d ndtportal -f /tmp/migrate.sql 2>/dev/null || true
+          else
+            echo "Postgres not running yet — migrations will run on first startup."
+          fi
+
+      # ── 7. Start / update services ────────────────────────────────────────
+      - name: Deploy services
+        run: |
+          cd "$DEPLOY_DIR"
+          # Stop all services first to avoid port-already-allocated errors
+          # (comply/gateway share port 8012; parallel restarts cause conflicts)
+          docker compose down --remove-orphans 2>/dev/null || true
+          docker compose up -d
+          # Traefik sometimes needs an extra nudge after compose up
+          sleep 3 && docker compose restart traefik
+
+      # ── 7b. Authentik seed ────────────────────────────────────────────────
+      - name: Authentik seed
+        run: |
+          AUTHENTIK_CTR=$(docker compose -f "$DEPLOY_DIR/docker-compose.yml" ps -q authentik 2>/dev/null)
+          if [ -n "$AUTHENTIK_CTR" ]; then
+            echo "Running Authentik seed..."
+            docker cp "$GITHUB_WORKSPACE/authentik/seed.py" "$AUTHENTIK_CTR:/tmp/seed.py"
+            docker compose -f "$DEPLOY_DIR/docker-compose.yml" exec -T authentik python /tmp/seed.py 2>&1 || true
+            echo "✓ Authentik seed done"
+          else
+            echo "Authentik not running — skipping seed"
+          fi
+
+      # ── 8. Health check ───────────────────────────────────────────────────
+      - name: Health check
+        run: |
+          echo "Polling API health..."
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3100/health > /dev/null && echo "✓ API ready (${i}s)" && break
+            [ "$i" -eq 30 ] && echo "✗ API did not become healthy in 30s" && exit 1
+            sleep 1
+          done
+          curl -sf http://localhost:8888/ > /dev/null && echo "✓ Frontend OK"
+          curl -s http://localhost:3100/health > /dev/null && echo "✓ API health check OK"

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config:*)",
+      "Read(//c/Users/mrtma/**)",
+      "Read(//c/Users/mrtma/.config/git/**)",
+      "Bash(SRC=\"D:/Code/gitlab.botonomy.xyz/claude-workspace-pro/projects/AI-OS-POC\")",
+      "Bash(DEST=\"D:/Code/gitlab.botonomy.xyz/AI-OS-POC\")",
+      "Bash(__NEW_LINE_9c8e5ee9f894f78f__ cp:*)"
+    ]
+  }
+}

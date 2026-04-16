@@ -1,0 +1,33 @@
+Onnex Partnership Ecosystem and Client Relationships
+
+Onnex has established a network of technology partnerships and client relationships that extend AI-OS capabilities across multiple industries. These partnerships leverage complementary technologies to deliver integrated solutions that no single vendor could provide alone.
+
+Technology Infrastructure Partners
+
+Supabase serves as Onnex's foundational database and backend platform. The self-hosted Supabase deployment on poc-backend gives Onnex complete control over data residency, security, and customization. pgvector, the PostgreSQL extension for vector similarity search, is central to all RAGv1-powered document retrieval workflows.
+
+Google Gemini is Onnex's primary AI inference partner. RAGv1 uses Gemini for document text extraction via Vision API, embedding generation via gemini-embedding-001, entity extraction, relation extraction, and conversational response generation. Onnex's relationship with Google Gemini covers both the standard API tier and newer Gemini 2.5 Flash model capabilities.
+
+Tailscale provides secure network connectivity across Onnex's distributed infrastructure. Mr. T manages the homelab on Proxmox using Tailscale for zero-trust remote access to development and production systems. The claude-controller node serves as the central orchestration hub, accessible via Tailscale from anywhere.
+
+NDT and Aerospace Clients
+
+Onnex serves NDT (non-destructive testing) companies in the aerospace sector. These clients generate large volumes of inspection reports, radiographic images, and compliance documentation. RAGv1 processes these documents, extracts entities such as component identifiers, inspection dates, defect types, and inspector names, and builds a knowledge graph that enables rapid cross-document retrieval.
+
+The NDT client relationship with Onnex focuses on automating the RT (radiographic testing) and UT (ultrasonic testing) report analysis workflows. Mr. T has built custom metadata extraction schemas for NDT documents that capture defect severity, material grade, and regulatory compliance status.
+
+PI Law Firm Partnerships
+
+Onnex partners with PI (personal injury) law firms to deliver the PI Growth OS, a specialized AI-OS configuration for legal practices. The PI Growth OS processes medical records, accident reports, insurance documents, and legal filings. RAGv1 extracts entities including plaintiff names, defendant organizations, injury types, treatment providers, and settlement amounts.
+
+The knowledge graph built from PI case documents allows attorneys to identify similar past cases, precedent-setting decisions, and common opposing expert witnesses. Onnex automates case intake using document classification and entity extraction, reducing manual data entry by over 80% in pilot deployments.
+
+Proxmox and Homelab Infrastructure
+
+Onnex's AI development infrastructure runs on Proxmox, an open-source hypervisor platform. The homelab setup includes dual NVIDIA RTX 3090 GPUs for local model inference using Ollama, enabling Onnex to test and deploy open-source models without cloud API dependency. This infrastructure supports Onnex's goal of offering clients on-premise AI deployment options where data privacy requirements prohibit cloud processing.
+
+The Proxmox and Tailscale combination gives Onnex a production-grade, self-hosted AI platform that mirrors what clients can deploy in their own data centers. Mr. T manages GitLab at gitlab.botonomy.xyz for version control and CI/CD pipelines, and uses n8n for workflow automation orchestration across Onnex's internal and client systems.
+
+SAP Partnership Value
+
+Through Mr. T's deep SAP expertise, Onnex occupies a unique position as an AI agency that can integrate natively with SAP S/4HANA and SAP BTP. This SAP partnership capability allows Onnex to serve mid-market manufacturing and distribution companies that run SAP but struggle to extract AI value from their SAP data. Onnex connects SAP business data to RAGv1 for intelligent document processing, automated report generation, and AI-assisted decision support.

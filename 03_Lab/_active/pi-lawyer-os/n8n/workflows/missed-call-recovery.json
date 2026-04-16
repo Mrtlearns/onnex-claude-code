@@ -1,0 +1,801 @@
+{
+  "name": "PI OS \u2014 Missed Call Recovery",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-webhook-twilio-missed",
+      "name": "Twilio Missed Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-missed-call",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "c70a52e9-745a-4b9d-bbd3-ac05b697487e"
+    },
+    {
+      "id": "node-set-call-fields",
+      "name": "Extract Call Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-caller-phone",
+              "name": "caller_phone",
+              "value": "={{ $json.body.From }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-firm-number",
+              "name": "firm_number",
+              "value": "={{ $json.body.To }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-call-sid",
+              "name": "call_sid",
+              "value": "={{ $json.body.CallSid }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-firm-id",
+              "name": "firm_id",
+              "value": "={{ $json.body.firm_id ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-lookup-lead",
+      "name": "Look Up Lead by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://postgrest:3000/leads?phone=eq.{{ encodeURIComponent($json.caller_phone) }}&select=id,status,first_name,firm_id&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-if-lead-exists",
+      "name": "Lead Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-lead-exists",
+              "leftValue": "={{ $json.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-set-existing-lead",
+      "name": "Set Existing Lead ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        280
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-lead-id-existing",
+              "name": "lead_id",
+              "value": "={{ $json[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-firm-id-existing",
+              "name": "firm_id",
+              "value": "={{ $json[0].firm_id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-caller-existing",
+              "name": "caller_phone",
+              "value": "={{ $('Extract Call Fields').item.json.caller_phone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-create-lead",
+      "name": "Create New Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/leads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"phone\": \"{{ $('Extract Call Fields').item.json.caller_phone }}\",\n  \"source\": \"phone\",\n  \"status\": \"new\",\n  \"firm_id\": \"00000000-0000-0000-0000-000000000001\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-set-new-lead",
+      "name": "Set New Lead ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1340,
+        520
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-lead-id-new",
+              "name": "lead_id",
+              "value": "={{ $json[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-firm-id-new",
+              "name": "firm_id",
+              "value": "={{ $json[0].firm_id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-caller-new",
+              "name": "caller_phone",
+              "value": "={{ $('Extract Call Fields').item.json.caller_phone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-merge-lead",
+      "name": "Merge Lead Paths",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        400
+      ],
+      "parameters": {
+        "mode": "chooseBranch",
+        "chooseBranchMode": "waitForBoth",
+        "output": "input1"
+      }
+    },
+    {
+      "id": "node-if-test-mode-immediate",
+      "name": "Test Mode? (Immediate SMS)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-test-mode-imm",
+              "leftValue": "={{ $env.TWILIO_TEST_MODE }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-stub-immediate",
+      "name": "Stub Log Immediate SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Merge Lead Paths').item.json.lead_id }}\",\n  \"firm_id\": \"{{ $('Merge Lead Paths').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"[TEST] We missed your call! We're reviewing your case and will call back within 10 minutes.\",\n  \"status\": \"stub\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-twilio-immediate-sms",
+      "name": "Send Immediate Missed Call SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        540
+      ],
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $env.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $('Merge Lead Paths').item.json.caller_phone }}",
+        "message": "We missed your call! We're reviewing your case and will call back within 10 minutes. \u2014 Our team",
+        "options": {}
+      },
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-account-cred",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "id": "node-http-log-immediate",
+      "name": "Log Immediate SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2220,
+        540
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Merge Lead Paths').item.json.lead_id }}\",\n  \"firm_id\": \"{{ $('Merge Lead Paths').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"Missed call \u2014 immediate SMS sent\",\n  \"status\": \"sent\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-wait-2h",
+      "name": "Wait 2 Hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2440,
+        400
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "unit": "hours",
+        "amount": 2,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-check-status",
+      "name": "Check Lead Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2660,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://postgrest:3000/leads?id=eq.{{ $('Merge Lead Paths').item.json.lead_id }}&select=id,status&limit=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-if-still-new",
+      "name": "Still Uncontacted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-status-new",
+              "leftValue": "={{ $json[0].status }}",
+              "rightValue": "new",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-if-test-mode-followup",
+      "name": "Test Mode? (2h Follow-Up)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3100,
+        280
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-test-mode-followup",
+              "leftValue": "={{ $env.TWILIO_TEST_MODE }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-http-stub-followup",
+      "name": "Stub Log 2h Follow-Up SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3320,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Merge Lead Paths').item.json.lead_id }}\",\n  \"firm_id\": \"{{ $('Merge Lead Paths').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"[TEST] Hi, we still haven't been able to reach you. We'd love to help with your case. We offer free consultations.\",\n  \"status\": \"stub\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    },
+    {
+      "id": "node-twilio-followup-sms",
+      "name": "Send 2h Follow-Up SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        3320,
+        400
+      ],
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $env.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $('Merge Lead Paths').item.json.caller_phone }}",
+        "message": "Hi \u2014 we still haven't been able to reach you. We'd love to help with your case. Please call us back or reply to this message. We offer free consultations.",
+        "options": {}
+      },
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-account-cred",
+          "name": "Twilio Account"
+        }
+      }
+    },
+    {
+      "id": "node-http-log-followup",
+      "name": "Log 2h Follow-Up SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3540,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://postgrest:3000/communications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"lead_id\": \"{{ $('Merge Lead Paths').item.json.lead_id }}\",\n  \"firm_id\": \"{{ $('Merge Lead Paths').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"Missed call \u2014 2h follow-up sent\",\n  \"status\": \"sent\"\n}",
+        "options": {},
+        "rawContentType": "application/json"
+      }
+    }
+  ],
+  "connections": {
+    "Twilio Missed Call Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Call Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Call Fields": {
+      "main": [
+        [
+          {
+            "node": "Look Up Lead by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up Lead by Phone": {
+      "main": [
+        [
+          {
+            "node": "Lead Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Exists?": {
+      "main": [
+        [
+          {
+            "node": "Set Existing Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Existing Lead ID": {
+      "main": [
+        [
+          {
+            "node": "Merge Lead Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Lead": {
+      "main": [
+        [
+          {
+            "node": "Set New Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set New Lead ID": {
+      "main": [
+        [
+          {
+            "node": "Merge Lead Paths",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Lead Paths": {
+      "main": [
+        [
+          {
+            "node": "Test Mode? (Immediate SMS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Mode? (Immediate SMS)": {
+      "main": [
+        [
+          {
+            "node": "Stub Log Immediate SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Immediate Missed Call SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stub Log Immediate SMS": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Immediate Missed Call SMS": {
+      "main": [
+        [
+          {
+            "node": "Log Immediate SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Immediate SMS": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Hours": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Status": {
+      "main": [
+        [
+          {
+            "node": "Still Uncontacted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Uncontacted?": {
+      "main": [
+        [
+          {
+            "node": "Test Mode? (2h Follow-Up)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Test Mode? (2h Follow-Up)": {
+      "main": [
+        [
+          {
+            "node": "Stub Log 2h Follow-Up SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send 2h Follow-Up SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send 2h Follow-Up SMS": {
+      "main": [
+        [
+          {
+            "node": "Log 2h Follow-Up SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "pi-lawyer-os"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+[package]
+name = "ai-sentinel-api"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ai-sentinel"
+path = "src/main.rs"
+
+[dependencies]
+ai-sentinel-core = { path = "../ai-sentinel-core" }
+ai-sentinel-layers = { path = "../ai-sentinel-layers" }
+ai-sentinel-feed = { path = "../ai-sentinel-feed" }
+ai-sentinel-store = { path = "../ai-sentinel-store" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+reqwest = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+jsonwebtoken = { workspace = true }
+prometheus-client = { workspace = true }
+utoipa = { workspace = true }
+utoipa-scalar = { workspace = true }
+config = { workspace = true }
+dashmap = { workspace = true }

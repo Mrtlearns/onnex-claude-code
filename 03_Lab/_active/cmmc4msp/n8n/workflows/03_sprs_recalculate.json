@@ -1,0 +1,339 @@
+{
+  "updatedAt": "2026-04-16T00:36:25.362Z",
+  "createdAt": "2026-04-16T00:36:25.362Z",
+  "id": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+  "name": "03 \u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u20ac\udc9d SPRS Recalculate",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "path": "sprs-recalculate",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000002",
+      "name": "Fetch Control Statuses",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "query": "SELECT pc.status, pc.is_applicable, cd.dod_score_value, cd.nist_id, cd.far_above_phase FROM program_controls pc JOIN control_definitions cd ON pc.control_definition_id = cd.id WHERE pc.program_id = '{{ $json.body.program_id }}'::uuid AND cd.is_objective = false",
+        "operation": "executeQuery",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "wbmu564j5qFXXA1l",
+          "name": "CMMC4MSP Postgres"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Calculate SPRS Scores",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(r => r.json);\nconst program_id = $('Webhook').first().json.body.program_id;\n\nlet sprs = 110;\nlet ssp_done = true;\n\nfor (const r of rows) {\n  if (!r.is_applicable) continue;\n  if (r.nist_id === '3.12.4' && r.status !== 'fully_implemented') {\n    ssp_done = false;\n  }\n  if (r.status !== 'fully_implemented' && r.dod_score_value) {\n    sprs -= Number(r.dod_score_value);\n  }\n}\n\nif (!ssp_done) {\n  sprs = -203;\n}\n\n// FAR & Above cumulative score by phase\n// Phase scores represent controls completed per phase\nconst phaseScores = { 1: 37, 2: 32, 3: 34, 4: 37, 5: 47 };\nlet far_above_score = 0;\n\nfor (let p = 1; p <= 5; p++) {\n  const phaseRows = rows.filter(r => String(r.far_above_phase) === String(p) && r.is_applicable);\n  if (!phaseRows.length) continue;\n  const allDone = phaseRows.every(r => r.status === 'fully_implemented');\n  if (allDone) {\n    far_above_score += phaseScores[p];\n  } else {\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    sprs_score: Math.max(-203, Math.min(110, sprs)),\n    far_above_score,\n    program_id\n  }\n}];"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000004",
+      "name": "Update Program Scores",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "query": "UPDATE programs SET sprs_score={{ $json.sprs_score }}::integer, far_above_score={{ $json.far_above_score }}::integer, updated_at=NOW() WHERE id='{{ $json.program_id }}'::uuid RETURNING sprs_score::text, far_above_score::text",
+        "operation": "executeQuery",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "wbmu564j5qFXXA1l",
+          "name": "CMMC4MSP Postgres"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000005",
+      "name": "Respond SPRS",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ sprs_score: $('Calculate SPRS Scores').first().json.sprs_score, far_above_score: $('Calculate SPRS Scores').first().json.far_above_score, program_id: $('Calculate SPRS Scores').first().json.program_id }) }}"
+      },
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Control Statuses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Control Statuses": {
+      "main": [
+        [
+          {
+            "node": "Calculate SPRS Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate SPRS Scores": {
+      "main": [
+        [
+          {
+            "node": "Update Program Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Program Scores": {
+      "main": [
+        [
+          {
+            "node": "Respond SPRS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+  "activeVersionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+  "versionCounter": 36,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-04-16T00:36:25.362Z",
+      "createdAt": "2026-04-16T00:36:25.362Z",
+      "role": "workflow:owner",
+      "workflowId": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+      "projectId": "U0PYrpX3edrSBUHJ",
+      "project": {
+        "updatedAt": "2026-04-15T20:48:33.017Z",
+        "createdAt": "2026-04-15T20:48:33.017Z",
+        "id": "U0PYrpX3edrSBUHJ",
+        "name": "Unnamed Project",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-04-16T00:36:25.362Z",
+    "createdAt": "2026-04-16T00:36:25.362Z",
+    "versionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+    "workflowId": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+    "nodes": [
+      {
+        "id": "a1b2c3d4-0003-0003-0003-000000000001",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "position": [
+          250,
+          300
+        ],
+        "parameters": {
+          "path": "sprs-recalculate",
+          "httpMethod": "POST",
+          "responseMode": "responseNode"
+        },
+        "typeVersion": 1
+      },
+      {
+        "id": "a1b2c3d4-0003-0003-0003-000000000002",
+        "name": "Fetch Control Statuses",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          450,
+          300
+        ],
+        "parameters": {
+          "query": "SELECT pc.status, pc.is_applicable, cd.dod_score_value, cd.nist_id, cd.far_above_phase FROM program_controls pc JOIN control_definitions cd ON pc.control_definition_id = cd.id WHERE pc.program_id = '{{ $json.body.program_id }}'::uuid AND cd.is_objective = false",
+          "operation": "executeQuery",
+          "additionalFields": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "wbmu564j5qFXXA1l",
+            "name": "CMMC4MSP Postgres"
+          }
+        },
+        "typeVersion": 1
+      },
+      {
+        "id": "a1b2c3d4-0003-0003-0003-000000000003",
+        "name": "Calculate SPRS Scores",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          650,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const rows = $input.all().map(r => r.json);\nconst program_id = $('Webhook').first().json.body.program_id;\n\nlet sprs = 110;\nlet ssp_done = true;\n\nfor (const r of rows) {\n  if (!r.is_applicable) continue;\n  if (r.nist_id === '3.12.4' && r.status !== 'fully_implemented') {\n    ssp_done = false;\n  }\n  if (r.status !== 'fully_implemented' && r.dod_score_value) {\n    sprs -= Number(r.dod_score_value);\n  }\n}\n\nif (!ssp_done) {\n  sprs = -203;\n}\n\n// FAR & Above cumulative score by phase\n// Phase scores represent controls completed per phase\nconst phaseScores = { 1: 37, 2: 32, 3: 34, 4: 37, 5: 47 };\nlet far_above_score = 0;\n\nfor (let p = 1; p <= 5; p++) {\n  const phaseRows = rows.filter(r => String(r.far_above_phase) === String(p) && r.is_applicable);\n  if (!phaseRows.length) continue;\n  const allDone = phaseRows.every(r => r.status === 'fully_implemented');\n  if (allDone) {\n    far_above_score += phaseScores[p];\n  } else {\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    sprs_score: Math.max(-203, Math.min(110, sprs)),\n    far_above_score,\n    program_id\n  }\n}];"
+        },
+        "typeVersion": 1
+      },
+      {
+        "id": "a1b2c3d4-0003-0003-0003-000000000004",
+        "name": "Update Program Scores",
+        "type": "n8n-nodes-base.postgres",
+        "position": [
+          850,
+          300
+        ],
+        "parameters": {
+          "query": "UPDATE programs SET sprs_score={{ $json.sprs_score }}::integer, far_above_score={{ $json.far_above_score }}::integer, updated_at=NOW() WHERE id='{{ $json.program_id }}'::uuid RETURNING sprs_score::text, far_above_score::text",
+          "operation": "executeQuery",
+          "additionalFields": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "wbmu564j5qFXXA1l",
+            "name": "CMMC4MSP Postgres"
+          }
+        },
+        "typeVersion": 1
+      },
+      {
+        "id": "a1b2c3d4-0003-0003-0003-000000000005",
+        "name": "Respond SPRS",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "position": [
+          1050,
+          300
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ sprs_score: $('Calculate SPRS Scores').first().json.sprs_score, far_above_score: $('Calculate SPRS Scores').first().json.far_above_score, program_id: $('Calculate SPRS Scores').first().json.program_id }) }}"
+        },
+        "typeVersion": 1
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Fetch Control Statuses",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Control Statuses": {
+        "main": [
+          [
+            {
+              "node": "Calculate SPRS Scores",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calculate SPRS Scores": {
+        "main": [
+          [
+            {
+              "node": "Update Program Scores",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Program Scores": {
+        "main": [
+          [
+            {
+              "node": "Respond SPRS",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-04-16T09:34:30.447Z",
+        "id": 3,
+        "workflowId": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+        "versionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+        "event": "activated",
+        "userId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      },
+      {
+        "createdAt": "2026-04-16T17:25:45.988Z",
+        "id": 23,
+        "workflowId": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+        "versionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+        "event": "deactivated",
+        "userId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      },
+      {
+        "createdAt": "2026-04-16T17:25:46.024Z",
+        "id": 24,
+        "workflowId": "6534ce61-8765-524e-ab4b-3e33c8846adb",
+        "versionId": "4761328a-2630-455c-9d83-2f22c6e2e364",
+        "event": "activated",
+        "userId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      }
+    ]
+  }
+}

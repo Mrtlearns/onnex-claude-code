@@ -1,0 +1,49 @@
+============================================================
+RECALL TEST — Onnex Memory Stack
+============================================================
+
+[GLOBAL-1] ✓ PASS  scope=global
+  Q: Who is Mr T and what does Onnex do
+  → [0.648] Onnex active verticals: PI Law Firms (PI Growth OS), NDT/Aerospace (nd
+  → [0.577] Mr. T's homelab runs n8n
+
+[GLOBAL-2] ✓ PASS  scope=global
+  Q: Windows MCP tool selection rules
+  → [0.648] Targeting 10+ clients for $500K+ ARR
+  → [0.636] No local LLM inference available
+
+[GLOBAL-3] ✓ PASS  scope=global
+  Q: homelab infrastructure Proxmox Docker
+  → [0.648] Mr. T's GitLab is self-hosted at gitlab.botonomy.xyz on port 2222
+  → [0.639] Onnex pricing is $40K-$80K build per vertical AI-OS and $2K-$5K MRR
+
+[NDT-1] ✓ PASS  scope=ndtv1
+  Q: ITAR compliance pipeline architecture
+  → [0.648] Using FastAPI
+  → [0.590] NDTV1 renderer performance budget is 60 FPS at 500K triangle maximum
+
+[NDT-2] ✓ PASS  scope=ndtv1
+  Q: ndtv1 renderer performance budget Three.js
+  → [0.648] Two-stage LLM: Stage 1 classifies geometry, Stage 2 runs RT analysis
+  → [0.624] Using Anthropic SDK with Ollama fallback
+
+[PI-1] ✓ PASS  scope=pi_lawyer_os
+  Q: PI law speed to lead 60 seconds
+  → [0.648] All SMS needs documented opt-in
+  → [0.456] ShareCRM partnership provides warm introductions
+
+[PI-2] ✓ PASS  scope=pi_lawyer_os
+  Q: TCPA compliance SMS Twilio
+  → [0.648] PI Growth OS target market is Las Vegas PI firms first, then national 
+  → [0.622] Inventory name is PI-Lawyer-OS
+
+[WS-1] ✓ PASS  scope=global
+  Q: new project command file placement rules
+  → [0.648] Global skills: core-windows-mcp
+  → [0.628] Primary editor is VSCode with the Claude Code extension
+
+============================================================
+Results: 8/8 passed  |  0 failed
+
+Instincts in library: 0 (run /learn to add more)
+============================================================

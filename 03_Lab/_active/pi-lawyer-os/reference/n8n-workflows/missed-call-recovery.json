@@ -1,0 +1,184 @@
+{
+  "name": "PI Lawyer OS — Missed Call Recovery",
+  "description": "Recovers missed calls via SMS sequence. Triggered by Twilio missed call webhook. Sends immediate SMS, waits 2 hours, sends follow-up if no response.",
+  "nodes": [
+    {
+      "id": "twilio-webhook",
+      "type": "n8n-nodes-base.webhook",
+      "name": "Twilio Missed Call Webhook",
+      "parameters": {
+        "path": "twilio-missed-call",
+        "method": "POST",
+        "responseMode": "onReceived"
+      },
+      "notes": "Configure Twilio phone number → Voice → A call comes in → Webhook URL = this endpoint. Fires on missed/unanswered call."
+    },
+    {
+      "id": "extract-caller",
+      "type": "n8n-nodes-base.set",
+      "name": "Extract Caller Info",
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "caller_phone", "value": "={{ $json.From }}" },
+            { "name": "called_number", "value": "={{ $json.To }}" },
+            { "name": "call_sid", "value": "={{ $json.CallSid }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "lookup-firm",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Lookup Firm by Phone",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.POSTGREST_URL }}/firms?phone=eq.{{ $node['Extract Caller Info'].json.called_number }}&select=id,name",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}"
+        }
+      },
+      "notes": "Find which firm this number belongs to for multi-tenant routing"
+    },
+    {
+      "id": "create-or-find-lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Create Lead if New",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.POSTGREST_URL }}/leads",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}",
+          "Content-Type": "application/json",
+          "Prefer": "resolution=ignore-duplicates,return=representation"
+        },
+        "body": {
+          "firm_id": "={{ $node['Lookup Firm by Phone'].json[0].id }}",
+          "phone": "={{ $node['Extract Caller Info'].json.caller_phone }}",
+          "source": "phone",
+          "status": "new"
+        }
+      },
+      "notes": "Creates lead if phone not already in system. Ignores duplicate if phone already exists."
+    },
+    {
+      "id": "send-immediate-sms",
+      "type": "n8n-nodes-base.twilio",
+      "name": "Send Immediate SMS",
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $node['Extract Caller Info'].json.called_number }}",
+        "to": "={{ $node['Extract Caller Info'].json.caller_phone }}",
+        "message": "Hi, we just missed your call at [Firm Name]. We're sorry we missed you! Someone from our team will call you back shortly. If this is urgent, reply URGENT and we'll prioritize your call. — [Firm Name] Injury Law"
+      }
+    },
+    {
+      "id": "log-immediate-sms",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Log Immediate SMS",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.POSTGREST_URL }}/communications",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "lead_id": "={{ $node['Create or Find Lead'].json[0].id }}",
+          "firm_id": "={{ $node['Lookup Firm by Phone'].json[0].id }}",
+          "channel": "sms",
+          "direction": "outbound",
+          "message": "Missed call recovery — immediate SMS sent",
+          "status": "sent"
+        }
+      }
+    },
+    {
+      "id": "wait-2-hours",
+      "type": "n8n-nodes-base.wait",
+      "name": "Wait 2 Hours",
+      "parameters": {
+        "amount": 2,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "check-lead-status",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Check Lead Status",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.POSTGREST_URL }}/leads?id=eq.{{ $node['Create or Find Lead'].json[0].id }}&select=status",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}"
+        }
+      },
+      "notes": "If lead is still 'new', they haven't responded. Send follow-up."
+    },
+    {
+      "id": "check-if-responded",
+      "type": "n8n-nodes-base.if",
+      "name": "Did Lead Respond?",
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json[0].status }}",
+              "operation": "equals",
+              "value2": "new"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "send-followup-sms",
+      "type": "n8n-nodes-base.twilio",
+      "name": "Send Follow-Up SMS",
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $node['Extract Caller Info'].json.called_number }}",
+        "to": "={{ $node['Extract Caller Info'].json.caller_phone }}",
+        "message": "Hi again — we still haven't been able to reach you. We'd love to help with your injury case. Please call us back at [firm phone] or reply to this message. We offer free consultations. — [Firm Name] Injury Law"
+      }
+    },
+    {
+      "id": "log-followup-sms",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Log Follow-Up SMS",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.POSTGREST_URL }}/communications",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "lead_id": "={{ $node['Create or Find Lead'].json[0].id }}",
+          "firm_id": "={{ $node['Lookup Firm by Phone'].json[0].id }}",
+          "channel": "sms",
+          "direction": "outbound",
+          "message": "Missed call recovery — follow-up SMS sent (2h)",
+          "status": "sent"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Twilio Missed Call Webhook": { "main": [["Extract Caller Info"]] },
+    "Extract Caller Info": { "main": [["Lookup Firm by Phone"]] },
+    "Lookup Firm by Phone": { "main": [["Create Lead if New"]] },
+    "Create Lead if New": { "main": [["Send Immediate SMS"]] },
+    "Send Immediate SMS": { "main": [["Log Immediate SMS"]] },
+    "Log Immediate SMS": { "main": [["Wait 2 Hours"]] },
+    "Wait 2 Hours": { "main": [["Check Lead Status"]] },
+    "Check Lead Status": { "main": [["Did Lead Respond?"]] },
+    "Did Lead Respond?": {
+      "main": [
+        ["Send Follow-Up SMS"],
+        []
+      ]
+    },
+    "Send Follow-Up SMS": { "main": [["Log Follow-Up SMS"]] }
+  }
+}

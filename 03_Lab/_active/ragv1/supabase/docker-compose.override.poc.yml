@@ -1,0 +1,26 @@
+# Override: connect db and kong to shared poc-net, expose Studio port
+networks:
+  poc-net:
+    external: true
+
+services:
+  db:
+    networks:
+      default:
+      poc-net:
+        aliases:
+          - supabase-db
+  kong:
+    networks:
+      default:
+      poc-net:
+        aliases:
+          - supabase-kong
+  studio:
+    ports:
+      - "3000:3000"
+
+  functions:
+    environment:
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET}

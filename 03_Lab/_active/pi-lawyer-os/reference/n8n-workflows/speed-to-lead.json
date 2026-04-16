@@ -1,0 +1,89 @@
+{
+  "name": "PI Lawyer OS — Speed to Lead",
+  "description": "Sends SMS to new lead within 2 minutes of creation. Triggered by PostgREST webhook on INSERT to leads table.",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "type": "n8n-nodes-base.webhook",
+      "name": "Lead Created (PostgREST webhook)",
+      "parameters": {
+        "path": "lead-created",
+        "method": "POST",
+        "responseMode": "onReceived"
+      },
+      "notes": "PostgREST or Postgres trigger fires this webhook on new lead INSERT"
+    },
+    {
+      "id": "extract-lead",
+      "type": "n8n-nodes-base.set",
+      "name": "Extract Lead Fields",
+      "parameters": {
+        "values": {
+          "string": [
+            { "name": "lead_id", "value": "={{ $json.id }}" },
+            { "name": "firm_id", "value": "={{ $json.firm_id }}" },
+            { "name": "phone", "value": "={{ $json.phone }}" },
+            { "name": "first_name", "value": "={{ $json.first_name }}" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "send-sms",
+      "type": "n8n-nodes-base.twilio",
+      "name": "Send SMS to Lead",
+      "parameters": {
+        "operation": "send",
+        "from": "={{ $env.TWILIO_FROM_NUMBER }}",
+        "to": "={{ $json.phone }}",
+        "message": "Hi {{ $json.first_name }}, this is [Firm Name]. We received your inquiry and will call you right away. If this is urgent, reply CALL. — [Firm Name] Injury Law"
+      },
+      "notes": "Firm name should be interpolated from firm record — fetch from Postgres if needed"
+    },
+    {
+      "id": "log-communication",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Log to communications table",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.POSTGREST_URL }}/communications",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTGREST_SERVICE_KEY }}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "lead_id": "={{ $node['Extract Lead Fields'].json.lead_id }}",
+          "firm_id": "={{ $node['Extract Lead Fields'].json.firm_id }}",
+          "channel": "sms",
+          "direction": "outbound",
+          "message": "Speed-to-lead SMS sent",
+          "status": "sent"
+        }
+      }
+    },
+    {
+      "id": "notify-team",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Notify Intake Team",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.INTERNAL_NOTIFICATION_WEBHOOK }}",
+        "body": {
+          "text": "🔔 New lead: {{ $node['Extract Lead Fields'].json.first_name }} ({{ $node['Extract Lead Fields'].json.phone }}). SMS sent. Assign to intake."
+        }
+      },
+      "notes": "Webhook URL for internal notification (Slack, Teams, or n8n internal channel)"
+    }
+  ],
+  "connections": {
+    "Lead Created (PostgREST webhook)": { "main": [["Extract Lead Fields"]] },
+    "Extract Lead Fields": { "main": [["Send SMS to Lead"]] },
+    "Send SMS to Lead": { "main": [["Log to communications table"]] },
+    "Log to communications table": { "main": [["Notify Intake Team"]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/03_Lab/_active/AI-OS-POC/.claude/hooks/cost-tracker.py\""
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"D:/Code/Claude/03_Lab/_active/AI-OS-POC/.claude/hooks/pre-compact.py\""
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "padding": 0,
+    "command": "bash \"D:/Code/Claude/03_Lab/_active/AI-OS-POC/.claude/statusline.sh\""
+  }
+}

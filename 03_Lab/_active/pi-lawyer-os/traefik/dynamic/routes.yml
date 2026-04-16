@@ -1,0 +1,53 @@
+# Traefik dynamic config — static routes and middleware
+# Docker label routes are defined in docker-compose.yml
+
+http:
+  middlewares:
+    # Strip /n8n prefix before forwarding to n8n — required for webhook routing.
+    # Traefik receives /n8n/webhook/<id> from Twilio, strips to /webhook/<id> for n8n.
+    # WEBHOOK_URL in docker-compose keeps /n8n/ so Twilio knows the external path.
+    strip-n8n-prefix:
+      stripPrefix:
+        prefixes:
+          - "/n8n"
+
+    # Security headers for all responses
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customResponseHeaders:
+          X-Powered-By: ""
+
+    # Security headers for openclaw — strips frame-blocking headers so it can be
+    # embedded as an iframe inside the PI Lawyer OS frontend (internal tool, behind auth)
+    openclaw-headers:
+      headers:
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customResponseHeaders:
+          X-Powered-By: ""
+          X-Frame-Options: ""
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; frame-ancestors 'self'"
+
+    # CORS for API (PostgREST)
+    api-cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Authorization
+          - Content-Type
+          - Prefer
+          - Range
+        accessControlAllowOriginList:
+          - "*"           # tighten per-client in production
+        accessControlMaxAge: 100

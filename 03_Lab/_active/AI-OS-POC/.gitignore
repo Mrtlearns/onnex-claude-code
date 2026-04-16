@@ -1,0 +1,20 @@
+# Secrets — never commit
+infra/env/.env
+infra/env/*.env.local
+*.env.local
+
+# Docker runtime
+infra/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

@@ -1,0 +1,15 @@
+{
+  "compacted_at": "2026-04-05T17:44:14.833788",
+  "mode": "aggressive",
+  "active_topics": [],
+  "compressed_topics": [
+    "NDT/Aerospace",
+    "PI Law",
+    "Docker/Infra",
+    "n8n/Automation",
+    "Agency-OS/GSD",
+    "RAG/AI",
+    "Security",
+    "Hooks/Tooling"
+  ]
+}

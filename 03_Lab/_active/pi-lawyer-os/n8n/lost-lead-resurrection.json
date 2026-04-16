@@ -1,0 +1,338 @@
+{
+  "name": "PI Lawyer OS \u2014 Lost Lead Resurrection",
+  "active": true,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Daily 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Fetch Inactive Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "url": "http://postgrest:3000/leads",
+        "method": "GET",
+        "options": {},
+        "sendQuery": true,
+        "sendHeaders": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "in.(new,contacted,intake-in-progress)"
+            },
+            {
+              "name": "select",
+              "value": "id,first_name,last_name,phone,firm_id,last_contact_at,created_at,resurrection_sent_at"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Filter Leads \u2014 30 Days Inactive",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Compute the threshold date: 30 days ago\nconst now = new Date();\nconst thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);\n\n// $input.first().json is the full array returned by PostgREST\nconst leads = $input.all().map(item => item.json);\n\nif (!Array.isArray(leads)) {\n  throw new Error('Expected array from PostgREST but got: ' + JSON.stringify(leads));\n}\n\n// Filter: inactive for 30+ days AND resurrection not yet sent (or sent 30+ days ago)\nconst filtered = leads.filter(lead => {\n  const createdAt = lead.created_at ? new Date(lead.created_at) : null;\n  const lastContactAt = lead.last_contact_at ? new Date(lead.last_contact_at) : null;\n  const resurrectionSentAt = lead.resurrection_sent_at ? new Date(lead.resurrection_sent_at) : null;\n\n  const isInactive =\n    (lastContactAt === null && createdAt !== null && createdAt < thirtyDaysAgo) ||\n    (lastContactAt !== null && lastContactAt < thirtyDaysAgo);\n\n  const needsResurrection =\n    resurrectionSentAt === null || resurrectionSentAt < thirtyDaysAgo;\n\n  return isInactive && needsResurrection;\n});\n\n// Return each lead as a separate item\nreturn filtered.map(lead => ({ json: lead }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "name": "Test Mode?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": false,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-test-mode-res",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $env.TWILIO_TEST_MODE }}",
+              "rightValue": "true"
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "name": "Stub Log Resurrection SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1120,
+        160
+      ],
+      "parameters": {
+        "url": "http://postgrest:3000/communications",
+        "body": "={\n  \"lead_id\": \"{{ $('Filter Leads \u2014 30 Days Inactive').item.json.id }}\",\n  \"firm_id\": \"{{ $('Filter Leads \u2014 30 Days Inactive').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"[TEST] Hi {{ $('Filter Leads \u2014 30 Days Inactive').item.json.first_name }}, we wanted to follow up on your inquiry. Our team may still be able to help with your case. Reply YES to reconnect.\",\n  \"status\": \"stub\"\n}",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "sendHeaders": true,
+        "rawContentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Send Resurrection SMS",
+      "type": "n8n-nodes-base.twilio",
+      "position": [
+        1120,
+        440
+      ],
+      "parameters": {
+        "to": "={{ $json.phone }}",
+        "from": "={{ $env.TWILIO_FROM_NUMBER }}",
+        "message": "=Hi {{ $json.first_name }}, we wanted to follow up on your inquiry. Our team may still be able to help with your case. Reply YES to reconnect. \u2014 Our team",
+        "operation": "send"
+      },
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-account-cred",
+          "name": "Twilio Account"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "Log Communication",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1340,
+        440
+      ],
+      "parameters": {
+        "url": "http://postgrest:3000/communications",
+        "body": "={\n  \"lead_id\": \"{{ $('Filter Leads \u2014 30 Days Inactive').item.json.id }}\",\n  \"firm_id\": \"{{ $('Filter Leads \u2014 30 Days Inactive').item.json.firm_id }}\",\n  \"channel\": \"sms\",\n  \"direction\": \"outbound\",\n  \"message\": \"Lost lead resurrection SMS sent\",\n  \"status\": \"sent\"\n}",
+        "method": "POST",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "sendHeaders": true,
+        "rawContentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "a1b2c3d4-0006-0006-0006-000000000006",
+      "name": "Update resurrection_sent_at",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1560,
+        300
+      ],
+      "parameters": {
+        "url": "=http://postgrest:3000/leads?id=eq.{{ $('Filter Leads \u2014 30 Days Inactive').item.json.id }}",
+        "body": "={\n  \"resurrection_sent_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "method": "PATCH",
+        "options": {},
+        "sendBody": true,
+        "contentType": "raw",
+        "sendHeaders": true,
+        "rawContentType": "application/json",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.PGRST_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    }
+  ],
+  "connections": {
+    "Daily 9AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Inactive Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Inactive Leads": {
+      "main": [
+        [
+          {
+            "node": "Filter Leads \u2014 30 Days Inactive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Leads \u2014 30 Days Inactive": {
+      "main": [
+        [
+          {
+            "node": "Test Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Mode?": {
+      "main": [
+        [
+          {
+            "node": "Stub Log Resurrection SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Resurrection SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stub Log Resurrection SMS": {
+      "main": [
+        [
+          {
+            "node": "Update resurrection_sent_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Resurrection SMS": {
+      "main": [
+        [
+          {
+            "node": "Log Communication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Communication": {
+      "main": [
+        [
+          {
+            "node": "Update resurrection_sent_at",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "pi-lawyer-os"
+    }
+  ]
+}
