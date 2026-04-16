@@ -71,7 +71,7 @@ if (Test-Path $repoClaudeGlobal) {
     Write-Host "  Syncing .claude-global content to $claudeHome ..." -ForegroundColor Yellow
     $skipDirs = @('projects','file-history','session-env','paste-cache',
                   'shell-snapshots','telemetry','statsig','todos','tasks',
-                  'plans','state','chrome','cache','backups')
+                  'plans','state','chrome','cache','backups','.claude')
     foreach ($item in Get-ChildItem $repoClaudeGlobal -Force -ErrorAction SilentlyContinue) {
         if ($skipDirs -contains $item.Name) { continue }
         $dst = Join-Path $claudeHome $item.Name
