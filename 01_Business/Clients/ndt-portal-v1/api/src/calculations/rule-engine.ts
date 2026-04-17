@@ -28,6 +28,7 @@ export interface DbCustomerForRules {
 
 export interface DbMaterialForRules {
   id: string;
+  name: string;
   density_lb_per_cu_in: number;
   class_a_rate_per_lb: number | null;
   class_aa_rate_per_lb: number | null;
