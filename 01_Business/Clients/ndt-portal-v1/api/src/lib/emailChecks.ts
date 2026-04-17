@@ -112,7 +112,7 @@ Respond ONLY with valid JSON (no markdown):
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'anthropic/claude-haiku-4-5',
         messages: [{ role: 'user', content: emailText }],
         system: systemPrompt,
         max_tokens: 128,
