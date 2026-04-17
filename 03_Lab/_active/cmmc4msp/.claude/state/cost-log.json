@@ -66,12 +66,12 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Bash": 387,
-        "Read": 197,
+        "Bash": 399,
+        "Read": 205,
         "Glob": 18,
-        "Write": 38,
-        "Edit": 50,
-        "Agent": 9,
+        "Write": 41,
+        "Edit": 54,
+        "Agent": 10,
         "Grep": 15,
         "ToolSearch": 8,
         "mcp__claude_ai_Google_Drive__search_files": 1,
@@ -80,8 +80,8 @@
         "TodoWrite": 9,
         "ExitPlanMode": 1
       },
-      "total_calls": 735,
-      "weight_total": 586
+      "total_calls": 763,
+      "weight_total": 615
     }
   ]
 }

@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     embedding_model: str = "openai/text-embedding-3-small"
 
+    # Resend (transactional email)
+    resend_api_key: str = ""
+
+    # n8n workflow — assessment completion notification (Workflow 11)
+    n8n_wf_assessment_notify: str = ""
+
     @property
     def postgres_dsn(self) -> str:
         return (

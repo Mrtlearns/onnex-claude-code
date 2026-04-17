@@ -120,6 +120,29 @@ async def trigger_invite(
         pass
 
 
+async def trigger_assessment_notify(
+    artifact_id: str,
+    verdict: str,
+    program_control_id: str,
+) -> None:
+    """Notify assignee when assessment completes — Workflow 11."""
+    wf = settings.n8n_wf_assessment_notify
+    if not wf:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                _webhook_url(wf, "assessment-notify"),
+                json={
+                    "artifact_id": artifact_id,
+                    "verdict": verdict,
+                    "program_control_id": program_control_id,
+                },
+            )
+    except Exception:
+        pass
+
+
 async def trigger_report(program_id: str, report_type: str) -> dict:
     """Trigger n8n report generation and return response payload."""
     async with httpx.AsyncClient(timeout=30) as client:
