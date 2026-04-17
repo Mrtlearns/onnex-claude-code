@@ -24,3 +24,6 @@
 | 2026-04-17 | Execute Phase 11 | Implementation synced from VM. Tests written: 22 API (reports) + 17 API (admin) + 9 UI (reports) + 10 UI (admin) = 58 new tests GREEN. Phase complete. |
 | 2026-04-17 | Complete Milestone v2.1 | Milestone archived. MILESTONES.md + ROADMAP.md created. Advancing to v3.0. |
 | 2026-04-17 | Plan Phase 12 | Created `.planning/phases/12-validation-demo/PLAN.md` — 3 waves, 15 tasks |
+| 2026-04-17 | Execute Phase 12 Wave 1 | All tests GREEN: API 100 pass 1 skip, Web 149 pass — 0 failures |
+| 2026-04-17 | Execute Phase 12 Wave 2 | VALIDATION.md created at project root — 33 auto-pass, 26 manual, 7 deferred |
+| 2026-04-17 | Execute Phase 12 Wave 3 | seed_demo.py + clear_demo.py confirmed complete — all 8 modules seeded, idempotent |
