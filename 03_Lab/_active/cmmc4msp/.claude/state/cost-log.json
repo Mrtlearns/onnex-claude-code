@@ -69,19 +69,19 @@
         "Bash": 387,
         "Read": 197,
         "Glob": 18,
-        "Write": 27,
+        "Write": 38,
         "Edit": 50,
         "Agent": 9,
         "Grep": 15,
-        "ToolSearch": 7,
+        "ToolSearch": 8,
         "mcp__claude_ai_Google_Drive__search_files": 1,
         "mcp__claude_ai_Google_Drive__read_file_content": 1,
         "mcp__claude_ai_Google_Drive__download_file_content": 1,
-        "TodoWrite": 6,
+        "TodoWrite": 9,
         "ExitPlanMode": 1
       },
-      "total_calls": 720,
-      "weight_total": 571
+      "total_calls": 735,
+      "weight_total": 586
     }
   ]
 }
