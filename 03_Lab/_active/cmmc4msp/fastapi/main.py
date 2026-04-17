@@ -8,7 +8,7 @@ from minio import Minio
 
 from app.config import settings
 from app.database import create_pool
-from app.routers import analytics, artifacts, assessments, assignments, audit, controls, invites, msps, notifications, orgs, programs, reports, suggestions, webhooks, ssp_interview
+from app.routers import analytics, artifacts, assessments, assignments, audit, controls, integrations, invites, msps, notifications, orgs, programs, reports, suggestions, webhooks, ssp_interview
 from app.services.minio_service import ensure_bucket
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,7 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ssp_interview.router, prefix="/api/programs/{program_id}/ssp-interview", tags=["ssp_interview"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 
 
 @app.get("/health")

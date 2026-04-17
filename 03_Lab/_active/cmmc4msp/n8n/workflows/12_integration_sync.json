@@ -1,0 +1,131 @@
+{
+  "name": "12 — Nightly Integration Sync",
+  "active": true,
+  "nodes": [
+    {
+      "id": "cron-trigger",
+      "name": "Nightly 02:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch-active-integrations",
+      "name": "Fetch Active Integrations",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [350, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM integrations WHERE status = 'active' ORDER BY provider, org_id",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "postgres-cmmc",
+          "name": "CMMC PostgreSQL"
+        }
+      }
+    },
+    {
+      "id": "split-integrations",
+      "name": "Split Into Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [600, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "trigger-sync",
+      "name": "POST /api/integrations/{id}/sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://cmmc-api:8000/api/integrations/{{ $json.id }}/sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "cmmc-api-key",
+          "name": "CMMC API Service Key"
+        }
+      }
+    },
+    {
+      "id": "log-results",
+      "name": "Log Sync Result",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1100, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Nightly 02:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Integrations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Integrations": {
+      "main": [
+        [
+          {
+            "node": "Split Into Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Items": {
+      "main": [
+        [
+          {
+            "node": "POST /api/integrations/{id}/sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /api/integrations/{id}/sync": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
