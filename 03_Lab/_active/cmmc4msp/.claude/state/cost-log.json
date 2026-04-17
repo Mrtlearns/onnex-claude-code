@@ -62,6 +62,19 @@
       },
       "total_calls": 1349,
       "weight_total": 1135
+    },
+    {
+      "date": "2026-04-17",
+      "tools": {
+        "Bash": 23,
+        "Read": 10,
+        "Glob": 3,
+        "Write": 2,
+        "Edit": 9,
+        "Agent": 1
+      },
+      "total_calls": 48,
+      "weight_total": 44
     }
   ]
 }
