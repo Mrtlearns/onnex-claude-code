@@ -48,16 +48,20 @@
     {
       "date": "2026-04-16",
       "tools": {
-        "Bash": 799,
-        "Read": 93,
-        "Write": 27,
-        "Edit": 63,
-        "Glob": 16,
-        "Grep": 7,
-        "ToolSearch": 1
+        "Bash": 917,
+        "Read": 192,
+        "Write": 45,
+        "Edit": 105,
+        "Glob": 39,
+        "Grep": 28,
+        "ToolSearch": 5,
+        "Agent": 5,
+        "ExitPlanMode": 1,
+        "TaskCreate": 4,
+        "TaskUpdate": 5
       },
-      "total_calls": 1006,
-      "weight_total": 890
+      "total_calls": 1346,
+      "weight_total": 1132
     }
   ]
 }
