@@ -28,3 +28,30 @@ What should this dropdown do?
 - Possibly `frontend/src/components/ut/rules/RuleSetEditor.tsx` — UI logic for unassigned customers
 
 ---
+
+### UT Customers — Placeholder Rates to Confirm
+**Priority:** Low
+**Added:** 2026-04-17
+
+5 customers inserted with `$225` standard defaults and `{"placeholder": true}` in `custom_variables`. Update rates when pricing is confirmed with each customer.
+
+| Customer | Action needed |
+|----------|--------------|
+| CALIFORNIA AMFORGE | Confirm hourly rate, min charge, tech fee, lot pattern |
+| iLAM PRECISION | Confirm hourly rate, min charge, tech fee, lot pattern |
+| SUNSHINE METALS | Confirm hourly rate, min charge, tech fee, lot pattern |
+| TECTON | Confirm hourly rate, min charge, tech fee, lot pattern |
+| VELOCITY PRECISION | Confirm hourly rate, min charge, tech fee, lot pattern |
+
+**How to update:** `UPDATE ut.customers SET hourly_rate=X, ... WHERE name='...'`
+Remove the `placeholder` key from `custom_variables` once confirmed.
+
+---
+
+### UNIVERSAL METALS — `has_tech_fee` Flag vs Rule Expression
+**Priority:** Low / Informational
+**Added:** 2026-04-17
+
+`has_tech_fee = false` on the UNIVERSAL METALS customer record is intentional — the v2 rule set bypasses this flag and applies `material.name == 'Nickel alloys' ? 125 : 0` directly in the lot_calculation expression. Do not flip `has_tech_fee` to `true` without also updating the rule expression, or the default rule path will double-charge the tech fee.
+
+---
