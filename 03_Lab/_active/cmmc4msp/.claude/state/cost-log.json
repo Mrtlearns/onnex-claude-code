@@ -66,16 +66,16 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Bash": 104,
-        "Read": 42,
+        "Bash": 125,
+        "Read": 44,
         "Glob": 8,
         "Write": 16,
-        "Edit": 11,
+        "Edit": 17,
         "Agent": 4,
         "Grep": 5
       },
-      "total_calls": 190,
-      "weight_total": 171
+      "total_calls": 219,
+      "weight_total": 198
     }
   ]
 }
