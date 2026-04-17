@@ -12,6 +12,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Allows frontend tests to import real API pure functions without mirroring.
+      // Usage: import { keywordDetectTypes } from '@ndtv1/api/lib/ndt-classify'
+      '@ndtv1/api': path.resolve(__dirname, '../api/src'),
     },
   },
   server: {

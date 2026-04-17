@@ -1,36 +1,15 @@
 /**
- * Unit tests for the Email Checks Engine pure functions
- * (keywordDetectTypes, keywordDetectPartMaterial)
+ * Unit tests for the Email Checks Engine pure functions.
  *
- * WARNING: These functions are mirrored from api/src/lib/emailChecks.ts.
- * If you change the regex in that file you MUST update the mirrors here too.
- * The canonical source of truth is the API file.
+ * Imports the REAL functions from api/src/lib/ndt-classify.ts via the
+ * @ndtv1/api path alias (vite.config.ts + tsconfig.app.json).
+ * No more manual mirroring — if the API regex changes, these tests break here.
  *
  * LLM and DB calls are not tested here — those require integration tests.
  */
 
 import { describe, it, expect } from 'vitest'
-
-// ── Mirror of engine pure functions — MUST match api/src/lib/emailChecks.ts ──
-
-function keywordDetectTypes(text: string): string[] {
-  const lower = text.toLowerCase()
-  const detected: string[] = []
-  if (/\brt\b|radiograph|radiography|x.?ray|gamma.?ray|\bfilm\b|rad\s*test/.test(lower)) detected.push('RT')
-  // ultrason\w+ catches ultrasonic, ultrasonics, ultrasonically, ultrasound
-  if (/\but\b|ultrason\w+|phased.?array|\btofd\b|shear.?wave|immersion\s*(test|scan)|c.?scan|\bcscan\b|thickness\s*(test|measur|check)/.test(lower)) detected.push('UT')
-  if (/\bet\b|eddy.?current|\bect\b/.test(lower)) detected.push('ET')
-  if (/\bmt\b|magnetic.?particle|mag.?particle|\bmpi\b|mag\s*test/.test(lower)) detected.push('MT')
-  if (/\bpt\b|penetrant|dye.?pen|\blpi\b|\bfpi\b|liquid\s*penetrant|fluorescent\s*penetrant/.test(lower)) detected.push('PT')
-  if (/\bvt\b|visual\s*(test|inspect|examin)/.test(lower)) detected.push('VT')
-  return detected
-}
-
-function keywordDetectPartMaterial(text: string): boolean {
-  const hasPartNumber = /p[\/#]?n[\s:.]+\S+|part\s*(no|number|#)[\s:.]+\S+|\bpn[\s:.]+\S+/i.test(text)
-  const hasMaterial = /carbon\s*steel|stainless|alumin|inconel|titanium|duplex|copper|cast\s*iron/i.test(text)
-  return hasPartNumber || hasMaterial
-}
+import { keywordDetectTypes, keywordDetectPartMaterial } from '@ndtv1/api/lib/ndt-classify'
 
 // ── Tests: keywordDetectTypes ─────────────────────────────────────────────────
 

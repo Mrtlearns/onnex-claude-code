@@ -17,7 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ndtv1/api/*": ["../api/src/*"]
     },
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },

@@ -19,6 +19,8 @@
  */
 
 import { query, queryOne } from '../db'
+import { keywordDetectTypes, keywordDetectPartMaterial, INSPECTION_TYPES } from './ndt-classify'
+export { keywordDetectTypes, keywordDetectPartMaterial } from './ndt-classify'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,38 +48,9 @@ interface EmailCheckRow {
   response_message: string
 }
 
-// ── NDT keyword detection ────────────────────────────────────────────────────
+// ── NDT keyword detection (pure functions live in ndt-classify.ts) ───────────
 
 const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://gateway:8012'
-
-const INSPECTION_TYPES = ['RT', 'UT', 'ET', 'MT', 'PT', 'VT'] as const
-
-export function keywordDetectTypes(text: string): string[] {
-  const lower = text.toLowerCase()
-  const detected: string[] = []
-  // RT: Radiographic Testing
-  if (/\brt\b|radiograph|radiography|x.?ray|gamma.?ray|\bfilm\b|rad\s*test/.test(lower)) detected.push('RT')
-  // UT: Ultrasonic Testing — \but\b catches standalone "UT"; ultrason\w+ catches ultrasonically etc.
-  if (/\but\b|ultrason\w+|phased.?array|\btofd\b|shear.?wave|immersion\s*(test|scan)|c.?scan|\bcscan\b|thickness\s*(test|measur|check)/.test(lower)) detected.push('UT')
-  // ET: Eddy Current Testing
-  if (/\bet\b|eddy.?current|\bect\b/.test(lower)) detected.push('ET')
-  // MT: Magnetic Particle Testing
-  if (/\bmt\b|magnetic.?particle|mag.?particle|\bmpi\b|mag\s*test/.test(lower)) detected.push('MT')
-  // PT: Penetrant Testing (Liquid / Fluorescent / Dye)
-  if (/\bpt\b|penetrant|dye.?pen|\blpi\b|\bfpi\b|liquid\s*penetrant|fluorescent\s*penetrant/.test(lower)) detected.push('PT')
-  // VT: Visual Testing
-  if (/\bvt\b|visual\s*(test|inspect|examin)/.test(lower)) detected.push('VT')
-  return detected
-}
-
-function keywordDetectPartMaterial(text: string): boolean {
-  const lower = text.toLowerCase()
-  // Part number: alphanumeric codes like "P/N:", "PN:", "Part No", or bare codes
-  const hasPartNumber = /p[\/#]?n[\s:.]+\S+|part\s*(no|number|#)[\s:.]+\S+|\bpn[\s:.]+\S+/i.test(text)
-  // Material: common NDT materials
-  const hasMaterial = /carbon\s*steel|stainless|alumin|inconel|titanium|duplex|copper|cast\s*iron/i.test(lower)
-  return hasPartNumber || hasMaterial
-}
 
 // ── LLM classify via gateway (reuses integrations.ts pattern) ───────────────
 
