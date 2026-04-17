@@ -96,6 +96,9 @@ run_migration() {
 run_migration "postgres/migrations/001_core_schema.sql"  "001_core_schema"
 run_migration "postgres/migrations/002_controls_seed.sql" "002_controls_seed"
 run_migration "postgres/migrations/003_indexes.sql"       "003_indexes"
+run_migration "postgres/migrations/004_msp_hierarchy.sql" "004_msp_hierarchy"
+run_migration "postgres/migrations/010_assignments_state_machine.sql" "010_assignments_state_machine"
+run_migration "postgres/migrations/011_team_invites.sql"  "011_team_invites"
 
 # ─────────────────────────────────────────────
 # Step 3: Deploy FastAPI
