@@ -51,13 +51,13 @@
         "Bash": 786,
         "Read": 92,
         "Write": 27,
-        "Edit": 61,
+        "Edit": 62,
         "Glob": 15,
         "Grep": 6,
         "ToolSearch": 1
       },
-      "total_calls": 988,
-      "weight_total": 875
+      "total_calls": 989,
+      "weight_total": 876
     }
   ]
 }
