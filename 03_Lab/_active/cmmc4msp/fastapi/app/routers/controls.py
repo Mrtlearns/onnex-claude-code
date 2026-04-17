@@ -1,16 +1,20 @@
 """Controls router — control definitions and program-level control management."""
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any, Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
 from app.models import ControlStatusUpdate
 from app.services import sprs_service
+from app.services.copilot_service import build_context, stream_chat
 
 router = APIRouter()
 
@@ -257,3 +261,178 @@ async def update_program_control(
         ctrl_uid,
     )
     return _row_to_program_control(updated)
+
+
+# ---------------------------------------------------------------------------
+# Copilot chat endpoints
+# ---------------------------------------------------------------------------
+
+
+class ChatMessageRequest(BaseModel):
+    message: str
+
+
+@router.post("/program/{program_id}/{control_id}/chat")
+async def send_chat_message(
+    program_id: str,
+    control_id: str,
+    body: ChatMessageRequest,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Send a message to the compliance copilot for this control."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    # Verify access
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    # Get prior history (last 10 pairs = 20 messages)
+    history_rows = await conn.fetch(
+        """
+        SELECT role, content FROM control_chat_messages
+        WHERE program_control_id = $1 AND user_id = $2
+        ORDER BY created_at DESC LIMIT 20
+        """,
+        pc_uid, uuid.UUID(user["user_id"]),
+    )
+    history = [{"role": r["role"], "content": r["content"]} for r in reversed(history_rows)]
+
+    system_prompt, _ = await build_context(pc_uid, body.message, user.get("org_id", ""), conn)
+
+    # Save user message
+    await conn.execute(
+        """
+        INSERT INTO control_chat_messages (program_control_id, user_id, role, content)
+        VALUES ($1, $2, 'user', $3)
+        """,
+        pc_uid, uuid.UUID(user["user_id"]), body.message,
+    )
+
+    full_response: list[str] = []
+
+    async def _stream():
+        async for chunk in stream_chat(system_prompt, history, body.message):
+            full_response.append(chunk)
+            yield chunk
+        # Save assistant response after streaming completes
+        content = "".join(
+            json.loads(c[6:])["content"]
+            for c in full_response
+            if c.startswith("data: ")
+            and c.strip() != "data: [DONE]"
+            and c[6:].strip() != "[DONE]"
+            and "{" in c
+        )
+        if content:
+            await conn.execute(
+                """
+                INSERT INTO control_chat_messages
+                    (program_control_id, user_id, role, content, model_used)
+                VALUES ($1, $2, 'assistant', $3, $4)
+                """,
+                pc_uid, uuid.UUID(user["user_id"]), content, "anthropic/claude-sonnet-4-6",
+            )
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+@router.get("/program/{program_id}/{control_id}/chat")
+async def get_chat_history(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get conversation history for this control/user."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    rows = await conn.fetch(
+        """
+        SELECT id, role, content, created_at, model_used, tokens_used
+        FROM control_chat_messages
+        WHERE program_control_id = $1 AND user_id = $2
+        ORDER BY created_at ASC
+        """,
+        pc_uid, uuid.UUID(user["user_id"]),
+    )
+    return {
+        "messages": [
+            {
+                "id": str(r["id"]),
+                "role": r["role"],
+                "content": r["content"],
+                "created_at": r["created_at"].isoformat(),
+                "model_used": r.get("model_used"),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.delete("/program/{program_id}/{control_id}/chat", status_code=204)
+async def clear_chat_history(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Clear conversation history for this user/control pair."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    await conn.execute(
+        "DELETE FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2",
+        pc_uid, uuid.UUID(user["user_id"]),
+    )

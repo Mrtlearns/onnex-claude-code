@@ -6,6 +6,7 @@ import { UPDATE_CONTROL_STATUS, UPDATE_CONTROL_NOTES } from '@/graphql/mutations
 import { ControlStatusBadge } from '@/components/ControlStatusBadge'
 import { ArtifactUploader } from '@/components/ArtifactUploader'
 import { AlsoSatisfiesList } from '@/components/AlsoSatisfiesList'
+import { CopilotChat } from '@/components/CopilotChat'
 import { ControlStatus } from '@/lib/types'
 import { CONTROL_STATUS_CONFIG } from '@/lib/constants'
 import {
@@ -49,6 +50,7 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
   const canEdit = user?.role === 'msp_admin' || user?.role === 'client_admin'
 
   const [proofExpanded, setProofExpanded] = useState(false)
+  const [activeTab, setActiveTab] = useState<'artifacts' | 'copilot'>('artifacts')
   const [statusDraft, setStatusDraft] = useState<string>('')
   const [notesDraft, setNotesDraft] = useState<string>('')
   const [notesSaved, setNotesSaved] = useState(false)
@@ -230,7 +232,33 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
         )}
       </div>
 
-      {/* Artifacts */}
+      {/* Tabs: Artifacts | Copilot */}
+      <div>
+        <div className="flex border-b border-gray-200 mb-4">
+          {(['artifacts', 'copilot'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize transition-colors ${
+                activeTab === tab
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'copilot' ? '✦ Copilot' : 'Evidence Artifacts'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'copilot' && (
+          <CopilotChat
+            programId={pc.program_id || ''}
+            controlId={pc.id}
+            accessToken={(session?.user as any)?.accessToken || ''}
+          />
+        )}
+
+        {activeTab === 'artifacts' && (
       <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">Evidence Artifacts</h2>
         {(pc.artifacts || []).length === 0 ? (
@@ -322,6 +350,8 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
             onUploadComplete={() => refetch()}
           />
         </div>
+      </div>
+        )}
       </div>
     </div>
   )
