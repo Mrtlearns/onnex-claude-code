@@ -305,6 +305,7 @@ export async function executeCalculation(
       misc_fee: customer.misc_fee ?? 0,
     },
     material: material ? {
+      name: material.name,
       density_lb_per_cu_in: material.density_lb_per_cu_in,
       class_a_rate_per_lb: material.class_a_rate_per_lb,
       class_aa_rate_per_lb: material.class_aa_rate_per_lb,

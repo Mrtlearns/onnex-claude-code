@@ -211,7 +211,7 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
         const engineResult = await executeCalculation(
           resolved.versionId, geo, dims, scanIndex, loadTime, hourlyRate,
           scanSpeedDivisor, item.quantity, customerForRules, isCScan,
-          material ? { id: material.id, density_lb_per_cu_in: material.density_lb_per_cu_in, class_a_rate_per_lb: material.class_a_rate_per_lb, class_aa_rate_per_lb: material.class_aa_rate_per_lb } : undefined,
+          material ? { id: material.id, name: material.name, density_lb_per_cu_in: material.density_lb_per_cu_in, class_a_rate_per_lb: material.class_a_rate_per_lb, class_aa_rate_per_lb: material.class_aa_rate_per_lb } : undefined,
           item.inspectionClass ?? 'A',
           item.useWeightPricing,
         );
