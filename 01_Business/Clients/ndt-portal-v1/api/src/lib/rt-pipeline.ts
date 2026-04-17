@@ -271,7 +271,7 @@ export async function runRTPipeline(
           images:          undefined,
           // Use OpenRouter model ID format. Sonnet for Stage 2 structured JSON output.
           // Haiku is the DB default (Stage 1); Sonnet for Stage 2 larger response.
-          model: 'anthropic/claude-sonnet-4-5',
+          model: 'anthropic/claude-sonnet-4-6',
         });
 
         // response_json is already parsed — validate directly

@@ -1,7 +1,7 @@
 # NDT Portal — Current Data
 
 > Update after each development session or client interaction.
-> Last updated: 2026-04-15
+> Last updated: 2026-04-17
 
 ## Development Status
 - Pipeline architecture: Complete
@@ -11,9 +11,9 @@
 - ndtv1-comply service: Dockerized, in docker-compose stack
 - ndtv1-sanitize service: Dockerized, in docker-compose stack
 - ndtv1-gateway service: Dockerized, in docker-compose stack (Claude CLI provider added 2026-04-14)
-- Stage 1 LLM (classifier): In progress — inspection type classifier operational for email triage
-- Stage 2 LLM (RT analysis): In progress
-- R3F renderer: Design spec complete, implementation pending
+- **Stage 1 LLM (classifier): Complete** — 9 part types, 27 geometry primitives, Zod validator, pipeline integration (2026-04-17 audit)
+- **Stage 2 LLM (RT analysis): Complete** — base-rt-analyst.txt + 9 module prompts, RTAnalysisSchema validator, retry logic, Nextcloud spec injection (2026-04-17 audit)
+- **R3F renderer: Complete** — PartInspector, SceneCanvas, all 5 zone types (Ring/Line/Patch/Sphere/Arc), geometry factory, inspector store, PNG+STL export (2026-04-17 audit)
 - n8n workflows: WF-1 through WF-7 built (WF-6 Gmail poller, WF-7 auto-reply added 2026-04-14)
 - Demo environment: Not yet built
 - UT calculator: Working — formulas aligned with Excel spreadsheet
@@ -60,7 +60,11 @@ admin, bom, diagram-analyses, documents, email-checks, feedback, inbox, inspecti
 - Renderer budget: 500K triangles at 60 FPS
 - LLM: Anthropic SDK primary, Ollama fallback
 
-## Recent Changes (since 2026-04-09)
+## Recent Changes (since 2026-04-17)
+- Stage 2 model updated: anthropic/claude-sonnet-4-5 → anthropic/claude-sonnet-4-6 (rt-pipeline.ts)
+- current-data.md status corrected after full codebase audit — Stage 1, Stage 2, R3F renderer all complete
+
+## Changes (2026-04-09 → 2026-04-15)
 - Email-to-quote pipeline built end-to-end (steps 8, 9, 11)
 - WF-6 Gmail poller + WF-7 auto-reply n8n workflows
 - Inbox endpoint with bounce/NDR rejection
