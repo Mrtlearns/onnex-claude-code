@@ -54,16 +54,17 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Bash": 128,
-        "Read": 30,
+        "Bash": 132,
+        "Read": 32,
         "Write": 9,
         "Skill": 1,
         "Edit": 18,
         "Agent": 3,
-        "Grep": 1
+        "Grep": 1,
+        "Glob": 2
       },
-      "total_calls": 190,
-      "weight_total": 186
+      "total_calls": 198,
+      "weight_total": 190
     }
   ]
 }
