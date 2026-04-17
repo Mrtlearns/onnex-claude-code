@@ -50,14 +50,14 @@
       "tools": {
         "Bash": 786,
         "Read": 92,
-        "Write": 26,
+        "Write": 27,
         "Edit": 61,
         "Glob": 15,
         "Grep": 6,
         "ToolSearch": 1
       },
-      "total_calls": 987,
-      "weight_total": 874
+      "total_calls": 988,
+      "weight_total": 875
     }
   ]
 }
