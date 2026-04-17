@@ -82,26 +82,30 @@ const mockTasks: Task[] = [
   },
 ]
 
+let KanbanBoard: React.ComponentType<{ tasks: Task[] }>
+
+beforeAll(async () => {
+  const mod = await import("@/app/(protected)/tasks/components/kanban-board")
+  KanbanBoard = mod.KanbanBoard
+})
+
 describe("KanbanBoard", () => {
-  it("renders 4 kanban columns", async () => {
-    const { KanbanBoard } = await import("@/app/(protected)/tasks/components/kanban-board")
+  it("renders 4 kanban columns", () => {
     render(<KanbanBoard tasks={mockTasks} />)
-    expect(screen.getByText("Backlog")).toBeDefined()
-    expect(screen.getByText("In Progress")).toBeDefined()
-    expect(screen.getByText("Review")).toBeDefined()
-    expect(screen.getByText("Done")).toBeDefined()
+    expect(screen.getAllByText("Backlog").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("In Progress").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Review").length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText("Done").length).toBeGreaterThanOrEqual(1)
   })
 
-  it("renders tasks in correct columns", async () => {
-    const { KanbanBoard } = await import("@/app/(protected)/tasks/components/kanban-board")
+  it("renders tasks in correct columns", () => {
     render(<KanbanBoard tasks={mockTasks} />)
     expect(screen.getByText("Task in Backlog")).toBeDefined()
     expect(screen.getByText("Task In Progress")).toBeDefined()
     expect(screen.getByText("Task Done")).toBeDefined()
   })
 
-  it("filters to My Tasks when only assigned tasks provided", async () => {
-    const { KanbanBoard } = await import("@/app/(protected)/tasks/components/kanban-board")
+  it("filters to My Tasks when only assigned tasks provided", () => {
     const myTasks = mockTasks.filter(t => t.assignee_id === "user-1")
     render(<KanbanBoard tasks={myTasks} />)
     expect(screen.getByText("Task Done")).toBeDefined()

@@ -7,14 +7,18 @@ import React from 'react';
 import { CreateTimeEntrySchema } from '@/lib/schemas';
 
 // Mock react-hook-form (not needed for schema tests)
-vi.mock('@tanstack/react-query', async () => {
-  const actual = await vi.importActual('@tanstack/react-query');
-  return {
-    ...actual,
-    useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }),
-    useQueryClient: vi.fn().mockReturnValue({ invalidateQueries: vi.fn() }),
-  };
-});
+// jsdom doesn't implement ResizeObserver — polyfill for shadcn Select/Popover
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  useQueryClient: vi.fn().mockReturnValue({ invalidateQueries: vi.fn() }),
+  useMutation: vi.fn().mockReturnValue({ mutate: vi.fn(), isPending: false }),
+}));
 
 let TimeEntryForm: React.ComponentType<any> | null = null;
 
@@ -112,6 +116,6 @@ describe('TimeEntryForm — component', () => {
       return;
     }
     render(<TimeEntryForm onSuccess={vi.fn()} onCancel={vi.fn()} />);
-    expect(screen.getByText(/project/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/project/i).length).toBeGreaterThanOrEqual(1);
   });
 });

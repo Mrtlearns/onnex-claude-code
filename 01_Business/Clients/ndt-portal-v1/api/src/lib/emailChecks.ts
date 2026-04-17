@@ -52,13 +52,13 @@ const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://gateway:8012'
 
 const INSPECTION_TYPES = ['RT', 'UT', 'ET', 'MT', 'PT', 'VT'] as const
 
-function keywordDetectTypes(text: string): string[] {
+export function keywordDetectTypes(text: string): string[] {
   const lower = text.toLowerCase()
   const detected: string[] = []
   // RT: Radiographic Testing
   if (/\brt\b|radiograph|radiography|x.?ray|gamma.?ray|\bfilm\b|rad\s*test/.test(lower)) detected.push('RT')
-  // UT: Ultrasonic Testing
-  if (/\but\b|ultrasonic|ultrasound|phased.?array|\btofd\b|shear.?wave|immersion\s*(test|scan)|c.?scan|\bcscan\b|thickness\s*(test|measur|check)/.test(lower)) detected.push('UT')
+  // UT: Ultrasonic Testing — \but\b catches standalone "UT"; ultrason\w+ catches ultrasonically etc.
+  if (/\but\b|ultrason\w+|phased.?array|\btofd\b|shear.?wave|immersion\s*(test|scan)|c.?scan|\bcscan\b|thickness\s*(test|measur|check)/.test(lower)) detected.push('UT')
   // ET: Eddy Current Testing
   if (/\bet\b|eddy.?current|\bect\b/.test(lower)) detected.push('ET')
   // MT: Magnetic Particle Testing
@@ -84,11 +84,28 @@ function keywordDetectPartMaterial(text: string): boolean {
 async function llmClassifyTypes(emailText: string): Promise<{
   types: string[]
   confidence: 'high' | 'medium' | 'low'
-  source: 'llm' | 'keyword'
+  source: 'llm' | 'keyword' | 'llm+keyword'
 }> {
-  const systemPrompt = `You are an NDT inspection request classifier. Read the email and identify NDT methods requested.
-NDT Methods: RT (Radiographic), UT (Ultrasonic), ET (Eddy Current), MT (Magnetic Particle), PT (Penetrant), VT (Visual).
-Respond ONLY with valid JSON: {"inspectionTypes": ["RT"], "confidence": "high|medium|low"}`
+  // Keywords always run — LLM result is merged on top, never overrides them silently.
+  const keywordTypes = keywordDetectTypes(emailText)
+
+  const systemPrompt = `You are an NDT inspection request classifier. Identify all NDT methods mentioned in the email.
+
+NDT Methods:
+- RT: Radiographic Testing (x-ray, gamma ray, radiograph, film)
+- UT: Ultrasonic Testing (ultrasonic, ultrasonics, phased array, TOFD, shear wave, C-scan)
+- ET: Eddy Current Testing (eddy current, ECT)
+- MT: Magnetic Particle Testing (magnetic particle, MPI)
+- PT: Liquid Penetrant Testing (penetrant, dye pen, LPI, FPI)
+- VT: Visual Testing (visual inspection, visual test)
+
+Rules:
+- Include ALL methods mentioned, even briefly.
+- Do not infer methods not explicitly mentioned.
+- confidence: "high" if method is unambiguously named, "medium" if implied, "low" if unclear.
+
+Respond ONLY with valid JSON (no markdown):
+{"inspectionTypes": ["UT", "RT"], "confidence": "high"}`
 
   try {
     const gwResponse = await fetch(`${GATEWAY_URL}/v1/chat`, {
@@ -105,29 +122,35 @@ Respond ONLY with valid JSON: {"inspectionTypes": ["RT"], "confidence": "high|me
 
     if (gwResponse.ok) {
       const gwData = await gwResponse.json() as { content?: Array<{ text?: string }> }
-      const text = gwData?.content?.[0]?.text ?? ''
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      const rawText = gwData?.content?.[0]?.text ?? ''
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as { inspectionTypes?: string[]; confidence?: string }
-        const valid = (parsed.inspectionTypes ?? [])
+        const llmTypes = (parsed.inspectionTypes ?? [])
           .filter(t => INSPECTION_TYPES.includes(t as typeof INSPECTION_TYPES[number]))
-        if (valid.length > 0) {
+
+        // Union LLM results with keyword results — keywords can only ADD, never suppress
+        const merged = [...new Set([...llmTypes, ...keywordTypes])]
+        const addedByKeyword = merged.length > llmTypes.length
+
+        if (merged.length > 0) {
+          console.log(`[emailChecks] classify: llm=${JSON.stringify(llmTypes)} kw=${JSON.stringify(keywordTypes)} merged=${JSON.stringify(merged)}`)
           return {
-            types: valid,
+            types: merged,
             confidence: (parsed.confidence ?? 'medium') as 'high' | 'medium' | 'low',
-            source: 'llm',
+            source: addedByKeyword ? 'llm+keyword' : 'llm',
           }
         }
       }
     }
-  } catch {
-    // fall through to keyword
+  } catch (err) {
+    console.warn('[emailChecks] LLM classify failed, using keywords only:', err)
   }
 
-  const keyword = keywordDetectTypes(emailText)
+  console.log(`[emailChecks] classify: keyword-only=${JSON.stringify(keywordTypes)}`)
   return {
-    types: keyword,
-    confidence: keyword.length > 0 ? 'medium' : 'low',
+    types: keywordTypes,
+    confidence: keywordTypes.length > 0 ? 'medium' : 'low',
     source: 'keyword',
   }
 }

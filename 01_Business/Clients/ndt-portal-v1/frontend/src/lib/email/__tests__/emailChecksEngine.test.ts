@@ -2,22 +2,27 @@
  * Unit tests for the Email Checks Engine pure functions
  * (keywordDetectTypes, keywordDetectPartMaterial)
  *
+ * WARNING: These functions are mirrored from api/src/lib/emailChecks.ts.
+ * If you change the regex in that file you MUST update the mirrors here too.
+ * The canonical source of truth is the API file.
+ *
  * LLM and DB calls are not tested here — those require integration tests.
  */
 
 import { describe, it, expect } from 'vitest'
 
-// ── Mirror of engine pure functions ──────────────────────────────────────────
+// ── Mirror of engine pure functions — MUST match api/src/lib/emailChecks.ts ──
 
 function keywordDetectTypes(text: string): string[] {
   const lower = text.toLowerCase()
   const detected: string[] = []
-  if (/\brt\b|radiograph|x.?ray|gamma.?ray|film/.test(lower)) detected.push('RT')
-  if (/\but\b|ultrasonic|phased.?array|tofd/.test(lower)) detected.push('UT')
-  if (/\bet\b|eddy.?current/.test(lower)) detected.push('ET')
-  if (/\bmt\b|magnetic.?particle|mag.?particle/.test(lower)) detected.push('MT')
-  if (/\bpt\b|penetrant|dye.?pen/.test(lower)) detected.push('PT')
-  if (/\bvt\b|visual.?test/.test(lower)) detected.push('VT')
+  if (/\brt\b|radiograph|radiography|x.?ray|gamma.?ray|\bfilm\b|rad\s*test/.test(lower)) detected.push('RT')
+  // ultrason\w+ catches ultrasonic, ultrasonics, ultrasonically, ultrasound
+  if (/\but\b|ultrason\w+|phased.?array|\btofd\b|shear.?wave|immersion\s*(test|scan)|c.?scan|\bcscan\b|thickness\s*(test|measur|check)/.test(lower)) detected.push('UT')
+  if (/\bet\b|eddy.?current|\bect\b/.test(lower)) detected.push('ET')
+  if (/\bmt\b|magnetic.?particle|mag.?particle|\bmpi\b|mag\s*test/.test(lower)) detected.push('MT')
+  if (/\bpt\b|penetrant|dye.?pen|\blpi\b|\bfpi\b|liquid\s*penetrant|fluorescent\s*penetrant/.test(lower)) detected.push('PT')
+  if (/\bvt\b|visual\s*(test|inspect|examin)/.test(lower)) detected.push('VT')
   return detected
 }
 
@@ -42,12 +47,32 @@ describe('keywordDetectTypes', () => {
     expect(keywordDetectTypes('x-ray of the weld')).toContain('RT')
   })
 
+  it('detects UT from standalone "UT" keyword (\\but\\b)', () => {
+    expect(keywordDetectTypes('We need UT inspection on this weld')).toContain('UT')
+  })
+
+  it('detects UT from standalone "UT" at end of sentence', () => {
+    expect(keywordDetectTypes('Please quote for UT.')).toContain('UT')
+  })
+
+  it('detects UT from uppercase "UT" in subject line', () => {
+    expect(keywordDetectTypes('Subject: UT Quote Request')).toContain('UT')
+  })
+
   it('detects UT from ultrasonic', () => {
     expect(keywordDetectTypes('Ultrasonic testing required')).toContain('UT')
   })
 
+  it('detects UT from ultrasonically (adverb form)', () => {
+    expect(keywordDetectTypes('The welds were ultrasonically inspected')).toContain('UT')
+  })
+
   it('detects UT from phased array', () => {
     expect(keywordDetectTypes('phased array scan')).toContain('UT')
+  })
+
+  it('does not match "UT" inside longer words (e.g. "output", "strut")', () => {
+    expect(keywordDetectTypes('The strut output should be inspected visually')).not.toContain('UT')
   })
 
   it('detects ET from eddy current', () => {

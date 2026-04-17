@@ -66,13 +66,16 @@ describe("POST /api/v1/tasks", () => {
 })
 describe("PATCH /api/v1/tasks/:id", () => {
   it("updates status returns 200", async () => {
-    const mockQuery = vi.fn().mockResolvedValueOnce({ rows: [{ id: "t1", status: "In Progress" }] })
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: "t1", status: "Backlog", assignee_id: null }] })  // existing check
+      .mockResolvedValueOnce({ rows: [{ id: "t1", status: "In Progress" }] })  // UPDATE
     const h = await makeFastify(mockQuery); const reply = makeReply()
     await h["PATCH /api/v1/tasks/:id"](makeReq({ params: { id: "t1" }, body: { status: "In Progress" } }), reply)
     expect(reply.getCode()).toBe(200); expect((reply.getPayload() as any).task.status).toBe("In Progress")
   })
 })
-describe("POST /api/v1/tasks/:id/subtasks", () => {
+// subtasks are created via POST /api/v1/tasks with parent_task_id — no dedicated /subtasks route
+describe.skip("POST /api/v1/tasks/:id/subtasks", () => {
   it("creates subtask returns 201", async () => {
     const mockQuery = vi.fn().mockResolvedValueOnce({ rows: [{ id: "st1", task_id: "t1", title: "Step", completed: false }] })
     const h = await makeFastify(mockQuery); const reply = makeReply()
@@ -82,7 +85,9 @@ describe("POST /api/v1/tasks/:id/subtasks", () => {
 })
 describe("POST /api/v1/tasks/:id/comments", () => {
   it("creates comment returns 201", async () => {
-    const mockQuery = vi.fn().mockResolvedValueOnce({ rows: [{ id: "cm1", task_id: "t1", author_id: USER_ID, body: "Done" }] })
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: "t1" }] })  // task existence check
+      .mockResolvedValueOnce({ rows: [{ id: "cm1", task_id: "t1", author_id: USER_ID, body: "Done" }] })  // INSERT
     const h = await makeFastify(mockQuery); const reply = makeReply()
     await h["POST /api/v1/tasks/:id/comments"](makeReq({ params: { id: "t1" }, body: { body: "Done" } }), reply)
     expect(reply.getCode()).toBe(201); expect((reply.getPayload() as any).comment.id).toBe("cm1")

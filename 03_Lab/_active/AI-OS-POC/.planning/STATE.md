@@ -12,7 +12,7 @@
 |-------|------|--------|
 | 01–10 | Core modules (CRM, Projects, Tasks, Deals, Invoices, Time Tracking, Docs, AI, Portal, Types) | ✅ Complete |
 | 11 | Reports + Admin | ✅ Complete |
-| 12 | Validation + Demo Seed | 📋 Planned |
+| 12 | Validation + Demo Seed | 🔄 In Progress |
 
 ---
 
