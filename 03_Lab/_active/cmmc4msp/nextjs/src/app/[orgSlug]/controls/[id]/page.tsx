@@ -51,6 +51,8 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
 
   const [proofExpanded, setProofExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'artifacts' | 'copilot'>('artifacts')
+  const [generatingDraft, setGeneratingDraft] = useState(false)
+  const [draftGenerated, setDraftGenerated] = useState(false)
   const [statusDraft, setStatusDraft] = useState<string>('')
   const [notesDraft, setNotesDraft] = useState<string>('')
   const [notesSaved, setNotesSaved] = useState(false)
@@ -72,6 +74,19 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
 
   const pc = data?.program_controls_by_pk
   const def = pc?.control_definition
+
+  const handleGenerateDraft = async () => {
+    setGeneratingDraft(true)
+    const token = (session?.user as any)?.accessToken
+    const API = process.env.NEXT_PUBLIC_API_URL || ''
+    await fetch(`${API}/api/controls/program/${pc?.program_id}/${pc?.id}/draft-policy`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    setGeneratingDraft(false)
+    setDraftGenerated(true)
+    setTimeout(() => setDraftGenerated(false), 4000)
+  }
 
   const makeApplyHandler = (artifactId: string) => async (controlDefinitionId: string) => {
     const token = (session?.user as any)?.accessToken
@@ -231,6 +246,28 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
           </p>
         )}
       </div>
+
+      {/* Policy Draft */}
+      {canEdit && pc?.status && !['fully_implemented', 'not_applicable'].includes(pc.status) && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-purple-800">AI Policy Draft</p>
+            <p className="text-xs text-purple-600 mt-0.5">Generate a first-pass policy document tailored to your environment.</p>
+          </div>
+          <button
+            onClick={handleGenerateDraft}
+            disabled={generatingDraft}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {generatingDraft ? (
+              <>
+                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Drafting…
+              </>
+            ) : draftGenerated ? '✓ Draft queued' : '✦ Generate Draft Policy'}
+          </button>
+        </div>
+      )}
 
       {/* Tabs: Artifacts | Copilot */}
       <div>

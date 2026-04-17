@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
     # Ensure required buckets exist — non-fatal: bad credentials shouldn't
     # prevent startup; artifact endpoints will fail at request time instead.
-    for bucket in ("cmmc-artifacts", "cmmc-reports"):
+    for bucket in ("cmmc-artifacts", "cmmc-reports", "cmmc-drafts"):
         try:
             ensure_bucket(app.state.minio, bucket)
         except Exception as exc:
