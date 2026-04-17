@@ -600,6 +600,142 @@ async def get_draft_policy(
     }
 
 
+# ---------------------------------------------------------------------------
+# Gap Analysis endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/program/{program_id}/{control_id}/gap-analysis", status_code=202)
+async def trigger_gap_analysis(
+    program_id: str,
+    control_id: str,
+    background_tasks: BackgroundTasks,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Trigger async gap analysis. Returns immediately; poll GET for results."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        prog_uid = _uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    async def _run():
+        from app.services.gap_analysis_service import run_gap_analysis
+        try:
+            await run_gap_analysis(pc_uid, _uuid.UUID(user["user_id"]), conn)
+        except Exception:
+            pass
+
+    background_tasks.add_task(_run)
+    return {"status": "generating", "message": "Gap analysis started. Poll GET /gap-analysis for results."}
+
+
+@router.get("/program/{program_id}/{control_id}/gap-analysis")
+async def list_gap_analyses(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """List gap analyses for a control."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        prog_uid = _uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    rows = await conn.fetch(
+        """
+        SELECT id, status, coverage_pct, objectives_covered, objectives_total,
+               overall_assessment, suggested_next_upload, created_at
+        FROM control_gap_analyses
+        WHERE program_control_id = $1
+        ORDER BY created_at DESC LIMIT 10
+        """,
+        pc_uid,
+    )
+    return {
+        "analyses": [
+            {
+                "id": str(r["id"]),
+                "status": r["status"],
+                "coverage_pct": r["coverage_pct"],
+                "objectives_covered": r["objectives_covered"],
+                "objectives_total": r["objectives_total"],
+                "overall_assessment": r["overall_assessment"],
+                "suggested_next_upload": r["suggested_next_upload"],
+                "created_at": r["created_at"].isoformat(),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/program/{program_id}/{control_id}/gap-analysis/{analysis_id}")
+async def get_gap_analysis(
+    program_id: str,
+    control_id: str,
+    analysis_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get a specific gap analysis by ID."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        analysis_uid = _uuid.UUID(analysis_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    row = await conn.fetchrow(
+        """
+        SELECT ga.*, p.org_id
+        FROM control_gap_analyses ga
+        JOIN program_controls pc ON ga.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE ga.id = $1 AND ga.program_control_id = $2
+        """,
+        analysis_uid, pc_uid,
+    )
+    if not row:
+        raise HTTPException(404, "Analysis not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(row["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    return {
+        "id": str(row["id"]),
+        "status": row["status"],
+        "gap_report": row["gap_report"],
+        "overall_assessment": row["overall_assessment"],
+        "suggested_next_upload": row["suggested_next_upload"],
+        "coverage_pct": row["coverage_pct"],
+        "objectives_covered": row["objectives_covered"],
+        "objectives_total": row["objectives_total"],
+        "created_at": row["created_at"].isoformat(),
+    }
+
+
 @router.post("/program/{program_id}/{control_id}/draft-policy/{draft_id}/review")
 async def review_draft_policy(
     program_id: str,
