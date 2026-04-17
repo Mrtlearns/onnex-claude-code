@@ -67,19 +67,20 @@
       "date": "2026-04-17",
       "tools": {
         "Bash": 374,
-        "Read": 170,
-        "Glob": 15,
-        "Write": 19,
+        "Read": 179,
+        "Glob": 16,
+        "Write": 24,
         "Edit": 48,
         "Agent": 8,
         "Grep": 7,
-        "ToolSearch": 5,
+        "ToolSearch": 6,
         "mcp__claude_ai_Google_Drive__search_files": 1,
         "mcp__claude_ai_Google_Drive__read_file_content": 1,
-        "mcp__claude_ai_Google_Drive__download_file_content": 1
+        "mcp__claude_ai_Google_Drive__download_file_content": 1,
+        "TodoWrite": 6
       },
-      "total_calls": 649,
-      "weight_total": 529
+      "total_calls": 671,
+      "weight_total": 541
     }
   ]
 }
