@@ -18,3 +18,18 @@ files/rclone*.conf
 
 # Terminal Paste Image folder
 .cp-images/
+
+# Node / Next.js
+**/node_modules/
+nextjs/.next/
+nextjs/out/
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+fastapi/.venv/
+fastapi/venv/
+
+# Pytest
+**/.pytest_cache/
