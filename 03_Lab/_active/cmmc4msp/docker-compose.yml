@@ -247,7 +247,6 @@ services:
         NEXT_PUBLIC_HASURA_URL: https://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_HASURA_WS_URL: wss://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_API_URL: https://api.cmmc4msp.on-nex.us
-        NEXT_PUBLIC_MINIO_PUBLIC_URL: https://s3.cmmc4msp.on-nex.us
     container_name: cmmc-nextjs
     restart: unless-stopped
     environment:

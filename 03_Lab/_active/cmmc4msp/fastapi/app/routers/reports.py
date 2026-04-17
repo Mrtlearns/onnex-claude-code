@@ -61,6 +61,7 @@ async def generate_ssp(
         str(prog_uid),
         conn,
         request.app.state.minio,
+        request.app.state.minio_public,
     )
     return {"download_url": download_url}
 
@@ -84,6 +85,7 @@ async def generate_poam(
         str(prog_uid),
         conn,
         request.app.state.minio,
+        request.app.state.minio_public,
     )
     return {"download_url": download_url}
 

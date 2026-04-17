@@ -7,7 +7,7 @@ from datetime import datetime, date
 import asyncpg
 from minio import Minio
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -83,6 +83,7 @@ async def generate_ssp_pdf(
     program_id: str,
     conn: asyncpg.Connection,
     minio_client: Minio,
+    minio_public: Minio | None = None,
 ) -> str:
     """Generate an SSP PDF and upload it to MinIO. Returns presigned download URL."""
     # ---- fetch program + org ------------------------------------------------
@@ -206,7 +207,7 @@ async def generate_ssp_pdf(
     ensure_bucket(minio_client, REPORTS_BUCKET)
     key = f"{program_id}/ssp_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
     upload_bytes(minio_client, REPORTS_BUCKET, key, pdf_bytes, "application/pdf")
-    return get_presigned_download_url(minio_client, REPORTS_BUCKET, key)
+    return get_presigned_download_url(minio_public or minio_client, REPORTS_BUCKET, key)
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +219,7 @@ async def generate_poam_pdf(
     program_id: str,
     conn: asyncpg.Connection,
     minio_client: Minio,
+    minio_public: Minio | None = None,
 ) -> str:
     """Generate a POA&M PDF and upload it to MinIO. Returns presigned download URL."""
     program = await conn.fetchrow(
@@ -295,7 +297,8 @@ async def generate_poam_pdf(
                 notes or "Remediation plan pending.",
             ])
 
-        col_widths = [0.75 * inch, 1.5 * inch, 0.9 * inch, 1.1 * inch, 0.7 * inch, 0.8 * inch, 1.75 * inch]
+        # Landscape letter = 11" wide; 9.5" usable after margins
+        col_widths = [0.65 * inch, 2.0 * inch, 1.0 * inch, 1.2 * inch, 0.75 * inch, 0.9 * inch, 2.95 * inch]
         tbl = Table(table_data, colWidths=col_widths, repeatRows=1)
         tbl.setStyle(
             TableStyle([
@@ -314,7 +317,7 @@ async def generate_poam_pdf(
 
     # ---- Build PDF ----------------------------------------------------------
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=letter, rightMargin=0.75 * inch, leftMargin=0.75 * inch,
+    doc = SimpleDocTemplate(buf, pagesize=landscape(letter), rightMargin=0.75 * inch, leftMargin=0.75 * inch,
                             topMargin=1 * inch, bottomMargin=0.75 * inch)
     doc.build(story, onFirstPage=_add_page_number, onLaterPages=_add_page_number)
     pdf_bytes = buf.getvalue()
@@ -323,4 +326,4 @@ async def generate_poam_pdf(
     ensure_bucket(minio_client, REPORTS_BUCKET)
     key = f"{program_id}/poam_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
     upload_bytes(minio_client, REPORTS_BUCKET, key, pdf_bytes, "application/pdf")
-    return get_presigned_download_url(minio_client, REPORTS_BUCKET, key)
+    return get_presigned_download_url(minio_public or minio_client, REPORTS_BUCKET, key)

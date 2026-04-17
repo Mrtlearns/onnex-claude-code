@@ -26,6 +26,20 @@ async def lifespan(app: FastAPI):
         secure=settings.minio_secure,
     )
 
+    # Public client — signs presigned URLs with the public hostname so browsers
+    # can PUT/GET directly without HMAC host-mismatch errors.
+    if settings.minio_public_url:
+        from urllib.parse import urlparse as _up
+        _pub = _up(settings.minio_public_url.rstrip("/"))
+        app.state.minio_public = Minio(
+            _pub.netloc,
+            access_key=settings.minio_access_key,
+            secret_key=settings.minio_secret_key,
+            secure=_pub.scheme == "https",
+        )
+    else:
+        app.state.minio_public = app.state.minio
+
     # Ensure required buckets exist — non-fatal: bad credentials shouldn't
     # prevent startup; artifact endpoints will fail at request time instead.
     for bucket in ("cmmc-artifacts", "cmmc-reports"):

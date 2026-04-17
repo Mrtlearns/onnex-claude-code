@@ -6,7 +6,7 @@ import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.config import settings
@@ -17,23 +17,12 @@ from app.services.extraction_service import chunk_text, extract_text
 from app.services.minio_service import (
     download_bytes,
     get_presigned_download_url,
-    get_presigned_upload_url,
+    upload_bytes,
 )
 
 ARTIFACTS_BUCKET = "cmmc-artifacts"
 
 router = APIRouter()
-
-
-def _public_presigned(url: str) -> str:
-    """Rewrite internal MinIO host to public URL for browser-facing presigned links."""
-    public = (settings.minio_public_url or "").rstrip("/")
-    if not public:
-        return url
-    from urllib.parse import urlparse, urlunparse
-    parsed = urlparse(url)
-    pub = urlparse(public)
-    return urlunparse(parsed._replace(scheme=pub.scheme, netloc=pub.netloc))
 
 
 def _row_to_artifact(row: asyncpg.Record) -> dict:
@@ -99,8 +88,7 @@ async def extract_artifact_text_n8n(
 async def initiate_upload(
     program_control_id: str,
     request: Request,
-    file_name: str = "artifact",
-    mime_type: str = "application/octet-stream",
+    file: UploadFile = File(...),
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ) -> dict:
@@ -109,7 +97,6 @@ async def initiate_upload(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_control_id")
 
-    # Resolve program + org for authz
     pc = await conn.fetchrow(
         """
         SELECT pc.*, p.org_id
@@ -124,10 +111,13 @@ async def initiate_upload(
 
     require_same_org(str(pc["org_id"]), user)
 
+    file_name = file.filename or "artifact"
+    mime_type = file.content_type or "application/octet-stream"
     artifact_id = uuid.uuid4()
     minio_key = f"{pc['program_id']}/{pc_uid}/{artifact_id}/{file_name}"
 
-    # Insert artifact record
+    file_bytes = await file.read()
+
     await conn.execute(
         """
         INSERT INTO artifacts (id, program_control_id, file_name, minio_key, mime_type, assessment_status, assessment_attempts)
@@ -141,10 +131,8 @@ async def initiate_upload(
     )
 
     minio_client = request.app.state.minio
-    presigned_url = _public_presigned(get_presigned_upload_url(minio_client, ARTIFACTS_BUCKET, minio_key))
+    upload_bytes(minio_client, ARTIFACTS_BUCKET, minio_key, file_bytes, mime_type)
 
-    # Fire-and-forget: n8n assessment + background chunk/embed for RAG
-    # Download URL stays internal — only used server-side by n8n/fastapi
     download_presigned = get_presigned_download_url(minio_client, ARTIFACTS_BUCKET, minio_key)
     asyncio.create_task(
         n8n_service.trigger_assessment(
@@ -153,13 +141,11 @@ async def initiate_upload(
             download_presigned,
         )
     )
-    # Background: download bytes, chunk text, embed, store in artifact_chunks
     asyncio.create_task(
         _chunk_and_embed(request.app.state.pool, artifact_id, minio_client, minio_key, file_name, mime_type)
     )
 
     return {
-        "presigned_url": presigned_url,
         "artifact_id": str(artifact_id),
         "minio_key": minio_key,
     }

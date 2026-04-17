@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useState } from 'react'
-import { initArtifactUpload, uploadFileToMinIO } from '@/lib/api'
+import { uploadArtifact } from '@/lib/api'
 import {
   CloudArrowUpIcon,
   CheckCircleIcon,
@@ -46,17 +46,10 @@ export function ArtifactUploader({ programControlId, onUploadComplete }: Artifac
       setProgress(10)
 
       try {
-        const { presigned_url, artifact_id } = await initArtifactUpload(
-          programControlId,
-          file.name,
-          file.type
-        )
-        setProgress(40)
-        await uploadFileToMinIO(presigned_url, file)
+        const { artifact_id } = await uploadArtifact(programControlId, file)
         setProgress(80)
         setState('processing')
         setProgress(100)
-        // Processing is async server-side; notify parent and show processing state
         onUploadComplete(artifact_id)
         // Transition to assessed state after a delay (real state comes from subscription/polling)
         setTimeout(() => setState('assessed'), 3000)
