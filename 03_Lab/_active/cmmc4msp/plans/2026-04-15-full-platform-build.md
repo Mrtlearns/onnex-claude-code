@@ -1,7 +1,7 @@
 # Plan: CMMC Compliance OS — Full Platform Build
 
 **Created:** 2026-04-15
-**Status:** Draft
+**Status:** Complete — see ADDENDUM 2026-04-16
 **Request:** Implement all application code for the CMMC Compliance OS platform. Infrastructure is already deployed and running on VM. Deadline: 2026-04-18.
 
 ---
@@ -734,3 +734,61 @@ Steps 1+2 parallel → Steps 3+4+5 parallel → Step 6 → Step 7.
 - **Hasura JWT_SECRET is hardcoded in docker-compose**: This is the HS256 shared secret. After Authentik OIDC is configured, switch to RS256 with JWKS endpoint. For MVP, HS256 works and FastAPI uses the same secret.
 - **Report PDF quality**: ReportLab generates functional PDFs, not design-polished. Sufficient for C3PAO review.
 - **MinIO is external**: Not in docker-compose. Already running on TrueNAS at 10.10.20.30:9000 with buckets created. FastAPI uses env vars MINIO_ENDPOINT/MINIO_SVC_KEY/MINIO_SVC_SECRET.
+
+---
+
+## ADDENDUM 2026-04-16 — Extension: Assignments, Invites, Authentik Provisioning
+
+**Added in overnight session following MVP deployment.**
+
+### New Database Migrations
+
+| Migration | File | What It Adds |
+|-----------|------|-------------|
+| 010 | `postgres/migrations/010_assignments_state_machine.sql` | `in_progress`/`reassigned` enum values; `submitted_at`, `reviewed_at`, `reviewer_id`, `review_note` columns on `assignments`; new `assignment_events` audit table |
+| 011 | `postgres/migrations/011_team_invites.sql` | `invites` table with `token_hash VARCHAR(64) UNIQUE`, 72h TTL, `accepted_at` |
+
+### New FastAPI Routers
+
+| Router | File | Endpoints |
+|--------|------|-----------|
+| assignments | `fastapi/app/routers/assignments.py` | `POST /api/assignments/bulk` (bulk assign), `POST /api/assignments/{id}/transition` (state machine), `GET /api/assignments/{id}` |
+| invites | `fastapi/app/routers/invites.py` | `POST /api/invites` (create + n8n fire), `GET /api/invites/{token}/validate`, `POST /api/invites/{token}/accept` (Authentik provision + local user), `GET /api/invites` (list) |
+
+### New Services
+
+| Service | File | Purpose |
+|---------|------|---------|
+| authentik_service | `fastapi/app/services/authentik_service.py` | Creates Authentik users via REST API v3 with password set; username-collision retry; raises `AuthentikError` on failure (including password set) with best-effort rollback |
+
+### New n8n Workflows
+
+| Workflow | File | Trigger Path |
+|----------|------|-------------|
+| 09 — Assignment Notifications | `n8n/workflows/09_assignment_notifications.json` | `POST /webhook/{id}/webhook/assignment-status-changed` |
+| 10 — User Invite | `n8n/workflows/10_user_invite.json` | `POST /webhook/{id}/webhook/user-invite` |
+
+### New Frontend Pages
+
+| Page | Path | Purpose |
+|------|------|---------|
+| Invite Accept | `nextjs/src/app/invite/[token]/page.tsx` | Public page — validates token, shows org/role/expiry card, form to create account |
+
+### Env Vars Added
+
+| Variable | Where | Purpose |
+|----------|-------|---------|
+| `AUTHENTIK_URL` | `.env`, `docker-compose.yml` | Authentik API base URL |
+| `AUTHENTIK_API_TOKEN` | `.env`, `docker-compose.yml` | Authentik API token (identifier: `fastapi-svc`) |
+| `OPENROUTER_API_KEY` | `docker-compose.yml` | Passed to FastAPI for embeddings (Phase C) |
+| `N8N_WF_*` | `docker-compose.yml` | n8n workflow ID overrides (default to seeded UUIDs) |
+
+### Security Fix
+
+Removed `NEXT_PUBLIC_HASURA_ADMIN_SECRET` from docker-compose.yml build args and environment — was exposing Hasura admin secret to browser bundles. Apollo client now uses JWT Bearer token exclusively.
+
+### Status
+
+All items verified deployed and healthy on VM `10.10.110.41` as of 2026-04-16.
+
+**See `outputs/session-report-2026-04-16.md` for full test suite metrics and RAG feature details.**

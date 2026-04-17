@@ -206,7 +206,7 @@ async def accept_invite(
     if invite["expires_at"] < datetime.now(timezone.utc):
         raise HTTPException(410, "This invite has expired")
 
-    # Create Authentik user
+    # Create Authentik user first (outside transaction — Authentik is external)
     try:
         authentik_id = await authentik_service.create_user(
             email=invite["email"],
@@ -216,26 +216,31 @@ async def accept_invite(
     except authentik_service.AuthentikError as exc:
         raise HTTPException(502, f"Failed to create account: {exc}")
 
-    # Create local user record
+    # Atomically create local user + mark invite accepted
     user_id = uuid.uuid4()
-    await conn.execute(
-        """
-        INSERT INTO users (id, authentik_id, email, full_name, role, org_id, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-        """,
-        user_id,
-        authentik_id,
-        invite["email"],
-        body.full_name,
-        invite["role"],
-        invite["org_id"],
-    )
-
-    # Mark invite as accepted
-    await conn.execute(
-        "UPDATE invites SET accepted_at = NOW() WHERE id = $1",
-        invite["id"],
-    )
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                INSERT INTO users (id, authentik_id, email, full_name, role, org_id, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+                """,
+                user_id,
+                authentik_id,
+                invite["email"],
+                body.full_name,
+                invite["role"],
+                invite["org_id"],
+            )
+            await conn.execute(
+                "UPDATE invites SET accepted_at = NOW() WHERE id = $1",
+                invite["id"],
+            )
+    except Exception as exc:
+        # DB write failed after Authentik user was already created — best-effort cleanup
+        import asyncio as _asyncio
+        _asyncio.create_task(authentik_service._delete_user_best_effort(authentik_id))
+        raise HTTPException(500, "Account created but failed to save locally — contact support") from exc
 
     return {
         "user_id": str(user_id),

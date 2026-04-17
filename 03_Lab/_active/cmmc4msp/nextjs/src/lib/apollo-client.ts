@@ -21,7 +21,6 @@ const authLink = setContext(async (_, { headers }) => {
     headers: {
       ...headers,
       ...(token ? { authorization: `Bearer ${token}` } : {}),
-      'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
     },
   }
 })
@@ -34,10 +33,10 @@ function getWsLink() {
     wsLink = new GraphQLWsLink(
       createClient({
         url: `${process.env.NEXT_PUBLIC_HASURA_WS_URL}/v1/graphql`,
-        connectionParams: {
-          headers: {
-            'x-hasura-admin-secret': process.env.NEXT_PUBLIC_HASURA_ADMIN_SECRET || '',
-          },
+        connectionParams: async () => {
+          const session = await getSession() as any
+          const token = session?.user?.accessToken || ''
+          return token ? { headers: { authorization: `Bearer ${token}` } } : {}
         },
       })
     )

@@ -89,11 +89,31 @@ async def create_user(
             json={"password": password},
         )
         if pwd_resp.status_code not in (200, 204):
-            logger.error("Authentik set_password failed: %s", pwd_resp.status_code)
-            # Non-fatal — user exists but may need password reset flow
-            logger.warning("User %s created but password not set via API", authentik_pk)
+            logger.error("Authentik set_password failed HTTP %s — rolling back user %s", pwd_resp.status_code, authentik_pk)
+            # Best-effort cleanup: delete the user we just created
+            try:
+                await client.delete(
+                    f"{base}/api/v3/core/users/{authentik_pk}/",
+                    headers=headers,
+                )
+            except Exception:
+                pass
+            raise AuthentikError(f"Failed to set password for Authentik user (HTTP {pwd_resp.status_code})")
 
     return authentik_pk
+
+
+async def _delete_user_best_effort(authentik_pk: str) -> None:
+    """Best-effort Authentik user deletion — used for rollback on DB failure."""
+    if not settings.authentik_url or not settings.authentik_api_token:
+        return
+    headers = {"Authorization": f"Bearer {settings.authentik_api_token}"}
+    base = settings.authentik_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.delete(f"{base}/api/v3/core/users/{authentik_pk}/", headers=headers)
+    except Exception:
+        logger.warning("Best-effort Authentik user delete failed for pk=%s", authentik_pk)
 
 
 async def get_user_by_email(email: str) -> dict | None:

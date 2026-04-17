@@ -6,12 +6,21 @@ Production webhook URLs: /webhook/{workflowId}/webhook/{path}
 import httpx
 from app.config import settings
 
-# n8n workflow IDs — update if workflows are re-imported with new IDs
-_WF_ONBOARD = "0b94eab2-87a1-527d-8dd6-05b48162278d"
-_WF_ARTIFACT = "ab6c4376-5fe0-5e7d-84c5-d6940a71bcbe"
-_WF_REPORT = "7ee20685-8a0a-533d-bff1-20d108c93a63"
-_WF_ASSIGN_NOTIFY = "fmsB0tUoNEwslirl"
-_WF_USER_INVITE = "bRsJ4TGcB8aIk4kk"
+
+def _wf_onboard() -> str:
+    return settings.n8n_wf_onboard
+
+def _wf_artifact() -> str:
+    return settings.n8n_wf_artifact
+
+def _wf_report() -> str:
+    return settings.n8n_wf_report
+
+def _wf_assign_notify() -> str:
+    return settings.n8n_wf_assign_notify
+
+def _wf_user_invite() -> str:
+    return settings.n8n_wf_user_invite
 
 
 def _webhook_url(workflow_id: str, path: str) -> str:
@@ -27,7 +36,7 @@ async def trigger_onboard(
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.post(
-                _webhook_url(_WF_ONBOARD, "onboard-client"),
+                _webhook_url(_wf_onboard(), "onboard-client"),
                 json={
                     "org_id": str(org_id),
                     "program_id": str(program_id),
@@ -48,7 +57,7 @@ async def trigger_assessment(
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.post(
-                _webhook_url(_WF_ARTIFACT, "artifact-submitted"),
+                _webhook_url(_wf_artifact(), "artifact-submitted"),
                 json={
                     "artifact_id": str(artifact_id),
                     "program_control_id": str(program_control_id),
@@ -66,12 +75,13 @@ async def trigger_assignment_notification(
     context: dict | None = None,
 ) -> None:
     """Notify the assignee (and optionally the reviewer) of a status change."""
-    if not _WF_ASSIGN_NOTIFY:
+    wf = _wf_assign_notify()
+    if not wf:
         return  # workflow not yet imported
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.post(
-                _webhook_url(_WF_ASSIGN_NOTIFY, "assignment-status-changed"),
+                _webhook_url(wf, "assignment-status-changed"),
                 json={
                     "assignment_id": assignment_id,
                     "to_status": to_status,
@@ -91,12 +101,13 @@ async def trigger_invite(
     role: str,
 ) -> None:
     """Send a magic-link invite email via n8n."""
-    if not _WF_USER_INVITE:
+    wf = _wf_user_invite()
+    if not wf:
         return  # workflow not yet imported
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             await client.post(
-                _webhook_url(_WF_USER_INVITE, "user-invite"),
+                _webhook_url(wf, "user-invite"),
                 json={
                     "email": email,
                     "invite_token": invite_token,
@@ -113,7 +124,7 @@ async def trigger_report(program_id: str, report_type: str) -> dict:
     """Trigger n8n report generation and return response payload."""
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(
-            _webhook_url(_WF_REPORT, "report-generator"),
+            _webhook_url(_wf_report(), "report-generator"),
             json={
                 "program_id": str(program_id),
                 "report_type": report_type,

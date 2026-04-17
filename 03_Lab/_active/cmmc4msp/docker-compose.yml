@@ -185,6 +185,12 @@ services:
       AUTHENTIK_URL: https://auth.${BASE_DOMAIN}
       AUTHENTIK_API_TOKEN: ${AUTHENTIK_API_TOKEN}
       JWT_SECRET: ${JWT_SECRET}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      N8N_WF_ONBOARD: ${N8N_WF_ONBOARD:-}
+      N8N_WF_ARTIFACT: ${N8N_WF_ARTIFACT:-}
+      N8N_WF_REPORT: ${N8N_WF_REPORT:-}
+      N8N_WF_ASSIGN_NOTIFY: ${N8N_WF_ASSIGN_NOTIFY:-}
+      N8N_WF_USER_INVITE: ${N8N_WF_USER_INVITE:-}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       N8N_INTERNAL_URL: http://n8n:5678
       APP_URL: https://app.${BASE_DOMAIN}
@@ -240,7 +246,6 @@ services:
         NEXT_PUBLIC_HASURA_URL: https://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_HASURA_WS_URL: wss://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_API_URL: https://api.cmmc4msp.on-nex.us
-        NEXT_PUBLIC_HASURA_ADMIN_SECRET: 35cfc023477abf07b94f636d65dbb669dd7ef9106209ff949c0e0b3a96114026
     container_name: cmmc-nextjs
     restart: unless-stopped
     environment:
@@ -253,7 +258,6 @@ services:
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CMMC_CLIENT_SECRET:-placeholder}
       AUTHENTIK_ISSUER: https://auth.${BASE_DOMAIN}/application/o/cmmc4msp/
       HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
-      NEXT_PUBLIC_HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
       HOSTNAME: "0.0.0.0"
     ports:
       - "3000:3000"

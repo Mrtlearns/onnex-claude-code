@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     authentik_url: str = ""
     authentik_api_token: str = ""
 
+    # n8n workflow IDs (override if workflows are re-imported with new IDs)
+    n8n_wf_onboard: str = "0b94eab2-87a1-527d-8dd6-05b48162278d"
+    n8n_wf_artifact: str = "ab6c4376-5fe0-5e7d-84c5-d6940a71bcbe"
+    n8n_wf_report: str = "7ee20685-8a0a-533d-bff1-20d108c93a63"
+    n8n_wf_assign_notify: str = "fmsB0tUoNEwslirl"
+    n8n_wf_user_invite: str = "bRsJ4TGcB8aIk4kk"
+
+    # OpenRouter (AI assessments + embeddings)
+    openrouter_api_key: str = ""
+    embedding_model: str = "openai/text-embedding-3-small"
+
     @property
     def postgres_dsn(self) -> str:
         return (
