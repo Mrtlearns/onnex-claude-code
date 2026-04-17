@@ -17,6 +17,20 @@ import {
 } from '@heroicons/react/24/outline'
 import { useSession } from 'next-auth/react'
 
+function parseProofGuidance(text: string): { label: string; items: string[] }[] {
+  const sections: { label: string; items: string[] }[] = []
+  const pattern = /\b(EXAMINE|INTERVIEW|TEST)\s*:/g
+  const labels = [...text.matchAll(pattern)].map((m) => ({ label: m[1], index: m.index! }))
+  labels.forEach(({ label, index }, i) => {
+    const end = i + 1 < labels.length ? labels[i + 1].index : text.length
+    const raw = text.slice(index + label.length + 1, end).trim()
+    const inner = raw.replace(/^\[SELECT FROM:\s*/i, '').replace(/\]\.?\s*$/, '').trim()
+    const items = inner.split(';').map((s) => s.trim()).filter(Boolean)
+    sections.push({ label, items })
+  })
+  return sections.length ? sections : [{ label: 'GUIDANCE', items: [text] }]
+}
+
 interface ControlDetailProps {
   params: { orgSlug: string; id: string }
 }
@@ -148,7 +162,21 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
             )}
           </button>
           {proofExpanded && (
-            <div className="px-5 pb-4 text-sm text-blue-800">{def.acceptable_proof_guidance}</div>
+            <div className="px-5 pb-4 space-y-4">
+              {parseProofGuidance(def.acceptable_proof_guidance).map(({ label, items }) => (
+                <div key={label}>
+                  <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">{label}</p>
+                  <ul className="space-y-1">
+                    {items.map((item, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-blue-900">
+                        <span className="mt-0.5 shrink-0 text-blue-400">›</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
