@@ -66,11 +66,11 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Bash": 452,
-        "Read": 261,
+        "Bash": 482,
+        "Read": 262,
         "Glob": 22,
-        "Write": 82,
-        "Edit": 84,
+        "Write": 83,
+        "Edit": 85,
         "Agent": 16,
         "Grep": 15,
         "ToolSearch": 8,
@@ -80,8 +80,8 @@
         "TodoWrite": 9,
         "ExitPlanMode": 1
       },
-      "total_calls": 953,
-      "weight_total": 799
+      "total_calls": 986,
+      "weight_total": 831
     }
   ]
 }
