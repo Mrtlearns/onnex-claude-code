@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     minio_access_key: str = ""
     minio_secret_key: str = ""
     minio_secure: bool = False
+    minio_public_url: str = ""  # Public-facing URL for presigned URLs (e.g. https://s3.example.com)
 
     # Auth
     jwt_secret: str = ""

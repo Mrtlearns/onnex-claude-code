@@ -25,6 +25,17 @@ ARTIFACTS_BUCKET = "cmmc-artifacts"
 router = APIRouter()
 
 
+def _public_presigned(url: str) -> str:
+    """Rewrite internal MinIO host to public URL for browser-facing presigned links."""
+    public = (settings.minio_public_url or "").rstrip("/")
+    if not public:
+        return url
+    from urllib.parse import urlparse, urlunparse
+    parsed = urlparse(url)
+    pub = urlparse(public)
+    return urlunparse(parsed._replace(scheme=pub.scheme, netloc=pub.netloc))
+
+
 def _row_to_artifact(row: asyncpg.Record) -> dict:
     return {
         "id": str(row["id"]),
@@ -130,9 +141,10 @@ async def initiate_upload(
     )
 
     minio_client = request.app.state.minio
-    presigned_url = get_presigned_upload_url(minio_client, ARTIFACTS_BUCKET, minio_key)
+    presigned_url = _public_presigned(get_presigned_upload_url(minio_client, ARTIFACTS_BUCKET, minio_key))
 
     # Fire-and-forget: n8n assessment + background chunk/embed for RAG
+    # Download URL stays internal — only used server-side by n8n/fastapi
     download_presigned = get_presigned_download_url(minio_client, ARTIFACTS_BUCKET, minio_key)
     asyncio.create_task(
         n8n_service.trigger_assessment(
