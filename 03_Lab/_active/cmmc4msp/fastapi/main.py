@@ -8,7 +8,7 @@ from minio import Minio
 
 from app.config import settings
 from app.database import create_pool
-from app.routers import artifacts, assessments, assignments, controls, invites, msps, notifications, orgs, programs, reports, suggestions, webhooks
+from app.routers import analytics, artifacts, assessments, assignments, audit, controls, invites, msps, notifications, orgs, programs, reports, suggestions, webhooks
 from app.services.minio_service import ensure_bucket
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
     # Ensure required buckets exist — non-fatal: bad credentials shouldn't
     # prevent startup; artifact endpoints will fail at request time instead.
-    for bucket in ("cmmc-artifacts", "cmmc-reports", "cmmc-drafts"):
+    for bucket in ("cmmc-artifacts", "cmmc-reports", "cmmc-drafts", "cmmc-exports"):
         try:
             ensure_bucket(app.state.minio, bucket)
         except Exception as exc:
@@ -84,6 +84,8 @@ app.include_router(assessments.router, prefix="/api/assessments", tags=["assessm
 app.include_router(suggestions.router, prefix="/api/artifacts", tags=["suggestions"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
+app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 
 
 @app.get("/health")
