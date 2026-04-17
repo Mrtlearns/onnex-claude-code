@@ -1,5 +1,5 @@
 {
-  "name": "12 — Nightly Integration Sync",
+  "name": "12 \u2014 Nightly Integration Sync",
   "active": true,
   "nodes": [
     {
@@ -7,7 +7,10 @@
       "name": "Nightly 02:00 UTC",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [100, 300],
+      "position": [
+        100,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -24,7 +27,10 @@
       "name": "Fetch Active Integrations",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [350, 300],
+      "position": [
+        350,
+        300
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT id FROM integrations WHERE status = 'active' ORDER BY provider, org_id",
@@ -42,7 +48,10 @@
       "name": "Split Into Items",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [600, 300],
+      "position": [
+        600,
+        300
+      ],
       "parameters": {
         "batchSize": 1,
         "options": {}
@@ -53,7 +62,10 @@
       "name": "POST /api/integrations/{id}/sync",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "=http://cmmc-api:8000/api/integrations/{{ $json.id }}/sync",
@@ -75,7 +87,10 @@
       "name": "Log Sync Result",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1100, 300],
+      "position": [
+        1100,
+        300
+      ],
       "parameters": {}
     }
   ],
@@ -127,5 +142,6 @@
   },
   "settings": {
     "executionOrder": "v1"
-  }
+  },
+  "id": "26b6bcda-bd41-48d6-8592-e326b1adfbc7"
 }

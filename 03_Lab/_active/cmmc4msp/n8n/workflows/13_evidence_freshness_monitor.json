@@ -1,5 +1,5 @@
 {
-  "name": "13 — Evidence Freshness Monitor",
+  "name": "13 \u2014 Evidence Freshness Monitor",
   "active": true,
   "nodes": [
     {
@@ -7,7 +7,10 @@
       "name": "Nightly 01:00 UTC",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [100, 300],
+      "position": [
+        100,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -24,14 +27,20 @@
       "name": "Find Expired Fully-Implemented Controls",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2,
-      "position": [350, 300],
+      "position": [
+        350,
+        300
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT pc.id AS program_control_id, pc.program_id, o.name AS org_name, u.email AS msp_email FROM program_controls pc JOIN programs p ON pc.program_id = p.id JOIN orgs o ON p.org_id = o.id JOIN users u ON u.org_id = o.msp_id AND u.role = 'msp_admin' WHERE pc.status = 'fully_implemented' AND pc.expires_at < NOW() AND pc.stale_since IS NULL LIMIT 1000",
         "options": {}
       },
       "credentials": {
-        "postgres": { "id": "postgres-main", "name": "CMMC Postgres" }
+        "postgres": {
+          "id": "postgres-main",
+          "name": "CMMC Postgres"
+        }
       }
     },
     {
@@ -39,7 +48,10 @@
       "name": "POST /api/webhooks/n8n/mark-stale",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [600, 300],
+      "position": [
+        600,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.FASTAPI_INTERNAL_URL }}/api/webhooks/n8n/mark-stale",
@@ -48,7 +60,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "X-Webhook-Secret", "value": "={{ $env.WEBHOOK_SECRET }}" }
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
           ]
         },
         "sendBody": true,
@@ -65,10 +80,13 @@
     },
     {
       "id": "send-summary-email",
-      "name": "Email MSP Admins — Freshness Summary",
+      "name": "Email MSP Admins \u2014 Freshness Summary",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.resend.com/emails",
@@ -77,16 +95,28 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.RESEND_API_KEY }}" }
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.RESEND_API_KEY }}"
+            }
           ]
         },
         "sendBody": true,
         "bodyContentType": "json",
         "bodyParameters": {
           "parameters": [
-            { "name": "from", "value": "noreply@cmmc.onnex.ai" },
-            { "name": "to", "value": "={{ $('Find Expired Fully-Implemented Controls').all().map(r => r.json.msp_email).filter((v, i, a) => a.indexOf(v) === i) }}" },
-            { "name": "subject", "value": "CMMC Evidence Freshness Alert — Controls Marked Stale" },
+            {
+              "name": "from",
+              "value": "noreply@cmmc.onnex.ai"
+            },
+            {
+              "name": "to",
+              "value": "={{ $('Find Expired Fully-Implemented Controls').all().map(r => r.json.msp_email).filter((v, i, a) => a.indexOf(v) === i) }}"
+            },
+            {
+              "name": "subject",
+              "value": "CMMC Evidence Freshness Alert \u2014 Controls Marked Stale"
+            },
             {
               "name": "html",
               "value": "=<p>The nightly evidence freshness check has marked <strong>{{ $('POST /api/webhooks/n8n/mark-stale').item.json.marked_stale }}</strong> control(s) as stale due to expired evidence.</p><p>Log into the CMMC Compliance OS to review and re-upload evidence for affected controls.</p>"
@@ -100,17 +130,35 @@
   "connections": {
     "Nightly 01:00 UTC": {
       "main": [
-        [{ "node": "Find Expired Fully-Implemented Controls", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Find Expired Fully-Implemented Controls",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Find Expired Fully-Implemented Controls": {
       "main": [
-        [{ "node": "POST /api/webhooks/n8n/mark-stale", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST /api/webhooks/n8n/mark-stale",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "POST /api/webhooks/n8n/mark-stale": {
       "main": [
-        [{ "node": "Email MSP Admins — Freshness Summary", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Email MSP Admins \u2014 Freshness Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -119,5 +167,5 @@
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": ""
   },
-  "tags": ["cmmc", "freshness", "nightly"]
+  "id": "13e6b5be-6581-4064-8776-86abcc959bdc"
 }
