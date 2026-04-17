@@ -48,16 +48,16 @@
     {
       "date": "2026-04-16",
       "tools": {
-        "Bash": 720,
-        "Read": 80,
+        "Bash": 775,
+        "Read": 91,
         "Write": 26,
-        "Edit": 57,
-        "Glob": 11,
-        "Grep": 5,
+        "Edit": 61,
+        "Glob": 14,
+        "Grep": 6,
         "ToolSearch": 1
       },
-      "total_calls": 900,
-      "weight_total": 804
+      "total_calls": 974,
+      "weight_total": 863
     }
   ]
 }
