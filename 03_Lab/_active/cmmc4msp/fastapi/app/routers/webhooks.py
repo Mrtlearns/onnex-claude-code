@@ -7,6 +7,7 @@ from typing import Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel
 
 from app.config import settings
 from app.database import get_db
@@ -166,3 +167,90 @@ async def onboard_complete(
     )
 
     return {"ok": True, "program_id": str(body.program_id), "controls_seeded": body.controls_seeded}
+
+
+# ---------------------------------------------------------------------------
+# P4 — Evidence Freshness: mark controls stale
+# ---------------------------------------------------------------------------
+
+
+class MarkStaleRequest(BaseModel):
+    program_control_ids: list[str]
+
+
+@router.post("/n8n/mark-stale")
+async def mark_stale(
+    body: MarkStaleRequest,
+    x_webhook_secret: str = Header(..., alias="X-Webhook-Secret"),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> dict:
+    """Internal webhook — called by n8n nightly to mark expired controls stale."""
+    if x_webhook_secret != settings.webhook_secret:
+        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
+    marked = 0
+    for pc_id_str in body.program_control_ids:
+        try:
+            pc_uid = uuid.UUID(pc_id_str)
+        except ValueError:
+            continue
+        await conn.execute(
+            """
+            UPDATE program_controls
+            SET status = 'stale', stale_since = NOW()
+            WHERE id = $1 AND status = 'fully_implemented'
+            """,
+            pc_uid,
+        )
+        marked += 1
+    return {"marked_stale": marked}
+
+
+# ---------------------------------------------------------------------------
+# A3 — Evidence Drift Detection: batch drift check
+# ---------------------------------------------------------------------------
+
+
+class BatchDriftCheckRequest(BaseModel):
+    artifact_ids: list[str]
+
+
+@router.post("/n8n/batch-drift-check")
+async def batch_drift_check(
+    body: BatchDriftCheckRequest,
+    x_webhook_secret: str = Header(..., alias="X-Webhook-Secret"),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> dict:
+    """Internal webhook — n8n sends a list of artifact IDs to check for drift."""
+    if x_webhook_secret != settings.webhook_secret:
+        raise HTTPException(status_code=403, detail="Invalid webhook secret")
+
+    from app.services.drift_service import check_artifact_drift
+
+    drifted: list[str] = []
+    stable: list[str] = []
+
+    for art_id_str in body.artifact_ids:
+        try:
+            art_uid = uuid.UUID(art_id_str)
+        except ValueError:
+            continue
+
+        artifact = await conn.fetchrow(
+            "SELECT id, minio_key, mime_type, extracted_text FROM artifacts WHERE id = $1",
+            art_uid,
+        )
+        if not artifact or not artifact["minio_key"]:
+            continue
+
+        current_text: str = artifact.get("extracted_text") or ""
+        if not current_text:
+            continue
+
+        drift_score = await check_artifact_drift(art_uid, current_text, conn)
+        if drift_score is not None:
+            drifted.append(art_id_str)
+        else:
+            stable.append(art_id_str)
+
+    return {"drifted": drifted, "stable": stable}

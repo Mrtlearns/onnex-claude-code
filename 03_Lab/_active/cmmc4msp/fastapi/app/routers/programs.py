@@ -215,3 +215,55 @@ async def update_program(
         *values,
     )
     return _row_to_program(row)
+
+
+@router.get("/{program_id}/freshness")
+async def get_freshness_report(
+    program_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Return freshness status for all controls in a program."""
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    program = await conn.fetchrow(
+        "SELECT id, org_id FROM programs WHERE id = $1", prog_uid
+    )
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    if user["role"] not in ("msp_admin", "super_admin") and str(program["org_id"]) != user.get("org_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    rows = await conn.fetch(
+        """
+        SELECT id, nist_id, freshness_status, last_evidence_at, expires_at, stale_since, evidence_max_age_days
+        FROM program_control_freshness
+        WHERE program_id = $1
+        ORDER BY nist_id
+        """,
+        prog_uid,
+    )
+    return {
+        "program_id": str(program_id),
+        "controls": [
+            {
+                "id": str(r["id"]),
+                "nist_id": r["nist_id"],
+                "freshness_status": r["freshness_status"],
+                "last_evidence_at": r["last_evidence_at"].isoformat() if r["last_evidence_at"] else None,
+                "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
+                "evidence_max_age_days": r["evidence_max_age_days"],
+            }
+            for r in rows
+        ],
+        "summary": {
+            "expired": sum(1 for r in rows if r["freshness_status"] == "expired"),
+            "expiring_soon": sum(1 for r in rows if r["freshness_status"] == "expiring_soon"),
+            "fresh": sum(1 for r in rows if r["freshness_status"] == "fresh"),
+            "no_evidence": sum(1 for r in rows if r["freshness_status"] == "no_evidence"),
+        },
+    }

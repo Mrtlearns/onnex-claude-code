@@ -266,6 +266,60 @@ async def get_artifact_status(
     return {"artifact_id": artifact_id, "assessment_status": row["assessment_status"]}
 
 
+# ---------------------------------------------------------------------------
+# A3 — Evidence Drift Detection: dismiss drift
+# ---------------------------------------------------------------------------
+
+
+class DismissDriftRequest(BaseModel):
+    note: str
+
+
+@router.post("/{artifact_id}/dismiss-drift")
+async def dismiss_drift(
+    artifact_id: str,
+    body: DismissDriftRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Mark a drifted artifact as reviewed and dismissed by the current user."""
+    try:
+        art_uid = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    artifact = await conn.fetchrow(
+        """
+        SELECT ar.id, p.org_id
+        FROM artifacts ar
+        JOIN program_controls pc ON ar.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE ar.id = $1
+        """,
+        art_uid,
+    )
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if user["role"] not in ("msp_admin", "super_admin") and str(artifact["org_id"]) != user.get("org_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await conn.execute(
+        """
+        UPDATE artifacts SET
+            drift_status        = 'dismissed',
+            drift_dismissed_by  = $1,
+            drift_dismissed_at  = NOW(),
+            drift_dismiss_note  = $2
+        WHERE id = $3
+        """,
+        uuid.UUID(user["user_id"]),
+        body.note,
+        art_uid,
+    )
+    return {"status": "dismissed", "artifact_id": artifact_id}
+
+
 @router.api_route("/{artifact_id}/extract", methods=["GET", "POST"])
 async def extract_artifact_text(
     artifact_id: str,

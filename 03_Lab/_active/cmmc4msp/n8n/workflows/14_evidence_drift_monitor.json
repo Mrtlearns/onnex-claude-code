@@ -1,0 +1,155 @@
+{
+  "name": "14 — Evidence Drift Monitor",
+  "active": true,
+  "nodes": [
+    {
+      "id": "cron-trigger",
+      "name": "Nightly 03:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch-artifacts",
+      "name": "Fetch Assessed Artifacts With Baseline",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [350, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.id AS artifact_id, o.name AS org_name, u.email AS msp_email FROM artifacts a JOIN program_controls pc ON a.program_control_id = pc.id JOIN programs p ON pc.program_id = p.id JOIN orgs o ON p.org_id = o.id JOIN users u ON u.org_id = o.msp_id AND u.role = 'msp_admin' WHERE a.baseline_embedding IS NOT NULL AND a.drift_status NOT IN ('dismissed', 'drifted') AND a.assessment_status = 'assessed' ORDER BY a.updated_at ASC LIMIT 500",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "postgres-main", "name": "CMMC Postgres" }
+      }
+    },
+    {
+      "id": "batch-drift-check",
+      "name": "POST /api/webhooks/n8n/batch-drift-check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [600, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FASTAPI_INTERNAL_URL }}/api/webhooks/n8n/batch-drift-check",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Webhook-Secret", "value": "={{ $env.WEBHOOK_SECRET }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "artifact_ids",
+              "value": "={{ $json.map(row => row.artifact_id) }}"
+            }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      }
+    },
+    {
+      "id": "check-drifted",
+      "name": "Any Drift Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.drifted.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "send-drift-alert",
+      "name": "Email MSP Admins — Drift Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.RESEND_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "from", "value": "noreply@cmmc.onnex.ai" },
+            { "name": "to", "value": "={{ $('Fetch Assessed Artifacts With Baseline').all().map(r => r.json.msp_email).filter((v, i, a) => a.indexOf(v) === i) }}" },
+            { "name": "subject", "value": "CMMC Evidence Drift Alert — Artifacts Have Changed" },
+            {
+              "name": "html",
+              "value": "=<p>The nightly evidence drift check detected semantic drift in <strong>{{ $('POST /api/webhooks/n8n/batch-drift-check').item.json.drifted.length }}</strong> artifact(s).</p><p>These artifacts have changed significantly since their original compliance assessment. Please log into the CMMC Compliance OS to review the drift summaries and dismiss or re-assess each affected artifact.</p><p><strong>Drifted artifact IDs:</strong><br/>{{ $('POST /api/webhooks/n8n/batch-drift-check').item.json.drifted.join('<br/>') }}</p>"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "no-drift",
+      "name": "No Drift — Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1100, 400],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Nightly 03:00 UTC": {
+      "main": [
+        [{ "node": "Fetch Assessed Artifacts With Baseline", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Assessed Artifacts With Baseline": {
+      "main": [
+        [{ "node": "POST /api/webhooks/n8n/batch-drift-check", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST /api/webhooks/n8n/batch-drift-check": {
+      "main": [
+        [{ "node": "Any Drift Detected?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Any Drift Detected?": {
+      "main": [
+        [{ "node": "Email MSP Admins — Drift Alert", "type": "main", "index": 0 }],
+        [{ "node": "No Drift — Done", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "tags": ["cmmc", "drift", "nightly"]
+}
