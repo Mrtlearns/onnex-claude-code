@@ -10,8 +10,8 @@ from app.config import settings
 _WF_ONBOARD = "0b94eab2-87a1-527d-8dd6-05b48162278d"
 _WF_ARTIFACT = "ab6c4376-5fe0-5e7d-84c5-d6940a71bcbe"
 _WF_REPORT = "7ee20685-8a0a-533d-bff1-20d108c93a63"
-_WF_ASSIGN_NOTIFY = ""  # set after importing n8n/workflows/09_assignment_notifications.json
-_WF_USER_INVITE = ""    # set after importing n8n/workflows/10_user_invite.json
+_WF_ASSIGN_NOTIFY = "fmsB0tUoNEwslirl"
+_WF_USER_INVITE = "bRsJ4TGcB8aIk4kk"
 
 
 def _webhook_url(workflow_id: str, path: str) -> str:
