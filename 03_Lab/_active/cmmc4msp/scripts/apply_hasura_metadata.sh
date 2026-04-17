@@ -413,9 +413,9 @@ sel_perm "users" "client_admin" "$USERS_FILTER"
 sel_perm "users" "client_user"  "$USERS_FILTER"
 
 ins_perm "users" "client_admin" "$USERS_FILTER" \
-  '["org_id","email","display_name","role","is_active"]'
+  '["org_id","email","full_name","role","is_active"]'
 upd_perm "users" "client_admin" "$USERS_FILTER" \
-  '["display_name","email","role","is_active"]'
+  '["full_name","email","role","is_active"]'
 
 # ─────────────────────────────────────────────
 # 4f. programs — scoped to org_id
@@ -437,11 +437,11 @@ sel_perm "program_controls" "client_admin" "$PC_FILTER"
 sel_perm "program_controls" "client_user"  "$PC_FILTER"
 
 ins_perm "program_controls" "client_admin" "$PC_FILTER" \
-  '["program_id","control_definition_id","status","implementation_status","responsibility","implementation_narrative","plan_of_action","target_date","phase"]'
+  '["program_id","control_definition_id","status","is_applicable","implementation_notes","target_completion_date"]'
 upd_perm "program_controls" "client_admin" "$PC_FILTER" \
-  '["status","implementation_status","responsibility","implementation_narrative","plan_of_action","target_date","phase","score_override"]'
+  '["status","is_applicable","implementation_notes","score_impact","target_completion_date"]'
 upd_perm "program_controls" "client_user" "$PC_FILTER" \
-  '["status","implementation_status","implementation_narrative","plan_of_action"]'
+  '["status","implementation_notes"]'
 
 # ─────────────────────────────────────────────
 # 4h. assignments
@@ -453,11 +453,11 @@ sel_perm "assignments" "client_admin" "$ASSIGN_FILTER"
 sel_perm "assignments" "client_user"  "$ASSIGN_FILTER"
 
 ins_perm "assignments" "client_admin" "$ASSIGN_FILTER" \
-  '["program_id","program_control_id","assigned_to","due_date","priority","notes"]'
+  '["program_id","program_control_id","assigned_to","due_date","instructions"]'
 upd_perm "assignments" "client_admin" "$ASSIGN_FILTER" \
-  '["assigned_to","due_date","priority","status","notes"]'
+  '["assigned_to","due_date","status","instructions"]'
 upd_perm "assignments" "client_user" "$ASSIGN_OWN_FILTER" \
-  '["status","notes"]'
+  '["status"]'
 
 del_perm "assignments" "client_admin" "$ASSIGN_FILTER"
 
@@ -475,12 +475,12 @@ sel_perm "artifacts" "client_admin" "$ART_FILTER"
 sel_perm "artifacts" "client_user"  "$ART_FILTER"
 
 ins_perm "artifacts" "client_admin" "$ART_FILTER" \
-  '["program_control_id","assignment_id","file_name","file_path","file_size","mime_type","description","uploaded_by"]'
+  '["program_control_id","assignment_id","file_name","mime_type","uploaded_by"]'
 ins_perm "artifacts" "client_user" "$ART_FILTER" \
-  '["program_control_id","assignment_id","file_name","file_path","file_size","mime_type","description","uploaded_by"]'
+  '["program_control_id","assignment_id","file_name","mime_type","uploaded_by"]'
 
 upd_perm "artifacts" "client_admin" "$ART_FILTER" \
-  '["description","file_name"]'
+  '["file_name"]'
 
 del_perm "artifacts" "client_admin" "$ART_FILTER"
 
@@ -501,11 +501,11 @@ sel_perm "milestones" "client_admin" "$MILE_FILTER"
 sel_perm "milestones" "client_user"  "$MILE_FILTER"
 
 ins_perm "milestones" "client_admin" "$MILE_FILTER" \
-  '["program_id","program_control_id","title","description","due_date","status","resources_required","estimated_cost"]'
+  '["program_id","program_control_id","responsible_org","resource_estimate","remediation_plan","current_milestone_date"]'
 upd_perm "milestones" "client_admin" "$MILE_FILTER" \
-  '["title","description","due_date","status","resources_required","estimated_cost","completion_date"]'
+  '["responsible_org","resource_estimate","remediation_plan","current_milestone_date","is_complete"]'
 upd_perm "milestones" "client_user" "$MILE_FILTER" \
-  '["status","completion_date"]'
+  '["is_complete"]'
 del_perm "milestones" "client_admin" "$MILE_FILTER"
 
 # ─────────────────────────────────────────────
@@ -517,9 +517,9 @@ sel_perm "program_members" "client_admin" "$PM_FILTER"
 sel_perm "program_members" "client_user"  "$PM_FILTER"
 
 ins_perm "program_members" "client_admin" "$PM_FILTER" \
-  '["program_id","user_id","member_role"]'
+  '["program_id","user_id","role"]'
 upd_perm "program_members" "client_admin" "$PM_FILTER" \
-  '["member_role"]'
+  '["role"]'
 del_perm "program_members" "client_admin" "$PM_FILTER"
 
 # ─────────────────────────────────────────────
