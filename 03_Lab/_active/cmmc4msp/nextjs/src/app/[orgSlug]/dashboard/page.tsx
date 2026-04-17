@@ -6,6 +6,7 @@ import { SPRSGauge } from '@/components/SPRSGauge'
 import { PhaseProgress } from '@/components/PhaseProgress'
 import { DomainHeatmap } from '@/components/DomainHeatmap'
 import { ActivityFeed } from '@/components/ActivityFeed'
+import { AlsoSatisfiedPanel } from '@/components/AlsoSatisfiedPanel'
 
 interface DashboardProps {
   params: { orgSlug: string }
@@ -135,6 +136,11 @@ export default function DashboardPage({ params }: DashboardProps) {
           <ActivityFeed orgId={org.id} />
         </div>
       </div>
+
+      {/* AI Evidence Reuse Banner */}
+      {programId && (
+        <AlsoSatisfiedPanel programId={programId} orgSlug={orgSlug} />
+      )}
 
       {/* Domain Heatmap */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">

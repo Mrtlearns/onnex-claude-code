@@ -5,6 +5,7 @@ import { GET_CONTROL_DETAIL } from '@/graphql/queries'
 import { UPDATE_CONTROL_STATUS, UPDATE_CONTROL_NOTES } from '@/graphql/mutations'
 import { ControlStatusBadge } from '@/components/ControlStatusBadge'
 import { ArtifactUploader } from '@/components/ArtifactUploader'
+import { AlsoSatisfiesList } from '@/components/AlsoSatisfiesList'
 import { ControlStatus } from '@/lib/types'
 import { CONTROL_STATUS_CONFIG } from '@/lib/constants'
 import {
@@ -200,7 +201,7 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
               return (
                 <div
                   key={artifact.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-lg p-4 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
@@ -223,8 +224,17 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
                       {artifact.assessment_status}
                     </span>
                   </div>
+                  {/* RAG cross-control suggestions */}
+                  {artifact.assessment_status === 'assessed' && (
+                    <AlsoSatisfiesList
+                      artifactId={artifact.id}
+                      orgSlug={orgSlug}
+                      programId={pc.program_id || ''}
+                    />
+                  )}
+
                   {assessment && (
-                    <div className={`mt-3 p-3 rounded border ${vc?.color}`}>
+                    <div className={`p-3 rounded border ${vc?.color}`}>
                       <div className="flex items-center gap-2 mb-1">
                         {VerdictIcon && <VerdictIcon className="w-4 h-4" />}
                         <span className="text-xs font-bold uppercase">{vc?.label}</span>
