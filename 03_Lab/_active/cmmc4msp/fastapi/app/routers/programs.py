@@ -135,6 +135,51 @@ async def create_program(
     return _row_to_program(row)
 
 
+@router.get("/{program_id}/reuse-summary")
+async def reuse_summary(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Dashboard widget data: how many additional controls could be covered by existing artifacts."""
+    try:
+        uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    row = await conn.fetchrow("SELECT * FROM programs WHERE id = $1", uid)
+    if not row:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    require_same_org(str(row["org_id"]), user)
+
+    # Count distinct artifacts with ≥1 suggestion above threshold for controls
+    # that are NOT already satisfied (status not in implemented/fully_implemented)
+    summary = await conn.fetchrow(
+        """
+        SELECT
+            COUNT(DISTINCT acs.artifact_id) AS artifact_count,
+            COUNT(DISTINCT acs.control_definition_id) AS control_count
+        FROM artifact_control_suggestions acs
+        JOIN control_definitions cd ON acs.control_definition_id = cd.id
+        JOIN program_controls pc ON pc.control_definition_id = cd.id AND pc.program_id = $1
+        JOIN artifacts ar ON acs.artifact_id = ar.id
+        JOIN program_controls ar_pc ON ar.program_control_id = ar_pc.id AND ar_pc.program_id = $1
+        WHERE acs.similarity_score >= 0.78
+          AND pc.status NOT IN ('implemented', 'fully_implemented', 'not_applicable')
+          AND acs.artifact_id != ar_pc.id
+        """,
+        uid,
+    )
+
+    return {
+        "program_id": program_id,
+        "artifact_count": int(summary["artifact_count"] or 0),
+        "control_count": int(summary["control_count"] or 0),
+    }
+
+
 @router.patch("/{program_id}")
 async def update_program(
     program_id: str,

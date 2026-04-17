@@ -99,6 +99,7 @@ run_migration "postgres/migrations/003_indexes.sql"       "003_indexes"
 run_migration "postgres/migrations/004_msp_hierarchy.sql" "004_msp_hierarchy"
 run_migration "postgres/migrations/010_assignments_state_machine.sql" "010_assignments_state_machine"
 run_migration "postgres/migrations/011_team_invites.sql"  "011_team_invites"
+run_migration "postgres/migrations/012_embeddings.sql"    "012_embeddings"
 
 # ─────────────────────────────────────────────
 # Step 3: Deploy FastAPI
