@@ -123,9 +123,10 @@ describe("GET /api/v1/deals/:id", () => {
 
 describe("PATCH /api/v1/deals/:id/stage", () => {
   it("returns 200 with updated deal", async () => {
-    const mockQuery = vi.fn().mockResolvedValueOnce({
-      rows: [{ id: DEAL_ID, tenant_id: TENANT_A, status: "qualified", stage: "qualified" }],
-    })
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: DEAL_ID, tenant_id: TENANT_A, owner_id: "u1" }] })  // existing check
+      .mockResolvedValueOnce({ rows: [{ id: DEAL_ID, tenant_id: TENANT_A, status: "qualified", stage: "qualified" }] })  // UPDATE
+      .mockResolvedValue({ rows: [] })  // optional NOTIF-02 insert
     const h = await makeFastify(mockQuery)
     const reply = makeReply()
     await h["PATCH /api/v1/deals/:id/stage"](

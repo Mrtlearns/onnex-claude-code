@@ -1,8 +1,39 @@
-export default function SettingsPage() {
+// apps/web/src/app/(protected)/settings/page.tsx
+// Server Component — role-guard (admin/super_admin only) + SSR prefetch workspace settings
+
+import { auth } from "@/auth"
+import { redirect } from "next/navigation"
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query"
+import { getQueryClient } from "@/lib/query-client"
+import { apiGetWorkspaceSettings } from "@/lib/api-client"
+import { SettingsClient } from "./components/settings-client"
+
+export const dynamic = "force-dynamic"
+
+export default async function SettingsPage() {
+  const session = await auth()
+
+  if (!session?.user) {
+    redirect("/dashboard")
+  }
+
+  const role = (session.user as { role?: string }).role
+  if (!role || !["admin", "super_admin"].includes(role)) {
+    redirect("/dashboard")
+  }
+
+  const queryClient = getQueryClient()
+
+  if (session.user.token) {
+    await queryClient.prefetchQuery({
+      queryKey: ["settings", "workspace"],
+      queryFn: () => apiGetWorkspaceSettings(session.user.token),
+    })
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-      <p className="text-lg font-medium">Settings</p>
-      <p className="text-sm">Coming in Phase 12</p>
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <SettingsClient />
+    </HydrationBoundary>
   )
 }

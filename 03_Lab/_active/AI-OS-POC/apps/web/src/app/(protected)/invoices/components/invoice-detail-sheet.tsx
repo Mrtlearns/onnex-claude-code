@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 import { LineItemsPanel } from "./line-items-panel"
 import type { Invoice, InvoiceStatus } from "@/types/api"
 
@@ -58,10 +59,10 @@ export function InvoiceDetailSheet({ invoice, open, onClose }: InvoiceDetailShee
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] })
-      alert("Invoice sent successfully")
+      toast.success("Invoice sent successfully")
     },
     onError: (err) => {
-      alert(err instanceof Error ? err.message : "Send failed")
+      toast.error(err instanceof Error ? err.message : "Send failed")
     },
   })
 
@@ -82,7 +83,7 @@ export function InvoiceDetailSheet({ invoice, open, onClose }: InvoiceDetailShee
       onClose()
     },
     onError: (err) => {
-      alert(err instanceof Error ? err.message : "Update failed")
+      toast.error(err instanceof Error ? err.message : "Update failed")
     },
   })
 

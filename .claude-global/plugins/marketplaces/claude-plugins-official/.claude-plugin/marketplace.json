@@ -44,7 +44,7 @@
       "description": "AI-first project auditor and re-engineer based on the 9 design principles and 7 design patterns from the TechWolf AI-First Bootcamp",
       "source": {
         "source": "git-subdir",
-        "url": "techwolf-ai/ai-first-toolkit",
+        "url": "https://github.com/techwolf-ai/ai-first-toolkit.git",
         "path": "plugins/ai-firstify",
         "ref": "main",
         "sha": "7f18e11d694b9ae62ea3009fbbc175f08ae913df"
@@ -157,6 +157,18 @@
       "homepage": "https://github.com/anthropics/claude-plugins-public/tree/main/external_plugins/autofix-bot"
     },
     {
+      "name": "aws-amplify",
+      "description": "Build full-stack apps with AWS Amplify Gen 2 using guided workflows for authentication, data models, storage, GraphQL APIs, and Lambda functions.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/awslabs/agent-plugins.git",
+        "path": "plugins/aws-amplify",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/awslabs/agent-plugins"
+    },
+    {
       "name": "aws-serverless",
       "description": "Design, build, deploy, test, and debug serverless applications with AWS Serverless services.",
       "category": "development",
@@ -209,7 +221,7 @@
       "category": "database",
       "source": {
         "source": "git-subdir",
-        "url": "Bigdata-com/bigdata-plugins-marketplace",
+        "url": "https://github.com/Bigdata-com/bigdata-plugins-marketplace.git",
         "path": "plugins/bigdata-com",
         "ref": "main"
       },
@@ -447,6 +459,18 @@
       "homepage": "https://github.com/astronomer/agents"
     },
     {
+      "name": "databases-on-aws",
+      "description": "Expert database guidance for the AWS database portfolio. Design schemas, execute queries, handle migrations, and choose the right database for your workload.",
+      "category": "database",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/awslabs/agent-plugins.git",
+        "path": "plugins/databases-on-aws",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/awslabs/agent-plugins"
+    },
+    {
       "name": "dataverse",
       "description": "Agent skills for building on, analyzing, and managing Microsoft Dataverse — with Dataverse MCP, PAC CLI, and Python SDK.",
       "category": "database",
@@ -503,7 +527,7 @@
       "category": "development",
       "source": {
         "source": "git-subdir",
-        "url": "expo/skills",
+        "url": "https://github.com/expo/skills.git",
         "path": "plugins/expo",
         "ref": "main"
       },
@@ -670,7 +694,7 @@
       "description": "Build on Solana with Helius — live blockchain tools, expert coding patterns, and autonomous account signup",
       "source": {
         "source": "git-subdir",
-        "url": "helius-labs/core-ai",
+        "url": "https://github.com/helius-labs/core-ai.git",
         "path": "helius-plugin",
         "ref": "main",
         "sha": "05ea4d1128d46618266bbcc23a5e7019c57be0d6"
@@ -785,7 +809,7 @@
       "category": "productivity",
       "source": {
         "source": "git-subdir",
-        "url": "legalzoom/claude-plugins",
+        "url": "https://github.com/legalzoom/claude-plugins.git",
         "path": "plugins/legalzoom",
         "ref": "main",
         "sha": "f9fd8a0ca6e1421bc1aacb113a109663a7a6f6d8"
@@ -852,18 +876,6 @@
       "homepage": "https://github.com/microsoftdocs/mcp"
     },
     {
-      "name": "migration-to-aws",
-      "description": "Assess current cloud provider usage and billing to estimate and compare AWS services and pricing, with recommendations for migration or continued use of current provider.",
-      "category": "migration",
-      "source": {
-        "source": "git-subdir",
-        "url": "https://github.com/awslabs/agent-plugins.git",
-        "path": "plugins/migration-to-aws",
-        "ref": "main"
-      },
-      "homepage": "https://github.com/awslabs/agent-plugins"
-    },
-    {
       "name": "mintlify",
       "description": "Build beautiful documentation sites with Mintlify. Convert non-markdown files into properly formatted MDX pages, add and modify content with correct component use, and automate documentation updates.",
       "category": "development",
@@ -891,7 +903,7 @@
       "category": "database",
       "source": {
         "source": "git-subdir",
-        "url": "neondatabase/agent-skills",
+        "url": "https://github.com/neondatabase/agent-skills.git",
         "path": "plugins/neon-postgres",
         "ref": "main",
         "sha": "54d7a9db2ddd476f84d5d1fd7bac323907858a8b"
@@ -1109,7 +1121,7 @@
       "category": "development",
       "source": {
         "source": "git-subdir",
-        "url": "pydantic/skills",
+        "url": "https://github.com/pydantic/skills.git",
         "path": "plugins/ai",
         "ref": "main"
       },
@@ -1155,7 +1167,7 @@
       "category": "deployment",
       "source": {
         "source": "git-subdir",
-        "url": "railwayapp/railway-skills",
+        "url": "https://github.com/railwayapp/railway-skills.git",
         "path": "plugins/railway",
         "ref": "main",
         "sha": "d52f3741a6a33a3191d6138eb3d6c3355cb970d1"
@@ -1248,6 +1260,18 @@
           }
         }
       }
+    },
+    {
+      "name": "sagemaker-ai",
+      "description": "Build, train, and deploy AI models with deep AWS AI/ML expertise brought directly into your coding assistants, covering the surface area of Amazon SageMaker AI.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/awslabs/agent-plugins.git",
+        "path": "plugins/sagemaker-ai",
+        "ref": "main"
+      },
+      "homepage": "https://github.com/awslabs/agent-plugins"
     },
     {
       "name": "sanity",
@@ -1448,7 +1472,7 @@
       "category": "development",
       "source": {
         "source": "git-subdir",
-        "url": "stripe/ai",
+        "url": "https://github.com/stripe/ai.git",
         "path": "providers/claude/plugin",
         "ref": "main"
       },
@@ -1469,8 +1493,11 @@
       "name": "supabase",
       "description": "Supabase MCP integration for database operations, authentication, storage, and real-time subscriptions. Manage your Supabase projects, run SQL queries, and interact with your backend directly.",
       "category": "database",
-      "source": "./external_plugins/supabase",
-      "homepage": "https://github.com/anthropics/claude-plugins-public/tree/main/external_plugins/supabase"
+      "source": {
+        "source": "url",
+        "url": "https://github.com/supabase-community/supabase-plugin.git"
+      },
+      "homepage": "https://github.com/supabase-community/supabase-plugin"
     },
     {
       "name": "superpowers",
@@ -1555,7 +1582,7 @@
       "category": "development",
       "source": {
         "source": "git-subdir",
-        "url": "UI5/plugins-claude",
+        "url": "https://github.com/UI5/plugins-claude.git",
         "path": "plugins/ui5",
         "ref": "main",
         "sha": "5070dfc1cef711d6efad40beb43750027039d71f"
@@ -1568,7 +1595,7 @@
       "category": "development",
       "source": {
         "source": "git-subdir",
-        "url": "UI5/plugins-claude",
+        "url": "https://github.com/UI5/plugins-claude.git",
         "path": "plugins/ui5-typescript-conversion",
         "ref": "main",
         "sha": "5070dfc1cef711d6efad40beb43750027039d71f"
@@ -1622,7 +1649,7 @@
       "category": "productivity",
       "source": {
         "source": "git-subdir",
-        "url": "zapier/zapier-mcp",
+        "url": "https://github.com/zapier/zapier-mcp.git",
         "path": "plugins/zapier",
         "ref": "main",
         "sha": "b93007e9a726c6ee93c57a949e732744ef5acbfd"

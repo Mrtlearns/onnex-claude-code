@@ -6,6 +6,7 @@ export interface DbCustomer {
   cscan_min_charge: number; delivery_fee: string; lead_time: string;
   has_env_fee: boolean; has_tech_fee: boolean;
   lot_pattern: 'simple' | 'min_enforced';
+  misc_fee?: number | null;
 }
 
 export interface DbMaterial {
@@ -16,6 +17,8 @@ export interface DbMaterial {
 export interface Dims {
   thickness: number; width: number; length: number; diameter: number;
   od: number; id_: number; numScans: number;
+  numODScans?: number;   // RING: number of OD scan passes (default 1)
+  numFaceScans?: number; // RING: number of face scan passes (default 1)
 }
 
 export interface ScanResult {
@@ -44,7 +47,7 @@ export function rateForGeometry(geo: GeometryType, customer: DbCustomer): number
 export function defaultLoadTime(geo: GeometryType): number {
   if (geo === 'RING') return 5;
   if (geo === 'TUBING') return 2;
-  return 3;
+  return 3; // FLAT_BAR, ROUND_BAR, CSCAN_*, THIN_SHEET, SQUARE_RECT_TUBE
 }
 
 export function computeScan(
@@ -76,19 +79,26 @@ export function computeScan(
       // Excel RING CALCULATOR: uses full pi, no ceil
       // OD scan: indexes=length/scanIndex, secPerScanline=circ/10
       // Face scan: faceIndexes=wall/scanIndex, faceSecPerLine=circ/10
+      // numODScans/numFaceScans: COULTER FORGE multi-scan variant (default 1)
       const circ = Math.PI * dims.od;
       indexes = dims.length / scanIndex;
       secPerScanline = circ / scanSpeedDivisor;
-      scanTimeMin = (indexes * secPerScanline) / 60;
+      scanTimeMin = (indexes * secPerScanline * (dims.numODScans ?? 1)) / 60;
       const wall = (dims.od - dims.id_) / 2;
       const faceIndexes = wall / scanIndex;
       const faceSecPerLine = circ / scanSpeedDivisor;
-      scanTimeFaceMin = (faceIndexes * faceSecPerLine) / 60;
+      scanTimeFaceMin = (faceIndexes * faceSecPerLine * (dims.numFaceScans ?? 1)) / 60;
       break;
     }
     case 'TUBING':
       // Excel TUBING: circ=diameter*3.14, indexes=circ/scanIndex — no ceil
       indexes = (ROUND_PI * dims.diameter) / scanIndex;
+      secPerScanline = dims.length / scanSpeedDivisor;
+      scanTimeMin = (indexes * secPerScanline) / 60;
+      break;
+    case 'SQUARE_RECT_TUBE':
+      // Excel TUBING sheet rows 6-10: same flat-bar index formula, price×numScans
+      indexes = (dims.width + dims.thickness) / scanIndex;
       secPerScanline = dims.length / scanSpeedDivisor;
       scanTimeMin = (indexes * secPerScanline) / 60;
       break;
@@ -98,7 +108,8 @@ export function computeScan(
   let pricePart: number;
   if (geo === 'THIN_SHEET') {
     pricePart = roundUp1((totalTimeMin / 60) * hourlyRate * 2);
-  } else if (geo === 'TUBING') {
+  } else if (geo === 'TUBING' || geo === 'SQUARE_RECT_TUBE') {
+    // TUBING: price × numScans (sound passes); SQUARE_RECT_TUBE: same multiplier pattern
     pricePart = roundUp1((totalTimeMin / 60) * hourlyRate) * dims.numScans;
   } else {
     pricePart = roundUp1((totalTimeMin / 60) * hourlyRate);
@@ -130,8 +141,10 @@ export function computeLot(
   const lotCharge = customer.lot_pattern === 'min_enforced'
     ? Math.max(extPrice, minCharge) : extPrice;
   const techFee = customer.has_tech_fee ? Number(customer.technique_fee) : 0;
-  const subTotal = lotCharge + techFee;
+  // misc_fee: one-off customer surcharge (e.g. COULTER FORGE GSI FEE) — stacks before envFee
+  const miscFee = Number(customer.misc_fee ?? 0);
+  const subTotal = lotCharge + techFee + miscFee;
   // Excel: =ROUNDUP(subTotal*envRate, 0) — rounds UP to nearest integer
   const envFee = customer.has_env_fee ? Math.ceil(subTotal * Number(customer.env_fee_rate)) : 0;
-  return { extPrice, lotCharge, techFee, subTotal, envFee, grandTotal: subTotal + envFee };
+  return { extPrice, lotCharge, techFee, miscFee, subTotal, envFee, grandTotal: subTotal + envFee };
 }

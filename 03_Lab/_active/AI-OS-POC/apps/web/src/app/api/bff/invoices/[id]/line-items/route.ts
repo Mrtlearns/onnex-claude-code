@@ -5,7 +5,7 @@ import { auth } from "@/auth"
 import { NextRequest, NextResponse } from "next/server"
 import { apiCreateLineItem } from "@/lib/api-client"
 
-const API_BASE = process.env.AIOS_API_URL ?? "http://aios-api:3000"
+const API_BASE = process.env.AIOS_API_URL ?? "http://aios-api:3001"
 
 export async function GET(
   _req: NextRequest,

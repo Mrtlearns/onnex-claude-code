@@ -11,13 +11,34 @@ export interface Task {
   id: string
   tenant_id: string
   project_id?: string
+  parent_task_id?: string
   assignee_id?: string
   title: string
   description?: string
   status: TaskStatus
+  priority?: string
   due_date?: string
+  start_date?: string
+  end_date?: string
+  estimated_hours?: number
+  actual_hours?: number
+  task_type?: 'manual' | 'code' | 'content' | 'research' | 'business'
+  ai_output?: string
+  ai_completed_at?: string
+  ai_session_id?: string
+  external_id?: string
+  external_source?: string
   created_at: string
   archived_at?: string
+}
+
+export interface TaskDependency {
+  id: string
+  task_id: string
+  depends_on_task_id: string
+  depends_on_title?: string
+  dependency_type: 'blocks' | 'blocked_by' | 'relates_to' | 'duplicate'
+  created_at: string
 }
 
 export interface Subtask {
@@ -65,15 +86,45 @@ export interface Project {
   tenant_id: string
   client_id?: string
   name: string
+  description?: string
+  health?: 'on_track' | 'at_risk' | 'blocked'
+  color?: string
   status: "Active" | "Completed" | "On Hold"
   start_date?: string
   end_date?: string
   budget?: number
-  phases: Array<{ name: string; completed: boolean }>
+  phases: Array<{
+    name: string
+    completed: boolean
+    start_date?: string
+    end_date?: string
+    assignee_id?: string
+    assignee_name?: string
+  }>
   created_at: string
   archived_at?: string
   task_count?: number // present on GET /:id
   client_name?: string // joined from clients table
+}
+
+export interface ProjectNote {
+  id: string
+  project_id: string
+  content: string
+  author_id: string
+  author_name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectMember {
+  id: string
+  project_id: string
+  user_id: string
+  user_name: string
+  role: string
+  added_at: string
+  logged_minutes: number
 }
 
 // ─── Generic Pagination ───────────────────────────────────────────────────────
@@ -103,6 +154,9 @@ export const CreateProjectSchema = z.object({
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   budget: z.number().positive("Budget must be positive").optional(),
+  description: z.string().optional(),
+  health: z.enum(["on_track", "at_risk", "blocked"]).optional(),
+  color: z.string().optional(),
 })
 
 export type CreateProjectInput = z.infer<typeof CreateProjectSchema>
@@ -148,11 +202,31 @@ export interface NextcloudFile {
 }
 
 export type DocumentSource = 'paperless' | 'nextcloud'
-export type DocumentEntityType = 'client' | 'project' | 'deal'
+export type DocumentEntityType = 'client' | 'project' | 'deal' | 'task'
 
 export interface DocumentLink {
-  id: string; tenant_id: string; document_source: DocumentSource;
-  document_id: string; entity_type: DocumentEntityType; entity_id: string; created_at: string;
+  id: string
+  tenant_id: string
+  document_source: DocumentSource
+  document_id: string
+  entity_type: DocumentEntityType
+  entity_id: string
+  link_type: 'file' | 'folder'
+  display_name?: string
+  created_at: string
+}
+
+export interface DocumentComment {
+  id: string
+  tenant_id: string
+  document_source: string
+  document_id: string
+  entity_type: string
+  entity_id: string
+  author_id: string
+  author_name: string
+  content: string
+  created_at: string
 }
 
 export interface Notification {
@@ -178,4 +252,273 @@ export interface DashboardKpis {
 
 export interface TeamWorkloadItem {
   assignee_id: string; task_count: number; hours_this_week: number;
+}
+
+// === Phase 11: Reports + Admin ===
+
+export type ReportPeriod = 'this_week' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year' | 'custom'
+
+export interface ReportQueryParams {
+  period: ReportPeriod
+  start?: string   // ISO date string, only used when period='custom'
+  end?: string     // ISO date string, only used when period='custom'
+}
+
+export interface UtilizationRow {
+  user_id: string
+  user_name: string
+  total_minutes: number
+  capacity_minutes: number
+  utilization_pct: number
+}
+
+export interface RevenueRow {
+  client_id: string
+  client_name: string
+  invoiced_total: number
+  received_total: number
+}
+
+export interface ProfitabilityRow {
+  project_id: string
+  project_name: string
+  revenue: number
+  cost: number
+  margin: number
+  margin_pct: number
+}
+
+export interface ClientActivityRow {
+  client_id: string
+  client_name: string
+  event_count: number
+  last_active_at: string | null
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string
+  is_active: boolean
+  role: string
+}
+
+export interface AuditLogEntry {
+  id: string
+  actor_id: string
+  actor_name: string
+  action: string
+  target_type: string
+  target_id: string | null
+  target_label: string | null
+  payload: Record<string, unknown> | null
+  created_at: string
+}
+
+// ─── Phase 12: Settings ───────────────────────────────────────────────────
+
+export interface WorkspaceSettings {
+  name: string
+  logo_url: string | null
+  timezone: string
+  default_currency: string
+}
+
+export interface SmtpConfig {
+  host: string
+  port: number
+  user: string
+  from_address: string
+  has_password: boolean
+}
+
+export interface SmtpConfigInput extends Omit<SmtpConfig, 'has_password'> {
+  password?: string
+}
+
+export interface N8nConfig {
+  webhook_url: string | null
+  enabled_events: string[]
+}
+
+export interface IntegrationStatus {
+  service: 'Authentik' | 'Nextcloud' | 'Paperless-ngx' | 'Temporal'
+  status: 'healthy' | 'degraded'
+  last_checked: string  // ISO timestamp
+}
+
+export interface StorageSettings {
+  provider: string
+  url: string | null
+  bucket: string | null
+  access_key: string | null
+  region: string
+  has_secret_key: boolean
+}
+
+// ─── AI Brain ─────────────────────────────────────────────────────────────
+
+export interface Sop {
+  id: string
+  tenant_id: string
+  slug: string
+  title: string
+  description: string
+  category: 'sales' | 'operations' | 'maintenance' | 'hr'
+  auto: boolean
+  input_label: string | null
+  system_prompt: string
+  created_at: string
+  updated_at: string
+}
+
+export interface StorageTestResult {
+  ok: boolean
+  latency_ms?: number
+  error?: string
+}
+
+// ─── Phase 12: AI Assistant ───────────────────────────────────────────────
+
+export interface AiSourceRef {
+  entity_type: string
+  entity_id: string
+  label: string
+}
+
+export interface AiMessage {
+  role: 'user' | 'assistant'
+  content: string
+  source_refs?: AiSourceRef[]
+}
+
+export interface AiChatResponse {
+  response: string
+  source_refs: AiSourceRef[]
+}
+
+export interface AiMemoryStats {
+  entry_count: number
+  vector_storage_bytes: number
+}
+
+// ─── Phase 12: Client Portal ──────────────────────────────────────────────
+
+export interface PortalMe {
+  client_id: string
+  client_name: string
+}
+
+export interface PortalProject {
+  id: string
+  name: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  budget: number | null
+  tasks_total: number
+  tasks_done: number
+}
+
+export interface PortalInvoice {
+  id: string
+  invoice_number: string
+  status: string
+  due_date: string | null
+  total_amount: number
+  sent_at: string | null
+  pdf_download_url: string
+}
+
+export interface PortalDocument {
+  id: string
+  document_type: 'paperless' | 'nextcloud'
+  document_id: string
+  entity_type: string
+  entity_id: string
+  created_at: string
+}
+
+// ─── Nextcloud RAG ────────────────────────────────────────────────────────────
+
+export interface RagChunk {
+  id: string
+  text: string
+  file_path: string
+  file_name: string
+  folder_scope: string
+  metadata: Record<string, unknown>
+  similarity: number
+}
+
+export type RagSearchResult = RagChunk
+
+export interface RagSourceRef {
+  file_name: string
+  file_path: string
+  folder_scope: string
+}
+
+export interface RagChatResponse {
+  response: string
+  source_refs: RagSourceRef[]
+}
+
+export interface KgEntity {
+  id: string
+  entity_type: string
+  name: string
+  aliases: string[]
+  properties: Record<string, unknown>
+  folder_scope: string | null
+  source_count: number | null
+}
+
+export interface KgRelationship {
+  id: string
+  rel_type: string
+  weight: number
+  context: string | null
+  source_path: string | null
+  to_id: string
+  to_type: string
+  to_name: string
+}
+
+export interface KgEntityDetail {
+  entity: KgEntity
+  relationships: KgRelationship[]
+  source_docs: Array<{ file_path: string; file_name: string }>
+}
+
+export interface KgLink {
+  source: string
+  target: string
+  rel_type: string
+  weight: number
+}
+
+// ─── Document Signing (LibreSign) ─────────────────────────────────────────────
+
+export interface DocumentSignatureSigner {
+  name: string
+  email: string
+  description?: string
+}
+
+export interface DocumentSignature {
+  id: string
+  tenant_id: string
+  file_path: string
+  file_name: string
+  entity_type: string | null
+  entity_id: string | null
+  signers: DocumentSignatureSigner[]
+  status: 'pending' | 'partial' | 'completed' | 'expired' | 'cancelled'
+  libresign_uuid: string | null
+  signed_file_path: string | null
+  initiated_by: string
+  initiated_at: string
+  completed_at: string | null
+  expires_at: string | null
 }

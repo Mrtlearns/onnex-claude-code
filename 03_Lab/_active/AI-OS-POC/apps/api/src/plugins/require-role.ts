@@ -1,52 +1,43 @@
-import type { FastifyRequest, FastifyReply } from "fastify"
+// apps/api/src/plugins/require-role.ts
+// Fastify preHandler: asserts the authenticated user has one of the allowed roles
 
-// Mirrors apps/web/src/lib/rbac.ts GROUP_ROLE_MAP exactly
+import type { FastifyRequest, FastifyReply } from 'fastify'
+
+// Maps Authentik group names to application roles (must match apps/web/src/lib/rbac.ts)
 const GROUP_ROLE_MAP: Record<string, string> = {
-  "aios-super-admins": "super_admin",
-  "aios-admins":       "admin",
-  "aios-managers":     "manager",
-  "aios-team":         "team_member",
-  "aios-contractors":  "contractor",
-  "aios-finance":      "finance",
-  "aios-clients":      "client_viewer",
+  'aios-super-admins': 'super_admin',
+  'aios-admins':       'admin',
+  'aios-managers':     'manager',
+  'aios-team':         'team_member',
+  'aios-contractors':  'contractor',
+  'aios-finance':      'finance',
+  'aios-clients':      'client_viewer',
 }
 
-const ROLE_PRIORITY = [
-  "super_admin", "admin", "manager", "finance", "team_member", "contractor", "client_viewer",
-]
+const ROLE_PRIORITY = ['super_admin', 'admin', 'manager', 'finance', 'team_member', 'contractor', 'client_viewer']
 
 export function mapGroupsToRoleApi(groups: string[]): string {
-  for (const role of ROLE_PRIORITY) {
-    const groupName = Object.entries(GROUP_ROLE_MAP).find(([, r]) => r === role)?.[0]
-    if (groupName && groups.includes(groupName)) return role
+  const mapped = groups.map(g => GROUP_ROLE_MAP[g]).filter(Boolean)
+  for (const r of ROLE_PRIORITY) {
+    if (mapped.includes(r)) return r
   }
-  return "team_member"
+  return 'team_member'
 }
 
-export function requireRole(allowedRoles: string[]) {
-  return async function preHandler(request: FastifyRequest, reply: FastifyReply) {
-    const jwtPayload = (request as FastifyRequest & { user?: Record<string, unknown> }).user
-    if (!jwtPayload) {
-      return reply.code(403).send({ error: "forbidden", message: "Not authenticated" })
-    }
+function resolveRole(user: any): string {
+  // Direct role claim (e.g. set via Authentik property mapping)
+  if (user?.role) return user.role as string
+  // Map from groups array (standard Authentik JWT)
+  const groups: string[] = Array.isArray(user?.groups) ? user.groups : []
+  return mapGroupsToRoleApi(groups)
+}
 
-    // Derive role from groups if role claim not yet present
-    let userRole = jwtPayload.role as string | undefined
-    if (!userRole && Array.isArray(jwtPayload.groups)) {
-      userRole = mapGroupsToRoleApi(jwtPayload.groups as string[])
-    }
-
-    if (!userRole) {
-      return reply.code(403).send({ error: "forbidden", message: "No role claim in token" })
-    }
-
-    if (userRole === "super_admin") return // super_admin bypasses all checks
-
-    if (!allowedRoles.includes(userRole)) {
-      return reply.code(403).send({
-        error: "forbidden",
-        message: `Role '${userRole}' is not authorized. Required: ${allowedRoles.join(", ")}`,
-      })
+export function requireRole(roles: string[]) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const userRole = resolveRole((request as any).user)
+    if (userRole === 'super_admin') return  // super_admin bypasses all role gates
+    if (!roles.includes(userRole)) {
+      return reply.code(403).send({ error: 'Forbidden — insufficient role' })
     }
   }
 }

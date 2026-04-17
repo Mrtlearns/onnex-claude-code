@@ -1,16 +1,16 @@
 "use client"
 // apps/web/src/app/(protected)/projects/[id]/project-detail-client.tsx
-// Client Component — project detail: tasks count, budget vs actual, phases, logged hours
+// Project detail — tabbed layout (Overview / Tasks / Timeline / Finances / Files / Team / Activity / Notes)
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,57 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ProjectForm } from "../components/project-form"
-import type { Project, TimeEntry } from "@/types/api"
+import { MeetingMinutesDialog } from "../../tasks/components/meeting-minutes-dialog"
+import { CmsSection } from "../../documents/components/cms-section"
+import { KanbanBoard } from "../../tasks/components/kanban-board"
+import { TaskGanttView } from "../../tasks/components/task-gantt-view"
+import { ProjectNotes } from "./components/project-notes"
+import { ProjectActivity } from "./components/project-activity"
+import { ProjectTeam } from "./components/project-team"
+import {
+  FileText,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  ListTodo,
+  BarChart3,
+} from "lucide-react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts"
+import type { Project, TimeEntry, Task, TaskDependency } from "@/types/api"
+
+// ─── Health badge config ───────────────────────────────────────────────────────
+
+const HEALTH_CONFIG = {
+  on_track: { label: "On Track", cls: "bg-green-500/15 text-green-400 border border-green-500/30" },
+  at_risk:  { label: "At Risk",  cls: "bg-amber-500/15 text-amber-400 border border-amber-500/30" },
+  blocked:  { label: "Blocked",  cls: "bg-red-500/15 text-red-400 border border-red-500/30" },
+} as const
+
+// ─── Project color dot ─────────────────────────────────────────────────────────
+
+const COLOR_DOTS: Record<string, string> = {
+  slate:  "bg-slate-400",
+  blue:   "bg-blue-400",
+  green:  "bg-green-400",
+  purple: "bg-purple-400",
+  amber:  "bg-amber-400",
+  red:    "bg-red-400",
+}
+
+function daysRemaining(endDate?: string): number | null {
+  if (!endDate) return null
+  return Math.ceil((new Date(endDate).getTime() - Date.now()) / 86_400_000)
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface ProjectDetailClientProps {
   projectId: string
@@ -28,6 +78,11 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const queryClient = useQueryClient()
   const router = useRouter()
   const [showEdit, setShowEdit] = useState(false)
+  const [showMeeting, setShowMeeting] = useState(false)
+  const [activeTab, setActiveTab] = useState("overview")
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleInput, setTitleInput] = useState("")
+  const titleRef = useRef<HTMLInputElement>(null)
 
   const { data: project, isLoading } = useQuery<Project>({
     queryKey: ["project", projectId],
@@ -39,7 +94,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     staleTime: 60_000,
   })
 
-  // TIME-05: Logged hours — computed from all time entries for this project
   const { data: timeEntries = [] } = useQuery<TimeEntry[]>({
     queryKey: ["time-entries", { project_id: projectId }],
     queryFn: () =>
@@ -47,8 +101,25 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     staleTime: 60_000,
   })
 
-  const loggedHours =
-    timeEntries.reduce((sum, e) => sum + e.duration_minutes, 0) / 60
+  // Tasks tab — only fetch when active
+  const { data: tasks = [] } = useQuery<Task[]>({
+    queryKey: ["tasks", { project_id: projectId }],
+    queryFn: () =>
+      fetch(`/api/bff/tasks?project_id=${projectId}`).then((r) => r.json()),
+    enabled: activeTab === "tasks",
+    staleTime: 60_000,
+  })
+
+  // Timeline tab — only fetch when active
+  const { data: ganttData } = useQuery<{ tasks: Task[]; dependencies: TaskDependency[] }>({
+    queryKey: ["tasks", { project_id: projectId, view: "gantt" }],
+    queryFn: () =>
+      fetch(`/api/bff/tasks?project_id=${projectId}&view=gantt`).then((r) => r.json()),
+    enabled: activeTab === "timeline",
+    staleTime: 60_000,
+  })
+
+  const loggedHours = timeEntries.reduce((sum, e) => sum + e.duration_minutes, 0) / 60
 
   const archiveMutation = useMutation({
     mutationFn: () =>
@@ -61,12 +132,32 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     },
   })
 
+  const saveTitleMutation = useMutation({
+    mutationFn: (name: string) =>
+      fetch(`/api/bff/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Save failed")
+        return r.json()
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      setEditingTitle(false)
+    },
+  })
+
+  useEffect(() => {
+    if (editingTitle) titleRef.current?.focus()
+  }, [editingTitle])
+
   if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-4 w-32" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
         </div>
         <Skeleton className="h-48 w-full" />
@@ -78,49 +169,133 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     return <p className="text-muted-foreground">Project not found.</p>
   }
 
-  const completedPhases = project.phases.filter((p) => p.completed).length
-  const totalPhases = project.phases.length
+  const phases = project.phases ?? []
+  const completedPhases = phases.filter((p) => p.completed).length
+  const totalPhases = phases.length
+  const completionPct = totalPhases > 0 ? Math.round((completedPhases / totalPhases) * 100) : 0
+
+  const days = daysRemaining(project.end_date)
+  const health = project.health ? HEALTH_CONFIG[project.health] : null
+  const colorDot = COLOR_DOTS[project.color ?? "slate"] ?? COLOR_DOTS.slate
+
+  // ─── Finances chart data ───────────────────────────────────────────────────
+  const financeData = [
+    { label: "Phases", done: completedPhases, remaining: Math.max(0, totalPhases - completedPhases) },
+    { label: "Tasks", done: project.task_count ?? 0, remaining: 0 },
+  ]
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">{project.name}</h1>
+    <div className="space-y-4">
+
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2 min-w-0 flex-1">
+          {/* Title row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className={`h-3 w-3 rounded-full shrink-0 ${colorDot}`} />
+
+            {editingTitle ? (
+              <input
+                ref={titleRef}
+                className="text-2xl font-semibold bg-transparent border-b border-primary outline-none min-w-0 w-64"
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
+                onBlur={() => {
+                  const trimmed = titleInput.trim()
+                  if (trimmed && trimmed !== project.name) {
+                    saveTitleMutation.mutate(trimmed)
+                  } else {
+                    setEditingTitle(false)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur()
+                  if (e.key === "Escape") setEditingTitle(false)
+                }}
+              />
+            ) : (
+              <h1
+                className="text-2xl font-semibold cursor-text hover:text-foreground/80 transition-colors"
+                onClick={() => { setTitleInput(project.name); setEditingTitle(true) }}
+                title="Click to rename"
+              >
+                {project.name}
+              </h1>
+            )}
+
             <Badge
               variant={
-                project.status === "Active"
-                  ? "default"
-                  : project.status === "Completed"
-                    ? "secondary"
-                    : "outline"
+                project.status === "Active" ? "default"
+                  : project.status === "Completed" ? "secondary"
+                  : "outline"
               }
             >
               {project.status}
             </Badge>
+
+            {health && (
+              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${health.cls}`}>
+                {health.label}
+              </span>
+            )}
+
+            {days !== null && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                days < 0 ? "bg-red-500/15 text-red-400"
+                  : days <= 7 ? "bg-amber-500/15 text-amber-400"
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {days < 0
+                  ? `${Math.abs(days)}d overdue`
+                  : days === 0 ? "Due today"
+                  : `${days}d remaining`}
+              </span>
+            )}
+
             {project.archived_at && <Badge variant="secondary">Archived</Badge>}
           </div>
-          {project.client_name && (
-            <p className="text-sm text-muted-foreground">
-              Client:{" "}
-              {project.client_id ? (
-                <Link href={`/clients/${project.client_id}`} className="hover:underline">
-                  {project.client_name}
-                </Link>
-              ) : (
-                project.client_name
-              )}
-            </p>
-          )}
+
+          {/* Client + progress bar */}
+          <div className="flex items-center gap-4 flex-wrap">
+            {project.client_name && (
+              <p className="text-sm text-muted-foreground">
+                Client:{" "}
+                {project.client_id ? (
+                  <Link href={`/clients/${project.client_id}`} className="hover:underline">
+                    {project.client_name}
+                  </Link>
+                ) : (
+                  project.client_name
+                )}
+              </p>
+            )}
+            {totalPhases > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="w-32 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${completionPct}%` }}
+                  />
+                </div>
+                <span>{completionPct}% complete</span>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowEdit(true)}>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          <Button variant="outline" size="sm" onClick={() => setShowMeeting(true)}>
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            From Meeting
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
             Edit
           </Button>
           {!project.archived_at && (
             <Button
               variant="destructive"
+              size="sm"
               onClick={() => archiveMutation.mutate()}
               disabled={archiveMutation.isPending}
             >
@@ -130,128 +305,283 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         </div>
       </div>
 
-      <Separator />
+      {/* ── Tabs ── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-0">
+        <TabsList className="w-full justify-start h-auto flex-wrap gap-0 bg-transparent border-b border-border rounded-none px-0 pb-0">
+          {[
+            { value: "overview",  label: "Overview" },
+            { value: "tasks",     label: "Tasks" },
+            { value: "timeline",  label: "Timeline" },
+            { value: "finances",  label: "Finances" },
+            { value: "files",     label: "Files" },
+            { value: "team",      label: "Team" },
+            { value: "activity",  label: "Activity" },
+            { value: "notes",     label: "Notes" },
+          ].map(tab => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm font-medium"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tasks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{project.task_count ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Budget
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">
-              {project.budget ? `$${project.budget.toLocaleString()}` : "—"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Actual Cost
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-muted-foreground">—</p>
-          </CardContent>
-        </Card>
-        {/* TIME-05: Logged Hours KPI */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Logged Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{loggedHours.toFixed(1)}h</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* ── Overview ── */}
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <ListTodo className="h-3.5 w-3.5" /> Tasks
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{project.task_count ?? 0}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" /> Budget
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  {project.budget ? `$${project.budget.toLocaleString()}` : "—"}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Logged Hours
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{loggedHours.toFixed(1)}h</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Phases
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{completedPhases}<span className="text-base text-muted-foreground font-normal">/{totalPhases}</span></p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Phases */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Phases</span>
-            {totalPhases > 0 && (
-              <span className="text-sm font-normal text-muted-foreground">
-                {completedPhases} / {totalPhases} complete
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {project.phases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No phases defined. Edit the project to add phases.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {project.phases.map((phase, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50"
-                >
-                  <div
-                    className={`h-4 w-4 rounded-full border-2 flex-shrink-0 ${
-                      phase.completed
-                        ? "bg-primary border-primary"
-                        : "border-muted-foreground"
-                    }`}
-                  />
-                  <span
-                    className={
-                      phase.completed ? "line-through text-muted-foreground" : ""
-                    }
-                  >
-                    {phase.name}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {/* Description */}
+          {project.description && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Description</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                  {project.description}
+                </p>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Dates */}
-      {(project.start_date || project.end_date) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Timeline</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Start</p>
-              <p className="font-medium">
-                {project.start_date
-                  ? new Date(project.start_date).toLocaleDateString()
-                  : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">End</p>
-              <p className="font-medium">
-                {project.end_date
-                  ? new Date(project.end_date).toLocaleDateString()
-                  : "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          {/* Phases */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Phases</span>
+                {totalPhases > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {completedPhases} / {totalPhases} complete
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {phases.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No phases defined. Edit the project to add phases.</p>
+              ) : (
+                <div className="space-y-2">
+                  {phases.map((phase, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50"
+                    >
+                      <div
+                        className={`h-4 w-4 rounded-full border-2 flex-shrink-0 ${
+                          phase.completed
+                            ? "bg-primary border-primary"
+                            : "border-muted-foreground"
+                        }`}
+                      />
+                      <span className={`flex-1 text-sm ${phase.completed ? "line-through text-muted-foreground" : ""}`}>
+                        {phase.name}
+                      </span>
+                      {(phase.start_date || phase.end_date) && (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {phase.start_date ? new Date(phase.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                          {phase.start_date && phase.end_date ? " – " : ""}
+                          {phase.end_date ? new Date(phase.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Edit dialog */}
+          {/* Dates */}
+          {(project.start_date || project.end_date) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Dates</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Start</p>
+                  <p className="font-medium">
+                    {project.start_date
+                      ? new Date(project.start_date).toLocaleDateString()
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">End</p>
+                  <p className="font-medium">
+                    {project.end_date
+                      ? new Date(project.end_date).toLocaleDateString()
+                      : "—"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ── Tasks ── */}
+        <TabsContent value="tasks" className="pt-4">
+          <KanbanBoard tasks={tasks} />
+        </TabsContent>
+
+        {/* ── Timeline ── */}
+        <TabsContent value="timeline" className="pt-4">
+          {!ganttData ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">Loading timeline...</div>
+          ) : ganttData.tasks.length === 0 ? (
+            <div className="py-16 text-center text-sm text-muted-foreground">
+              No tasks with dates found for this project. Add start/end dates to tasks to see them here.
+            </div>
+          ) : (
+            <TaskGanttView tasks={ganttData.tasks} dependencies={ganttData.dependencies} />
+          )}
+        </TabsContent>
+
+        {/* ── Finances ── */}
+        <TabsContent value="finances" className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" /> Budget
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  {project.budget ? `$${project.budget.toLocaleString()}` : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Project budget</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Logged Hours
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{loggedHours.toFixed(1)}h</p>
+                <p className="text-xs text-muted-foreground mt-1">{timeEntries.length} time entries</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Completion
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{completionPct}%</p>
+                <p className="text-xs text-muted-foreground mt-1">{completedPhases}/{totalPhases} phases done</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {totalPhases > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Phase Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={financeData} barGap={4} barCategoryGap="30%">
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "6px",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="done" name="Done" stackId="a" radius={[0, 0, 0, 0]}>
+                      {financeData.map((_, i) => (
+                        <Cell key={i} fill="hsl(var(--primary))" opacity={0.85} />
+                      ))}
+                    </Bar>
+                    <Bar dataKey="remaining" name="Remaining" stackId="a" radius={[4, 4, 0, 0]}>
+                      {financeData.map((_, i) => (
+                        <Cell key={i} fill="hsl(var(--muted))" opacity={0.6} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ── Files ── */}
+        <TabsContent value="files" className="pt-4">
+          <CmsSection entityType="project" entityId={projectId} title="Project Files" />
+        </TabsContent>
+
+        {/* ── Team ── */}
+        <TabsContent value="team" className="pt-4">
+          <ProjectTeam projectId={projectId} />
+        </TabsContent>
+
+        {/* ── Activity ── */}
+        <TabsContent value="activity" className="pt-4">
+          <ProjectActivity projectId={projectId} />
+        </TabsContent>
+
+        {/* ── Notes ── */}
+        <TabsContent value="notes" className="pt-4">
+          <ProjectNotes projectId={projectId} />
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Edit Dialog ── */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent>
           <DialogHeader>
@@ -267,6 +597,12 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           />
         </DialogContent>
       </Dialog>
+
+      <MeetingMinutesDialog
+        open={showMeeting}
+        onOpenChange={setShowMeeting}
+        defaultProjectId={projectId}
+      />
     </div>
   )
 }

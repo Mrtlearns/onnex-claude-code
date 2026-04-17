@@ -1,31 +1,15 @@
 /**
- * Unit tests for the Email Checks Engine pure functions
- * (keywordDetectTypes, keywordDetectPartMaterial)
+ * Unit tests for the Email Checks Engine pure functions.
+ *
+ * Imports the REAL functions from api/src/lib/ndt-classify.ts via the
+ * @ndtv1/api path alias (vite.config.ts + tsconfig.app.json).
+ * No more manual mirroring — if the API regex changes, these tests break here.
  *
  * LLM and DB calls are not tested here — those require integration tests.
  */
 
 import { describe, it, expect } from 'vitest'
-
-// ── Mirror of engine pure functions ──────────────────────────────────────────
-
-function keywordDetectTypes(text: string): string[] {
-  const lower = text.toLowerCase()
-  const detected: string[] = []
-  if (/\brt\b|radiograph|x.?ray|gamma.?ray|film/.test(lower)) detected.push('RT')
-  if (/\but\b|ultrasonic|phased.?array|tofd/.test(lower)) detected.push('UT')
-  if (/\bet\b|eddy.?current/.test(lower)) detected.push('ET')
-  if (/\bmt\b|magnetic.?particle|mag.?particle/.test(lower)) detected.push('MT')
-  if (/\bpt\b|penetrant|dye.?pen/.test(lower)) detected.push('PT')
-  if (/\bvt\b|visual.?test/.test(lower)) detected.push('VT')
-  return detected
-}
-
-function keywordDetectPartMaterial(text: string): boolean {
-  const hasPartNumber = /p[\/#]?n[\s:.]+\S+|part\s*(no|number|#)[\s:.]+\S+|\bpn[\s:.]+\S+/i.test(text)
-  const hasMaterial = /carbon\s*steel|stainless|alumin|inconel|titanium|duplex|copper|cast\s*iron/i.test(text)
-  return hasPartNumber || hasMaterial
-}
+import { keywordDetectTypes, keywordDetectPartMaterial } from '@ndtv1/api/lib/ndt-classify'
 
 // ── Tests: keywordDetectTypes ─────────────────────────────────────────────────
 
@@ -42,12 +26,32 @@ describe('keywordDetectTypes', () => {
     expect(keywordDetectTypes('x-ray of the weld')).toContain('RT')
   })
 
+  it('detects UT from standalone "UT" keyword (\\but\\b)', () => {
+    expect(keywordDetectTypes('We need UT inspection on this weld')).toContain('UT')
+  })
+
+  it('detects UT from standalone "UT" at end of sentence', () => {
+    expect(keywordDetectTypes('Please quote for UT.')).toContain('UT')
+  })
+
+  it('detects UT from uppercase "UT" in subject line', () => {
+    expect(keywordDetectTypes('Subject: UT Quote Request')).toContain('UT')
+  })
+
   it('detects UT from ultrasonic', () => {
     expect(keywordDetectTypes('Ultrasonic testing required')).toContain('UT')
   })
 
+  it('detects UT from ultrasonically (adverb form)', () => {
+    expect(keywordDetectTypes('The welds were ultrasonically inspected')).toContain('UT')
+  })
+
   it('detects UT from phased array', () => {
     expect(keywordDetectTypes('phased array scan')).toContain('UT')
+  })
+
+  it('does not match "UT" inside longer words (e.g. "output", "strut")', () => {
+    expect(keywordDetectTypes('The strut output should be inspected visually')).not.toContain('UT')
   })
 
   it('detects ET from eddy current', () => {

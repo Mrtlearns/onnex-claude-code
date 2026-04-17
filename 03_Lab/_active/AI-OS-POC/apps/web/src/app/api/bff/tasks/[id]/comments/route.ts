@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { NextRequest, NextResponse } from "next/server"
 
-const API_BASE = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3000"
+const API_BASE = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3001"
 
 export async function GET(
   req: NextRequest,
@@ -17,7 +17,8 @@ export async function GET(
     headers: { Authorization: `Bearer ${session.user.token}` },
   })
   const data = await res.json()
-  return NextResponse.json(data, { status: res.status })
+  const arr = Array.isArray(data) ? data : (data?.comments ?? data?.data ?? [])
+  return NextResponse.json(arr, { status: 200 })
 }
 
 export async function POST(

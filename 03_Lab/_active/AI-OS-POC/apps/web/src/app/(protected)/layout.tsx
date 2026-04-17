@@ -1,18 +1,36 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
-import { AppShell } from "@/components/layout/app-shell"
-import type { Session } from "next-auth"
+import { Sidebar } from "@/components/layout/sidebar"
+import { Header } from "@/components/layout/header"
+import { CommandMenu } from "@/components/command-menu"
+import { Toaster } from "sonner"
 
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic"
+
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const session = await auth()
 
-  if (!session?.user) {
+  if (!session) {
     redirect("/login")
   }
 
-  if ((session as Session & { error?: string }).error === "RefreshAccessTokenError") {
-    redirect("/api/auth/signout?callbackUrl=/login")
+  if (session.error === "RefreshAccessTokenError") {
+    redirect("/api/auth/signout")
   }
 
-  return <AppShell session={session as Session}>{children}</AppShell>
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar session={session} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header session={session} />
+        <main className="flex-1 overflow-auto p-6">{children}</main>
+      </div>
+      <CommandMenu />
+      <Toaster richColors position="bottom-right" />
+    </div>
+  )
 }

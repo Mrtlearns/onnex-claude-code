@@ -1,6 +1,6 @@
 const AIOS_API_URL = process.env.AIOS_API_URL ?? 'http://aios-api:3001';
 const PAPERLESS_AI_API_TOKEN = process.env.PAPERLESS_AI_API_TOKEN ?? '';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 
 // Activity 1: Fetch document content from Paperless via aios-api internal proxy
 export async function fetchDocumentContent(documentId: number): Promise<string> {
@@ -9,17 +9,17 @@ export async function fetchDocumentContent(documentId: number): Promise<string> 
   return resp.text();
 }
 
-// Activity 2: Generate embedding via Gemini gemini-embedding-001 (768 dims)
+// Activity 2: Generate embedding via OpenAI text-embedding-3-small
 export async function generateEmbedding(content: string): Promise<number[]> {
-  const resp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/embeddings', {
+  const resp = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model: 'gemini-embedding-001', input: content.trim().slice(0, 8000), dimensions: 768 }),
+    body: JSON.stringify({ model: 'text-embedding-3-small', input: content.trim().slice(0, 8000) }),
   });
-  if (!resp.ok) throw new Error(`Gemini embedding failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`OpenAI embedding failed: ${resp.status}`);
   const data = await resp.json() as { data: Array<{ embedding: number[] }> };
   return data.data[0].embedding;
 }

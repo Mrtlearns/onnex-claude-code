@@ -73,7 +73,7 @@ export function ClientList({ initialSearch }: ClientListProps) {
   if (activeStatus !== "All") params.set("status", activeStatus)
   if (includeArchived) params.set("archived", "true")
 
-  const { data: clients, isLoading } = useQuery<Client[]>({
+  const { data: rawClients, isLoading } = useQuery<Client[]>({
     queryKey: ["clients", Object.fromEntries(params)],
     queryFn: () =>
       fetch(`/api/bff/clients?${params.toString()}`).then((r) => {
@@ -82,6 +82,15 @@ export function ClientList({ initialSearch }: ClientListProps) {
       }),
     staleTime: 60_000,
   })
+
+  // Client-side filter as reliable fallback for the search term
+  const clientSearch = searchInput.toLowerCase().trim()
+  const clients = clientSearch && rawClients
+    ? rawClients.filter((c) =>
+        c.name.toLowerCase().includes(clientSearch) ||
+        (c.type ?? "").toLowerCase().includes(clientSearch)
+      )
+    : rawClients
 
   const archiveMutation = useMutation({
     mutationFn: (id: string) =>
