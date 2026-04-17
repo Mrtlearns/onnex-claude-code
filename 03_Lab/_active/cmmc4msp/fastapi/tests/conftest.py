@@ -31,11 +31,12 @@ CONTROL_DEF_ID = str(uuid.uuid4())
 PROGRAM_CONTROL_ID = str(uuid.uuid4())
 ARTIFACT_ID = str(uuid.uuid4())
 ASSESSMENT_ID = str(uuid.uuid4())
+USER_ID = str(uuid.uuid4())  # valid UUID — used by routes that call uuid.UUID(user["user_id"])
 
 
-def make_token(role: str = "msp_admin", org_id: str = ORG_ID, msp_id: str = "") -> str:
+def make_token(role: str = "msp_admin", org_id: str = ORG_ID, msp_id: str = "", sub: str = "user-1") -> str:
     return jwt.encode(
-        {"sub": "user-1", "org_id": org_id, "role": role, "msp_id": msp_id},
+        {"sub": sub, "org_id": org_id, "role": role, "msp_id": msp_id},
         JWT_SECRET,
         algorithm=ALGORITHM,
     )

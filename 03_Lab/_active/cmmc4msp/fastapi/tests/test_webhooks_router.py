@@ -30,6 +30,14 @@ def _build_pc_record():
     return rec
 
 
+def _build_existing_assessment_record():
+    data = {"id": uuid.UUID(ASSESSMENT_ID)}
+    rec = MagicMock()
+    rec.__getitem__ = lambda self, k: data[k]
+    rec.get = lambda k, d=None: data.get(k, d)
+    return rec
+
+
 @pytest.mark.asyncio
 async def test_assessment_complete_requires_secret(async_client):
     """POST /api/webhooks/n8n/assessment-complete without secret → 401."""
@@ -74,8 +82,9 @@ async def test_assessment_complete_success(async_client):
     client, conn = async_client
 
     conn.fetchrow = AsyncMock(side_effect=[
-        _build_artifact_record(),   # UPDATE artifacts RETURNING
-        _build_pc_record(),          # SELECT program_controls for program_id
+        _build_artifact_record(),              # UPDATE artifacts RETURNING
+        _build_existing_assessment_record(),   # SELECT id FROM assessments (existing)
+        _build_pc_record(),                    # SELECT program_id FROM program_controls
     ])
     conn.execute = AsyncMock(return_value="INSERT 0 1")
 
