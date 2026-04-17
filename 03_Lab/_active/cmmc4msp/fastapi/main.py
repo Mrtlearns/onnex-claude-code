@@ -8,7 +8,7 @@ from minio import Minio
 
 from app.config import settings
 from app.database import create_pool
-from app.routers import artifacts, assessments, controls, msps, orgs, programs, reports, webhooks
+from app.routers import artifacts, assessments, assignments, controls, invites, msps, orgs, programs, reports, webhooks
 from app.services.minio_service import ensure_bucket
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,8 @@ app.add_middleware(
 
 app.include_router(msps.router, prefix="/api/msps", tags=["msps"])
 app.include_router(orgs.router, prefix="/api/orgs", tags=["orgs"])
+app.include_router(assignments.router, prefix="/api/assignments", tags=["assignments"])
+app.include_router(invites.router, prefix="/api/invites", tags=["invites"])
 app.include_router(programs.router, prefix="/api/programs", tags=["programs"])
 app.include_router(controls.router, prefix="/api/controls", tags=["controls"])
 app.include_router(artifacts.router, prefix="/api/artifacts", tags=["artifacts"])

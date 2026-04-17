@@ -1,0 +1,72 @@
+{
+  "name": "10 — User Invite",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0010-0010-0010-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user-invite",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0010-0010-0010-000000000002",
+      "name": "Build Invite URL",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "parameters": {
+        "functionCode": "const body = $input.first().json.body;\nconst appUrl = process.env.APP_URL || 'https://app.cmmc4msp.on-nex.us';\nconst inviteUrl = `${appUrl}/invite/${body.invite_token}`;\n\nreturn [{\n  json: {\n    email: body.email,\n    invite_token: body.invite_token,\n    org_name: body.org_name,\n    invited_by_name: body.invited_by_name,\n    role: body.role,\n    invite_url: inviteUrl,\n    expires_in_hours: 72,\n  }\n}];"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0010-0010-0010-000000000003",
+      "name": "Log Invite Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO activity_log (org_id, program_id, actor_id, event_type, event_data) SELECT i.org_id, NULL, i.invited_by, 'invite_sent', jsonb_build_object('email', '{{ $json.email }}', 'role', '{{ $json.role }}', 'invite_url', '{{ $json.invite_url }}', 'org_name', '{{ $json.org_name }}') FROM invites i WHERE i.token_hash = encode(digest('{{ $json.invite_token }}', 'sha256'), 'hex')",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0010-0010-0010-000000000004",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, email: $('Build Invite URL').first().json.email, invite_url: $('Build Invite URL').first().json.invite_url }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Build Invite URL", "type": "main", "index": 0}]]
+    },
+    "Build Invite URL": {
+      "main": [[{"node": "Log Invite Sent", "type": "main", "index": 0}]]
+    },
+    "Log Invite Sent": {
+      "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": null
+}

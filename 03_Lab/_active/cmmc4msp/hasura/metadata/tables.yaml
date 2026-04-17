@@ -1304,3 +1304,111 @@
   - role: msp_admin
     permission:
       filter: {}
+
+# ─────────────────────────────────────────────
+# assignment_events — immutable audit log for assignment state transitions
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: assignment_events
+  object_relationships:
+  - name: assignment
+    using:
+      foreign_key_constraint_on: assignment_id
+  - name: actor
+    using:
+      foreign_key_constraint_on: actor_id
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        assignment:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+  - role: contributor
+    permission:
+      columns: "*"
+      filter:
+        assignment:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# invites — one-time team member invite tokens
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: invites
+  object_relationships:
+  - name: org
+    using:
+      foreign_key_constraint_on: org_id
+  - name: invited_by_user
+    using:
+      foreign_key_constraint_on: invited_by
+  select_permissions:
+  - role: msp_admin
+    permission:
+      columns:
+        - id
+        - email
+        - role
+        - org_id
+        - invited_by
+        - expires_at
+        - accepted_at
+        - created_at
+      filter: {}
+  - role: client_admin
+    permission:
+      columns:
+        - id
+        - email
+        - role
+        - org_id
+        - invited_by
+        - expires_at
+        - accepted_at
+        - created_at
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  insert_permissions:
+  - role: msp_admin
+    permission:
+      columns:
+        - email
+        - role
+        - org_id
+        - invited_by
+        - token_hash
+        - expires_at
+      check: {}
+  - role: client_admin
+    permission:
+      columns:
+        - email
+        - role
+        - org_id
+        - invited_by
+        - token_hash
+        - expires_at
+      check:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: msp_admin
+    permission:
+      filter: {}
+  - role: client_admin
+    permission:
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id

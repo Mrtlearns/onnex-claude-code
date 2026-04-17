@@ -10,6 +10,8 @@ from app.config import settings
 _WF_ONBOARD = "0b94eab2-87a1-527d-8dd6-05b48162278d"
 _WF_ARTIFACT = "ab6c4376-5fe0-5e7d-84c5-d6940a71bcbe"
 _WF_REPORT = "7ee20685-8a0a-533d-bff1-20d108c93a63"
+_WF_ASSIGN_NOTIFY = ""  # set after importing n8n/workflows/09_assignment_notifications.json
+_WF_USER_INVITE = ""    # set after importing n8n/workflows/10_user_invite.json
 
 
 def _webhook_url(workflow_id: str, path: str) -> str:
@@ -51,6 +53,56 @@ async def trigger_assessment(
                     "artifact_id": str(artifact_id),
                     "program_control_id": str(program_control_id),
                     "presigned_url": presigned_url,
+                },
+            )
+    except Exception:
+        pass
+
+
+async def trigger_assignment_notification(
+    assignment_id: str,
+    to_status: str,
+    assignee_email: str | None,
+    context: dict | None = None,
+) -> None:
+    """Notify the assignee (and optionally the reviewer) of a status change."""
+    if not _WF_ASSIGN_NOTIFY:
+        return  # workflow not yet imported
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                _webhook_url(_WF_ASSIGN_NOTIFY, "assignment-status-changed"),
+                json={
+                    "assignment_id": assignment_id,
+                    "to_status": to_status,
+                    "assignee_email": assignee_email,
+                    **(context or {}),
+                },
+            )
+    except Exception:
+        pass
+
+
+async def trigger_invite(
+    email: str,
+    invite_token: str,
+    org_name: str,
+    invited_by_name: str,
+    role: str,
+) -> None:
+    """Send a magic-link invite email via n8n."""
+    if not _WF_USER_INVITE:
+        return  # workflow not yet imported
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                _webhook_url(_WF_USER_INVITE, "user-invite"),
+                json={
+                    "email": email,
+                    "invite_token": invite_token,
+                    "org_name": org_name,
+                    "invited_by_name": invited_by_name,
+                    "role": role,
                 },
             )
     except Exception:

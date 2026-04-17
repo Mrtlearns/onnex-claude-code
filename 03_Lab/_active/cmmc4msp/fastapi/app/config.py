@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # Webhook auth (n8n callbacks)
     webhook_secret: str = "changeme"
 
+    # Authentik (user provisioning for invites)
+    authentik_url: str = ""
+    authentik_api_token: str = ""
+
     @property
     def postgres_dsn(self) -> str:
         return (
