@@ -21,7 +21,9 @@ const TABS = [
 export default function TasksPage({ params }: TasksPageProps) {
   const { data: session } = useSession()
   const user = session?.user as any
-  const userId = user?.id
+  const rawId = user?.id || ''
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const userId = UUID_RE.test(rawId) ? rawId : null
   const [activeTab, setActiveTab] = useState('')
 
   const { data, loading } = useQuery(GET_MY_ASSIGNMENTS, {

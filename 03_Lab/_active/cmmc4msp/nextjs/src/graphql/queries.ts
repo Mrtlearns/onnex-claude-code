@@ -26,7 +26,7 @@ export const GET_ORG_BY_SLUG = gql`
       name
       slug
       status
-      cage_codes
+      cage_code
       primary_contact_name
       primary_contact_email
       created_at
