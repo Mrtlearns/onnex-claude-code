@@ -1,0 +1,30 @@
+ACCESS CONTROL POLICY - Version 1.0
+
+This policy establishes access control requirements for least privilege, separation of duties, and non-privileged account usage.
+
+1. LEAST PRIVILEGE
+   Users shall be granted only the minimum access rights required to perform their job functions.
+   Access rights shall be reviewed quarterly and revoked upon role change or termination.
+
+2. SEPARATION OF DUTIES
+   Critical functions shall be divided among multiple users to prevent fraud and error.
+   No single user shall have the ability to execute a complete sensitive transaction without oversight.
+
+3. NON-PRIVILEGED ACCOUNTS
+   Privileged accounts (admin, root) shall only be used when elevated privileges are required.
+   Day-to-day activities shall be performed using standard user accounts.
+   All privileged access shall be logged and audited.
+
+4. ACCOUNT MANAGEMENT
+   Account creation, modification, and deletion require manager approval.
+   Shared accounts are prohibited except for documented system accounts.
+   Passwords must meet complexity requirements: 12+ characters, mixed case, numbers, and symbols.
+
+5. REMOTE ACCESS
+   Remote access requires multi-factor authentication (MFA).
+   VPN connections are encrypted using AES-256.
+   Remote sessions are terminated after 30 minutes of inactivity.
+
+Effective Date: 2025-01-01
+Owner: Information Security Team
+Review Cycle: Annual

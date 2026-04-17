@@ -1,10 +1,72 @@
 # Hasura v2.42 — tables.yaml
-# Source: cmmc_main (default)
-# Roles: msp_admin, client_admin, contributor, viewer
-# Generated: 2026-04-15
+# Source: default (cmmc4msp PostgreSQL)
+# Roles: super_admin, msp_admin, client_admin, client_user
+# Tables: 22 (migrations 001-013)
+# Updated: 2026-04-17
 
 # ─────────────────────────────────────────────
-# control_definitions — static CMMC control catalog (public read)
+# msps — top-level MSP tenants
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: msps
+  array_relationships:
+  - name: orgs
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: orgs
+        column: msp_id
+  - name: users
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: users
+        column: msp_id
+  select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        id:
+          _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
+  insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        id:
+          _eq: X-Hasura-Msp-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        id:
+          _eq: X-Hasura-Msp-Id
+  delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}
+
+# ─────────────────────────────────────────────
+# control_definitions — static CMMC control catalog (global read)
 # ─────────────────────────────────────────────
 - table:
     schema: public
@@ -17,44 +79,77 @@
           schema: public
           name: program_controls
         column: control_definition_id
+  - name: control_dependencies
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: control_dependencies
+        column: control_id
+  - name: control_definition_embeddings
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: control_definition_embeddings
+        column: control_definition_id
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter: {}
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter: {}
-  - role: viewer
-    permission:
-      columns: "*"
-      filter: {}
+      allow_aggregations: true
   insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
   - role: msp_admin
     permission:
       columns: "*"
       check: {}
   update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
   - role: msp_admin
     permission:
       columns: "*"
       filter: {}
   delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}
   - role: msp_admin
     permission:
       filter: {}
 
 # ─────────────────────────────────────────────
-# orgs — tenant organizations
+# orgs — tenant organizations (belong to an MSP)
 # ─────────────────────────────────────────────
 - table:
     schema: public
     name: orgs
+  object_relationships:
+  - name: msp
+    using:
+      foreign_key_constraint_on: msp_id
   array_relationships:
   - name: programs
     using:
@@ -71,42 +166,63 @@
           name: users
         column: org_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        msp_id:
+          _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter:
         id:
           _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         id:
           _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        id:
-          _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
-  update_permissions:
   - role: msp_admin
     permission:
       columns: "*"
+      check:
+        msp_id:
+          _eq: X-Hasura-Msp-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
       filter: {}
-  delete_permissions:
   - role: msp_admin
     permission:
+      columns: "*"
+      filter:
+        msp_id:
+          _eq: X-Hasura-Msp-Id
+  delete_permissions:
+  - role: super_admin
+    permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        msp_id:
+          _eq: X-Hasura-Msp-Id
 
 # ─────────────────────────────────────────────
 # users
@@ -118,39 +234,80 @@
   - name: org
     using:
       foreign_key_constraint_on: org_id
+  - name: msp
+    using:
+      foreign_key_constraint_on: msp_id
+  array_relationships:
+  - name: assignments
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assignments
+        column: assigned_to
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        org_id:
-          _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
-  update_permissions:
   - role: msp_admin
     permission:
       columns: "*"
+      check:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+  - role: client_admin
+    permission:
+      columns:
+      - org_id
+      - email
+      - display_name
+      - role
+      - is_active
+      check:
+        org_id:
+          _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -162,9 +319,15 @@
         org_id:
           _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
 
 # ─────────────────────────────────────────────
 # programs — CMMC assessment programs per org
@@ -220,33 +383,45 @@
           name: activity_log
         column: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        org_id:
-          _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -258,10 +433,17 @@
         org_id:
           _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -279,9 +461,15 @@
         org_id:
           _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
 
 # ─────────────────────────────────────────────
 # program_controls — per-program control instances
@@ -326,10 +514,20 @@
           name: assessments
         column: program_control_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -337,25 +535,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -373,10 +574,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -392,7 +601,7 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+  - role: client_user
     permission:
       columns:
       - status
@@ -404,9 +613,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
 
 # ─────────────────────────────────────────────
 # assignments — control tasks assigned to users
@@ -421,14 +637,32 @@
   - name: program
     using:
       foreign_key_constraint_on: program_id
-  - name: assigned_user
+  - name: user
     using:
       foreign_key_constraint_on: assigned_to
+  array_relationships:
+  - name: assignment_events
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: assignment_events
+        column: assignment_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -436,25 +670,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -469,10 +706,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -485,7 +730,7 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+  - role: client_user
     permission:
       columns:
       - status
@@ -494,7 +739,91 @@
         assigned_to:
           _eq: X-Hasura-User-Id
   delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}
   - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+  - role: client_admin
+    permission:
+      filter:
+        program:
+          org_id:
+            _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# assignment_events — immutable audit log for assignment state transitions
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: assignment_events
+  object_relationships:
+  - name: assignment
+    using:
+      foreign_key_constraint_on: assignment_id
+  - name: actor
+    using:
+      foreign_key_constraint_on: actor_id
+  select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        assignment:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
+  - role: client_admin
+    permission:
+      columns: "*"
+      filter:
+        assignment:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+      allow_aggregations: true
+  - role: client_user
+    permission:
+      columns: "*"
+      filter:
+        assignment:
+          program:
+            org_id:
+              _eq: X-Hasura-Org-Id
+      allow_aggregations: true
+  insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        assignment:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: super_admin
     permission:
       filter: {}
 
@@ -508,9 +837,6 @@
   - name: program_control
     using:
       foreign_key_constraint_on: program_control_id
-  - name: assignment
-    using:
-      foreign_key_constraint_on: assignment_id
   array_relationships:
   - name: assessments
     using:
@@ -519,11 +845,36 @@
           schema: public
           name: assessments
         column: artifact_id
+  - name: artifact_chunks
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: artifact_chunks
+        column: artifact_id
+  - name: artifact_control_suggestions
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: artifact_control_suggestions
+        column: artifact_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -532,7 +883,8 @@
           program:
             org_id:
               _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
@@ -540,19 +892,21 @@
           program:
             org_id:
               _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program_control:
-          program:
-            org_id:
-              _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -569,7 +923,7 @@
           program:
             org_id:
               _eq: X-Hasura-Org-Id
-  - role: contributor
+  - role: client_user
     permission:
       columns:
       - program_control_id
@@ -586,10 +940,19 @@
             org_id:
               _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -601,9 +964,17 @@
             org_id:
               _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -626,10 +997,21 @@
     using:
       foreign_key_constraint_on: program_control_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -638,7 +1020,8 @@
           program:
             org_id:
               _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
@@ -646,28 +1029,47 @@
           program:
             org_id:
               _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program_control:
-          program:
-            org_id:
-              _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
-  update_permissions:
   - role: msp_admin
     permission:
       columns: "*"
+      check:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
       filter: {}
-  delete_permissions:
   - role: msp_admin
     permission:
+      columns: "*"
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
+  delete_permissions:
+  - role: super_admin
+    permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program_control:
+          program:
+            org:
+              msp_id:
+                _eq: X-Hasura-Msp-Id
 
 # ─────────────────────────────────────────────
 # milestones — POA&M milestone tracking
@@ -683,10 +1085,20 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -694,25 +1106,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -729,10 +1144,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -747,7 +1170,7 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+  - role: client_user
     permission:
       columns:
       - status
@@ -757,9 +1180,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -781,10 +1211,20 @@
     using:
       foreign_key_constraint_on: user_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -792,25 +1232,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -822,10 +1265,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -835,9 +1286,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -856,10 +1314,20 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -867,25 +1335,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -899,10 +1370,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -915,9 +1394,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -936,10 +1422,20 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -947,25 +1443,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -989,10 +1488,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -1015,9 +1522,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -1036,10 +1550,20 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -1047,25 +1571,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -1083,10 +1610,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -1103,9 +1638,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -1124,10 +1666,20 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
@@ -1135,25 +1687,28 @@
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         program:
           org_id:
             _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        program:
-          org_id:
-            _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -1170,10 +1725,18 @@
           org_id:
             _eq: X-Hasura-Org-Id
   update_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
@@ -1189,9 +1752,16 @@
           org_id:
             _eq: X-Hasura-Org-Id
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        program:
+          org:
+            msp_id:
+              _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
@@ -1213,40 +1783,52 @@
     using:
       foreign_key_constraint_on: program_id
   select_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
-  - role: viewer
-    permission:
-      columns: "*"
-      filter:
-        org_id:
-          _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       columns: "*"
       check: {}
-  update_permissions:
   - role: msp_admin
+    permission:
+      columns: "*"
+      check:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+  update_permissions:
+  - role: super_admin
     permission:
       columns: "*"
       filter: {}
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
 
@@ -1274,71 +1856,51 @@
         column_mapping:
           depends_on_id: id
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
       columns: "*"
       filter: {}
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns: "*"
       filter: {}
-  - role: contributor
+      allow_aggregations: true
+  - role: client_user
     permission:
       columns: "*"
       filter: {}
-  - role: viewer
-    permission:
-      columns: "*"
-      filter: {}
+      allow_aggregations: true
   insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
   - role: msp_admin
     permission:
       columns: "*"
       check: {}
   update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
   - role: msp_admin
     permission:
       columns: "*"
       filter: {}
   delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}
   - role: msp_admin
     permission:
       filter: {}
-
-# ─────────────────────────────────────────────
-# assignment_events — immutable audit log for assignment state transitions
-# ─────────────────────────────────────────────
-- table:
-    schema: public
-    name: assignment_events
-  object_relationships:
-  - name: assignment
-    using:
-      foreign_key_constraint_on: assignment_id
-  - name: actor
-    using:
-      foreign_key_constraint_on: actor_id
-  select_permissions:
-  - role: msp_admin
-    permission:
-      columns: "*"
-      filter: {}
-  - role: client_admin
-    permission:
-      columns: "*"
-      filter:
-        assignment:
-          program:
-            org_id:
-              _eq: X-Hasura-Org-Id
-  - role: contributor
-    permission:
-      columns: "*"
-      filter:
-        assignment:
-          program:
-            org_id:
-              _eq: X-Hasura-Org-Id
 
 # ─────────────────────────────────────────────
 # invites — one-time team member invite tokens
@@ -1354,107 +1916,233 @@
     using:
       foreign_key_constraint_on: invited_by
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
       columns:
-        - id
-        - email
-        - role
-        - org_id
-        - invited_by
-        - expires_at
-        - accepted_at
-        - created_at
-      filter: {}
+      - id
+      - email
+      - role
+      - org_id
+      - invited_by
+      - expires_at
+      - accepted_at
+      - created_at
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
+      allow_aggregations: true
   - role: client_admin
     permission:
       columns:
-        - id
-        - email
-        - role
-        - org_id
-        - invited_by
-        - expires_at
-        - accepted_at
-        - created_at
+      - id
+      - email
+      - role
+      - org_id
+      - invited_by
+      - expires_at
+      - accepted_at
+      - created_at
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
+      allow_aggregations: true
   insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
   - role: msp_admin
     permission:
       columns:
-        - email
-        - role
-        - org_id
-        - invited_by
-        - token_hash
-        - expires_at
-      check: {}
+      - email
+      - role
+      - org_id
+      - invited_by
+      - token_hash
+      - expires_at
+      check:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       columns:
-        - email
-        - role
-        - org_id
-        - invited_by
-        - token_hash
-        - expires_at
+      - email
+      - role
+      - org_id
+      - invited_by
+      - token_hash
+      - expires_at
       check:
         org_id:
           _eq: X-Hasura-Org-Id
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
   delete_permissions:
-  - role: msp_admin
+  - role: super_admin
     permission:
       filter: {}
+  - role: msp_admin
+    permission:
+      filter:
+        org:
+          msp_id:
+            _eq: X-Hasura-Msp-Id
   - role: client_admin
     permission:
       filter:
         org_id:
           _eq: X-Hasura-Org-Id
 
+# ─────────────────────────────────────────────
+# artifact_chunks — text chunks extracted from artifacts for RAG
+# ─────────────────────────────────────────────
 - table:
+    schema: public
     name: artifact_chunks
-    schema: public
   object_relationships:
   - name: artifact
     using:
       foreign_key_constraint_on: artifact_id
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
-      columns: [id, artifact_id, chunk_index, chunk_text, page_number, created_at]
-      filter: {}
+      columns:
+      - id
+      - artifact_id
+      - chunk_index
+      - chunk_text
+      - page_number
+      - created_at
+      filter:
+        artifact:
+          program_control:
+            program:
+              org:
+                msp_id:
+                  _eq: X-Hasura-Msp-Id
+      allow_aggregations: false
   - role: client_admin
     permission:
-      columns: [id, artifact_id, chunk_index, chunk_text, page_number, created_at]
+      columns:
+      - id
+      - artifact_id
+      - chunk_index
+      - chunk_text
+      - page_number
+      - created_at
       filter:
         artifact:
           program_control:
             program:
               org_id:
                 _eq: X-Hasura-Org-Id
+      allow_aggregations: false
+  - role: client_user
+    permission:
+      columns:
+      - id
+      - artifact_id
+      - chunk_index
+      - chunk_text
+      - page_number
+      - created_at
+      filter:
+        artifact:
+          program_control:
+            program:
+              org_id:
+                _eq: X-Hasura-Org-Id
+      allow_aggregations: false
+  insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}
 
+# ─────────────────────────────────────────────
+# control_definition_embeddings — vector embeddings for control text (RAG)
+# vector column excluded from non-super_admin roles
+# ─────────────────────────────────────────────
 - table:
+    schema: public
     name: control_definition_embeddings
-    schema: public
   object_relationships:
   - name: control_definition
     using:
       foreign_key_constraint_on: control_definition_id
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
-      columns: [control_definition_id, updated_at]
+      columns:
+      - control_definition_id
+      - updated_at
       filter: {}
+      allow_aggregations: false
   - role: client_admin
     permission:
-      columns: [control_definition_id, updated_at]
+      columns:
+      - control_definition_id
+      - updated_at
+      filter: {}
+      allow_aggregations: false
+  - role: client_user
+    permission:
+      columns:
+      - control_definition_id
+      - updated_at
+      filter: {}
+      allow_aggregations: false
+  insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  delete_permissions:
+  - role: super_admin
+    permission:
       filter: {}
 
+# ─────────────────────────────────────────────
+# artifact_control_suggestions — RAG-generated control match suggestions
+# vector columns excluded; applied_at/applied_by included for workflow
+# ─────────────────────────────────────────────
 - table:
-    name: artifact_control_suggestions
     schema: public
+    name: artifact_control_suggestions
   object_relationships:
   - name: artifact
     using:
@@ -1463,16 +2151,100 @@
     using:
       foreign_key_constraint_on: control_definition_id
   select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
   - role: msp_admin
     permission:
-      columns: [id, artifact_id, control_definition_id, similarity_score, top_chunk_texts, generated_at]
-      filter: {}
+      columns:
+      - id
+      - artifact_id
+      - control_definition_id
+      - similarity_score
+      - top_chunk_texts
+      - generated_at
+      - applied_at
+      - applied_by
+      filter:
+        artifact:
+          program_control:
+            program:
+              org:
+                msp_id:
+                  _eq: X-Hasura-Msp-Id
+      allow_aggregations: false
   - role: client_admin
     permission:
-      columns: [id, artifact_id, control_definition_id, similarity_score, top_chunk_texts, generated_at]
+      columns:
+      - id
+      - artifact_id
+      - control_definition_id
+      - similarity_score
+      - top_chunk_texts
+      - generated_at
+      - applied_at
+      - applied_by
       filter:
         artifact:
           program_control:
             program:
               org_id:
                 _eq: X-Hasura-Org-Id
+      allow_aggregations: false
+  - role: client_user
+    permission:
+      columns:
+      - id
+      - artifact_id
+      - control_definition_id
+      - similarity_score
+      - top_chunk_texts
+      - generated_at
+      - applied_at
+      - applied_by
+      filter:
+        artifact:
+          program_control:
+            program:
+              org_id:
+                _eq: X-Hasura-Org-Id
+      allow_aggregations: false
+  insert_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      check: {}
+  update_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: msp_admin
+    permission:
+      columns:
+      - applied_at
+      - applied_by
+      filter:
+        artifact:
+          program_control:
+            program:
+              org:
+                msp_id:
+                  _eq: X-Hasura-Msp-Id
+  - role: client_admin
+    permission:
+      columns:
+      - applied_at
+      - applied_by
+      filter:
+        artifact:
+          program_control:
+            program:
+              org_id:
+                _eq: X-Hasura-Org-Id
+  delete_permissions:
+  - role: super_admin
+    permission:
+      filter: {}

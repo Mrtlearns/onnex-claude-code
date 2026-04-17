@@ -1,7 +1,7 @@
 #!/bin/bash
 # apply_hasura_metadata.sh
 # Applies Hasura v2.42 table tracking, relationships, and permissions
-# for the cmmc4msp platform.
+# for the cmmc4msp platform (22 tables, migrations 001-013).
 #
 # Usage:
 #   # From inside the VM (Hasura on localhost):
@@ -9,6 +9,8 @@
 #
 #   # From an external host:
 #   HASURA_URL=https://gql.cmmc4msp.on-nex.us HASURA_ADMIN_SECRET=<secret> bash scripts/apply_hasura_metadata.sh
+#
+# Idempotent — re-running emits WARN on already-existing objects but does not fail.
 
 set -euo pipefail
 
@@ -33,7 +35,6 @@ hasura_api() {
     -d "$payload" \
     "${HASURA_URL}/v1/metadata")
 
-  # Hasura returns {"message":"..."} on errors
   if echo "$response" | grep -q '"error"'; then
     local msg
     msg=$(echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('error','unknown'))" 2>/dev/null || echo "$response")
@@ -44,7 +45,7 @@ hasura_api() {
 }
 
 # ─────────────────────────────────────────────
-# 1. Track all 16 tables
+# 1. Track all 22 tables
 # ─────────────────────────────────────────────
 echo ""
 echo "=== Step 1: Tracking tables ==="
@@ -56,6 +57,7 @@ TABLES=(
   programs
   program_controls
   assignments
+  assignment_events
   artifacts
   assessments
   milestones
@@ -66,7 +68,11 @@ TABLES=(
   cloud_services_inventory
   activity_log
   control_dependencies
+  invites
   msps
+  artifact_chunks
+  control_definition_embeddings
+  artifact_control_suggestions
 )
 
 for table in "${TABLES[@]}"; do
@@ -97,17 +103,20 @@ obj_rel "orgs" "msp" "msp_id"
 obj_rel "programs" "org" "org_id"
 
 # program_controls → program, control_definition
-obj_rel "program_controls" "program"             "program_id"
-obj_rel "program_controls" "control_definition"  "control_definition_id"
+obj_rel "program_controls" "program"            "program_id"
+obj_rel "program_controls" "control_definition" "control_definition_id"
 
-# assignments → program_control, program, assigned_user
+# assignments → program_control, program, user
 obj_rel "assignments" "program_control" "program_control_id"
 obj_rel "assignments" "program"         "program_id"
-obj_rel "assignments" "assigned_user"   "assigned_to"
+obj_rel "assignments" "user"            "assigned_to"
 
-# artifacts → program_control, assignment
+# assignment_events → assignment, actor (user)
+obj_rel "assignment_events" "assignment" "assignment_id"
+obj_rel "assignment_events" "actor"      "actor_id"
+
+# artifacts → program_control
 obj_rel "artifacts" "program_control" "program_control_id"
-obj_rel "artifacts" "assignment"      "assignment_id"
 
 # assessments → artifact, program_control
 obj_rel "assessments" "artifact"        "artifact_id"
@@ -136,6 +145,20 @@ obj_rel "cloud_services_inventory" "program" "program_id"
 # activity_log → org, program
 obj_rel "activity_log" "org"     "org_id"
 obj_rel "activity_log" "program" "program_id"
+
+# invites → org, invited_by_user
+obj_rel "invites" "org"             "org_id"
+obj_rel "invites" "invited_by_user" "invited_by"
+
+# artifact_chunks → artifact
+obj_rel "artifact_chunks" "artifact" "artifact_id"
+
+# control_definition_embeddings → control_definition
+obj_rel "control_definition_embeddings" "control_definition" "control_definition_id"
+
+# artifact_control_suggestions → artifact, control_definition
+obj_rel "artifact_control_suggestions" "artifact"           "artifact_id"
+obj_rel "artifact_control_suggestions" "control_definition" "control_definition_id"
 
 # control_dependencies — self-referential via manual config
 hasura_api "obj_rel:control_dependencies.control" \
@@ -178,12 +201,21 @@ arr_rel "program_controls" "artifacts"   "artifacts"   "program_control_id"
 arr_rel "program_controls" "milestones"  "milestones"  "program_control_id"
 arr_rel "program_controls" "assessments" "assessments" "program_control_id"
 
+# assignments
+arr_rel "assignments" "assignment_events" "assignment_events" "assignment_id"
+
 # artifacts
-arr_rel "artifacts" "assessments" "assessments" "artifact_id"
+arr_rel "artifacts" "assessments"               "assessments"               "artifact_id"
+arr_rel "artifacts" "artifact_chunks"            "artifact_chunks"           "artifact_id"
+arr_rel "artifacts" "artifact_control_suggestions" "artifact_control_suggestions" "artifact_id"
 
 # control_definitions
-arr_rel "control_definitions" "program_controls"    "program_controls"    "control_definition_id"
-arr_rel "control_definitions" "control_dependencies" "control_dependencies" "control_id"
+arr_rel "control_definitions" "program_controls"             "program_controls"             "control_definition_id"
+arr_rel "control_definitions" "control_dependencies"         "control_dependencies"         "control_id"
+arr_rel "control_definitions" "control_definition_embeddings" "control_definition_embeddings" "control_definition_id"
+
+# users
+arr_rel "users" "assignments" "assignments" "assigned_to"
 
 # ─────────────────────────────────────────────
 # 4. Permissions
@@ -197,6 +229,12 @@ sel_perm() {
   local table="$1" role="$2" filter="$3"
   hasura_api "sel:${table}:${role}" \
     "{\"type\":\"pg_create_select_permission\",\"args\":{\"source\":\"default\",\"table\":{\"schema\":\"public\",\"name\":\"$table\"},\"role\":\"$role\",\"permission\":{\"columns\":\"*\",\"filter\":$filter,\"allow_aggregations\":true}}}"
+}
+
+sel_perm_cols() {
+  local table="$1" role="$2" filter="$3" cols="$4"
+  hasura_api "sel:${table}:${role}" \
+    "{\"type\":\"pg_create_select_permission\",\"args\":{\"source\":\"default\",\"table\":{\"schema\":\"public\",\"name\":\"$table\"},\"role\":\"$role\",\"permission\":{\"columns\":$cols,\"filter\":$filter,\"allow_aggregations\":false}}}"
 }
 
 ins_perm() {
@@ -224,10 +262,11 @@ echo "  [super_admin] Full CRUD on all tables (no filters)..."
 
 SUPER_ADMIN_TABLES=(
   control_definitions orgs users programs program_controls
-  assignments artifacts assessments milestones program_members
-  program_locations hardware_inventory software_inventory
+  assignments assignment_events artifacts assessments milestones
+  program_members program_locations hardware_inventory software_inventory
   cloud_services_inventory activity_log control_dependencies
-  msps
+  invites msps artifact_chunks control_definition_embeddings
+  artifact_control_suggestions
 )
 
 for table in "${SUPER_ADMIN_TABLES[@]}"; do
@@ -244,10 +283,18 @@ echo "  [msp_admin] MSP-scoped CRUD..."
 
 # msps — can only see their own MSP record
 sel_perm "msps" "msp_admin" '{"id":{"_eq":"X-Hasura-Msp-Id"}}'
+ins_perm "msps" "msp_admin" '{"id":{"_eq":"X-Hasura-Msp-Id"}}' '"*"'
+upd_perm "msps" "msp_admin" '{"id":{"_eq":"X-Hasura-Msp-Id"}}' '"*"'
 
 # control_definitions / control_dependencies — global read (no org filter)
 sel_perm "control_definitions" "msp_admin" "{}"
+ins_perm "control_definitions" "msp_admin" "{}" '"*"'
+upd_perm "control_definitions" "msp_admin" "{}" '"*"'
+del_perm "control_definitions" "msp_admin" "{}"
 sel_perm "control_dependencies" "msp_admin" "{}"
+ins_perm "control_dependencies" "msp_admin" "{}" '"*"'
+upd_perm "control_dependencies" "msp_admin" "{}" '"*"'
+del_perm "control_dependencies" "msp_admin" "{}"
 
 # orgs — scoped to msp_id
 sel_perm "orgs" "msp_admin" '{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}'
@@ -271,12 +318,17 @@ del_perm "programs" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}'
 sel_perm "program_controls" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}'
 ins_perm "program_controls" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}' '"*"'
 upd_perm "program_controls" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}' '"*"'
+del_perm "program_controls" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}'
 
 # assignments — via program → org → msp
 sel_perm "assignments" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}'
 ins_perm "assignments" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}' '"*"'
 upd_perm "assignments" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}' '"*"'
 del_perm "assignments" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}'
+
+# assignment_events — via assignment → program → org → msp (read-only for msp_admin)
+sel_perm "assignment_events" "msp_admin" '{"assignment":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}'
+ins_perm "assignment_events" "msp_admin" '{"assignment":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}' '"*"'
 
 # artifacts — via program_control → program → org → msp
 sel_perm "artifacts" "msp_admin" '{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}'
@@ -288,6 +340,7 @@ del_perm "artifacts" "msp_admin" '{"program_control":{"program":{"org":{"msp_id"
 sel_perm "assessments" "msp_admin" '{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}'
 ins_perm "assessments" "msp_admin" '{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}' '"*"'
 upd_perm "assessments" "msp_admin" '{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}' '"*"'
+del_perm "assessments" "msp_admin" '{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}'
 
 # milestones — via program → org → msp
 sel_perm "milestones" "msp_admin" '{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}'
@@ -310,6 +363,27 @@ done
 
 # activity_log — via org → msp
 sel_perm "activity_log" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}'
+ins_perm "activity_log" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}' '"*"'
+
+# invites — scoped to orgs within the MSP
+sel_perm "invites" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}'
+ins_perm "invites" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}' '"*"'
+del_perm "invites" "msp_admin" '{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}'
+
+# artifact_chunks — via artifact → program_control → program → org → msp (read-only)
+sel_perm "artifact_chunks" "msp_admin" '{"artifact":{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}}'
+
+# control_definition_embeddings — global read (no org filter), no vectors
+sel_perm_cols "control_definition_embeddings" "msp_admin" "{}" \
+  '["control_definition_id","updated_at"]'
+
+# artifact_control_suggestions — via artifact → program_control → program → org → msp
+sel_perm_cols "artifact_control_suggestions" "msp_admin" \
+  '{"artifact":{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}}' \
+  '["id","artifact_id","control_definition_id","similarity_score","top_chunk_texts","generated_at","applied_at","applied_by"]'
+upd_perm "artifact_control_suggestions" "msp_admin" \
+  '{"artifact":{"program_control":{"program":{"org":{"msp_id":{"_eq":"X-Hasura-Msp-Id"}}}}}}' \
+  '["applied_at","applied_by"]'
 
 # ─────────────────────────────────────────────
 # 4c. control_definitions — public read for all client roles
@@ -386,6 +460,11 @@ upd_perm "assignments" "client_user" "$ASSIGN_OWN_FILTER" \
   '["status","notes"]'
 
 del_perm "assignments" "client_admin" "$ASSIGN_FILTER"
+
+# assignment_events — read-only for client roles
+AE_FILTER='{"assignment":{"program":{"org_id":{"_eq":"X-Hasura-Org-Id"}}}}'
+sel_perm "assignment_events" "client_admin" "$AE_FILTER"
+sel_perm "assignment_events" "client_user"  "$AE_FILTER"
 
 # ─────────────────────────────────────────────
 # 4i. artifacts
@@ -508,6 +587,43 @@ sel_perm "activity_log" "client_admin" "$AL_FILTER"
 sel_perm "activity_log" "client_user"  "$AL_FILTER"
 
 # ─────────────────────────────────────────────
+# 4r. invites — client_admin manages invites for their org
+# ─────────────────────────────────────────────
+INV_FILTER='{"org_id":{"_eq":"X-Hasura-Org-Id"}}'
+
+sel_perm "invites" "client_admin" "$INV_FILTER"
+ins_perm "invites" "client_admin" "$INV_FILTER" \
+  '["email","role","org_id","invited_by","token_hash","expires_at"]'
+del_perm "invites" "client_admin" "$INV_FILTER"
+
+# ─────────────────────────────────────────────
+# 4s. artifact_chunks — read-only for client roles (no embedding vector)
+# ─────────────────────────────────────────────
+CHUNKS_FILTER='{"artifact":{"program_control":{"program":{"org_id":{"_eq":"X-Hasura-Org-Id"}}}}}'
+sel_perm_cols "artifact_chunks" "client_admin" "$CHUNKS_FILTER" \
+  '["id","artifact_id","chunk_index","chunk_text","page_number","created_at"]'
+sel_perm_cols "artifact_chunks" "client_user" "$CHUNKS_FILTER" \
+  '["id","artifact_id","chunk_index","chunk_text","page_number","created_at"]'
+
+# control_definition_embeddings — read-only, no vector column
+for role in client_admin client_user; do
+  sel_perm_cols "control_definition_embeddings" "$role" "{}" \
+    '["control_definition_id","updated_at"]'
+done
+
+# artifact_control_suggestions — read for client_admin; client_user read-only
+ACS_FILTER='{"artifact":{"program_control":{"program":{"org_id":{"_eq":"X-Hasura-Org-Id"}}}}}'
+ACS_COLS='["id","artifact_id","control_definition_id","similarity_score","top_chunk_texts","generated_at","applied_at","applied_by"]'
+
+sel_perm_cols "artifact_control_suggestions" "client_admin" "$ACS_FILTER" "$ACS_COLS"
+sel_perm_cols "artifact_control_suggestions" "client_user"  "$ACS_FILTER" "$ACS_COLS"
+
+upd_perm "artifact_control_suggestions" "client_admin" "$ACS_FILTER" \
+  '["applied_at","applied_by"]'
+
+# ─────────────────────────────────────────────
 echo ""
 echo "=== Hasura metadata applied successfully! ==="
 echo "  URL: ${HASURA_URL}"
+echo "  Tables tracked: 22"
+echo "  Roles configured: super_admin, msp_admin, client_admin, client_user"
