@@ -54,11 +54,12 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Bash": 49,
-        "Read": 4
+        "Bash": 50,
+        "Read": 4,
+        "Write": 2
       },
-      "total_calls": 53,
-      "weight_total": 49
+      "total_calls": 56,
+      "weight_total": 52
     }
   ]
 }
