@@ -24,7 +24,7 @@ const router = Router();
 const LineSchema = z.object({
   partNumber:        z.string().optional(),
   description:       z.string().optional(),
-  geometryType:      z.enum(['FLAT_BAR','ROUND_BAR','RING','TUBING','CSCAN_FLAT','CSCAN_ROUND','THIN_SHEET']),
+  geometryType:      z.enum(['FLAT_BAR','ROUND_BAR','RING','TUBING','CSCAN_FLAT','CSCAN_ROUND','THIN_SHEET','SQUARE_RECT_TUBE']),
   thickness:         z.number().positive().optional(),
   width:             z.number().positive().optional(),
   length:            z.number().positive().optional(),
@@ -35,6 +35,8 @@ const LineSchema = z.object({
   loadTime:          z.number().nonnegative().optional(),
   quantity:          z.number().int().positive(),
   numberOfScans:     z.number().int().positive().optional().default(1),
+  numODScans:        z.number().int().positive().optional().default(1),
+  numFaceScans:      z.number().int().positive().optional().default(1),
   hourlyRateOverride:z.number().positive().optional(),
   useWeightPricing:  z.boolean().optional().default(false),
   materialId:        z.string().uuid().optional(),
@@ -51,7 +53,7 @@ const LineSchema = z.object({
     }
   };
 
-  if (['FLAT_BAR', 'CSCAN_FLAT', 'THIN_SHEET'].includes(geo)) {
+  if (['FLAT_BAR', 'CSCAN_FLAT', 'THIN_SHEET', 'SQUARE_RECT_TUBE'].includes(geo)) {
     require('thickness', data.thickness);
     require('width', data.width);
     require('length', data.length);
@@ -170,20 +172,23 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
     const numScans = item.numberOfScans ?? 1;
 
     const dims: Dims = {
-      thickness: item.thickness ?? 0,
-      width:     item.width ?? 0,
-      length:    item.length ?? 0,
-      diameter:  item.diameter ?? 0,
-      od:        item.outerDiameter ?? 0,
-      id_:       item.innerDiameter ?? 0,
+      thickness:    item.thickness ?? 0,
+      width:        item.width ?? 0,
+      length:       item.length ?? 0,
+      diameter:     item.diameter ?? 0,
+      od:           item.outerDiameter ?? 0,
+      id_:          item.innerDiameter ?? 0,
       numScans,
+      numODScans:   item.numODScans ?? 1,
+      numFaceScans: item.numFaceScans ?? 1,
     };
 
-    let scan: { indexes: number; secPerScanline: number; scanTimeMin: number; scanTimeFaceMin: number; totalTimeMin: number; pricePart: number };
+    let scan: { indexes: number; secPerScanline: number; scanTimeMin: number; scanTimeFaceMin: number; totalTimeMin: number; pricePart: number } | undefined;
     let weightPricePart: number | null = null;
-    let effectivePricePart: number;
-    let lot: { extPrice: number; lotCharge: number; techFee: number; subTotal: number; envFee: number; grandTotal: number };
+    let effectivePricePart = 0;
+    let lot: { extPrice: number; lotCharge: number; techFee: number; miscFee: number; subTotal: number; envFee: number; grandTotal: number } | undefined;
 
+    let engineFailed = false;
     if (resolved) {
       // ── Rule engine path ──
       const customerForRules: DbCustomerForRules = {
@@ -197,23 +202,30 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
         has_env_fee: customer.has_env_fee,
         has_tech_fee: customer.has_tech_fee,
         lot_pattern: customer.lot_pattern,
+        misc_fee: Number(customer.misc_fee ?? 0),
         rule_set_id: null,
         rule_version_pin: null,
       };
 
-      const engineResult = await executeCalculation(
-        resolved.versionId, geo, dims, scanIndex, loadTime, hourlyRate,
-        scanSpeedDivisor, item.quantity, customerForRules, isCScan,
-        material ? { id: material.id, density_lb_per_cu_in: material.density_lb_per_cu_in, class_a_rate_per_lb: material.class_a_rate_per_lb, class_aa_rate_per_lb: material.class_aa_rate_per_lb } : undefined,
-        item.inspectionClass ?? 'A',
-        item.useWeightPricing,
-      );
+      try {
+        const engineResult = await executeCalculation(
+          resolved.versionId, geo, dims, scanIndex, loadTime, hourlyRate,
+          scanSpeedDivisor, item.quantity, customerForRules, isCScan,
+          material ? { id: material.id, density_lb_per_cu_in: material.density_lb_per_cu_in, class_a_rate_per_lb: material.class_a_rate_per_lb, class_aa_rate_per_lb: material.class_aa_rate_per_lb } : undefined,
+          item.inspectionClass ?? 'A',
+          item.useWeightPricing,
+        );
+        scan = engineResult.scan;
+        weightPricePart = engineResult.weight?.weightPrice ?? null;
+        effectivePricePart = engineResult.trace.finalResult.pricePart;
+        lot = engineResult.lot;
+      } catch (e) {
+        console.warn('[quote] Rule engine calculation failed, falling back to hardcoded:', e);
+        engineFailed = true;
+      }
+    }
 
-      scan = engineResult.scan;
-      weightPricePart = engineResult.weight?.weightPrice ?? null;
-      effectivePricePart = engineResult.trace.finalResult.pricePart;
-      lot = engineResult.lot;
-    } else {
+    if (!resolved || engineFailed) {
       // ── Legacy hardcoded path ──
       scan = computeScan(geo, dims, scanIndex, loadTime, hourlyRate, scanSpeedDivisor);
 
@@ -246,22 +258,22 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
         scanIndex,
         loadTime,
         hourlyRate,
-        indexes:        scan.indexes,
-        secPerScanline: parseFloat(scan.secPerScanline.toFixed(4)),
-        scanTimeMin:    parseFloat(scan.scanTimeMin.toFixed(4)),
-        totalTimeMin:   parseFloat(scan.totalTimeMin.toFixed(4)),
+        indexes:        scan!.indexes,
+        secPerScanline: parseFloat(scan!.secPerScanline.toFixed(4)),
+        scanTimeMin:    parseFloat(scan!.scanTimeMin.toFixed(4)),
+        totalTimeMin:   parseFloat(scan!.totalTimeMin.toFixed(4)),
       },
       pricing: {
-        timePricePart:      scan.pricePart,
+        timePricePart:      scan!.pricePart,
         weightPricePart,
         effectivePricePart,
         quantity:           item.quantity,
-        extPrice:           lot.extPrice,
-        lotCharge:          lot.lotCharge,
-        techFee:            lot.techFee,
-        subTotal:           lot.subTotal,
-        envFee:             lot.envFee,
-        grandTotal:         lot.grandTotal,
+        extPrice:           lot!.extPrice,
+        lotCharge:          lot!.lotCharge,
+        techFee:            lot!.techFee,
+        subTotal:           lot!.subTotal,
+        envFee:             lot!.envFee,
+        grandTotal:         lot!.grandTotal,
       },
     });
   }

@@ -10,7 +10,8 @@ export type GeometryType =
   | 'TUBING'
   | 'CSCAN_FLAT'
   | 'CSCAN_ROUND'
-  | 'THIN_SHEET';
+  | 'THIN_SHEET'
+  | 'SQUARE_RECT_TUBE';
 
 export type InspectionClass = 'A' | 'AA';
 
@@ -100,8 +101,13 @@ export interface UtQuoteLineRequest {
   /** Lot quantity (number of pieces) */
   quantity: number;
 
-  /** Number of scan passes — TUBING only (default: 1) */
+  /** Number of scan passes — TUBING and SQUARE_RECT_TUBE (default: 1) */
   numberOfScans?: number;
+
+  /** Number of OD scan passes — RING only (default: 1, COULTER FORGE multi-scan variant) */
+  numODScans?: number;
+  /** Number of face scan passes — RING only (default: 1) */
+  numFaceScans?: number;
 
   // ── Rate override ─────────────────────────────────────────
   /**

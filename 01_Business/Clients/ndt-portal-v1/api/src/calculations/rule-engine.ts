@@ -23,6 +23,7 @@ export interface DbCustomerForRules {
   lot_pattern: 'simple' | 'min_enforced';
   rule_set_id: string | null;
   rule_version_pin: number | null;
+  misc_fee?: number | null;
 }
 
 export interface DbMaterialForRules {
@@ -40,6 +41,8 @@ export interface Dims {
   od: number;
   id_: number;
   numScans: number;
+  numODScans?: number;
+  numFaceScans?: number;
 }
 
 export interface TraceStep {
@@ -70,6 +73,7 @@ export interface LotResult {
   extPrice: number;
   lotCharge: number;
   techFee: number;
+  miscFee: number;
   subTotal: number;
   envFee: number;
   grandTotal: number;
@@ -277,6 +281,8 @@ export async function executeCalculation(
       od: dims.od,
       id_: dims.id_,
       numScans: dims.numScans,
+      numODScans: dims.numODScans ?? 1,
+      numFaceScans: dims.numFaceScans ?? 1,
     },
     scanIndex,
     loadTime,
@@ -295,6 +301,7 @@ export async function executeCalculation(
       has_env_fee: customer.has_env_fee,
       has_tech_fee: customer.has_tech_fee,
       lot_pattern: customer.lot_pattern,
+      misc_fee: customer.misc_fee ?? 0,
     },
     material: material ? {
       density_lb_per_cu_in: material.density_lb_per_cu_in,
@@ -411,6 +418,7 @@ export async function executeCalculation(
     extPrice: (ctx as Record<string, unknown>).extPrice as number ?? 0,
     lotCharge: (ctx as Record<string, unknown>).lotCharge as number ?? 0,
     techFee: (ctx as Record<string, unknown>).techFee as number ?? 0,
+    miscFee: (ctx as Record<string, unknown>).miscFee as number ?? 0,
     subTotal: (ctx as Record<string, unknown>).subTotal as number ?? 0,
     envFee: (ctx as Record<string, unknown>).envFee as number ?? 0,
     grandTotal: (ctx as Record<string, unknown>).grandTotal as number ?? 0,
