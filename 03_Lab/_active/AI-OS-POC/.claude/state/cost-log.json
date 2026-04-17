@@ -55,9 +55,9 @@
       "date": "2026-04-17",
       "tools": {
         "Bash": 3,
-        "Read": 2
+        "Read": 3
       },
-      "total_calls": 5,
+      "total_calls": 6,
       "weight_total": 3
     }
   ]
