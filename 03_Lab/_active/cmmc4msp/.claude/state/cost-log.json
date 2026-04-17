@@ -48,7 +48,7 @@
     {
       "date": "2026-04-16",
       "tools": {
-        "Bash": 917,
+        "Bash": 919,
         "Read": 192,
         "Write": 45,
         "Edit": 105,
@@ -58,10 +58,10 @@
         "Agent": 5,
         "ExitPlanMode": 1,
         "TaskCreate": 4,
-        "TaskUpdate": 5
+        "TaskUpdate": 6
       },
-      "total_calls": 1346,
-      "weight_total": 1132
+      "total_calls": 1349,
+      "weight_total": 1135
     }
   ]
 }
