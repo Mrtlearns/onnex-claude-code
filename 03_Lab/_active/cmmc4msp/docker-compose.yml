@@ -182,6 +182,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_SVC_KEY}
       MINIO_SECRET_KEY: ${MINIO_SVC_SECRET}
       MINIO_SECURE: "false"
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-}
       AUTHENTIK_URL: https://auth.${BASE_DOMAIN}
       AUTHENTIK_API_TOKEN: ${AUTHENTIK_API_TOKEN}
       JWT_SECRET: ${JWT_SECRET}
@@ -246,6 +247,7 @@ services:
         NEXT_PUBLIC_HASURA_URL: https://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_HASURA_WS_URL: wss://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_API_URL: https://api.cmmc4msp.on-nex.us
+        NEXT_PUBLIC_MINIO_PUBLIC_URL: https://s3.cmmc4msp.on-nex.us
     container_name: cmmc-nextjs
     restart: unless-stopped
     environment:
