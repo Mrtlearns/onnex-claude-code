@@ -1,87 +1,306 @@
-import type { FastifyInstance } from "fastify"
-import { requireRole } from "../plugins/require-role.js"
+// apps/api/src/routes/projects.ts
+// Projects CRUD — tenant-scoped
+import type { FastifyInstance } from 'fastify'
+import { requireRole } from '../plugins/require-role.js'
 
 function getTenantId(request: any): string {
-  return request.user?.tenantId ?? request.user?.tenant_id ?? ""
+  return request.user?.tenantId ?? request.user?.tenant_id ?? ''
 }
 
 export async function projectsRoutes(fastify: FastifyInstance) {
   const pool = (fastify as any).pool
 
-  fastify.get("/api/v1/projects", {
-    preHandler: [(fastify as any).authenticate, requireRole(["admin", "manager", "team_member"])],
+  // GET /api/v1/projects — list, optional ?client_id= / ?status=
+  fastify.get('/api/v1/projects', {
+    preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
-      const { status, client_id, archived } = request.query as any
-      const showArchived = archived === "true"
+      const { client_id, status } = request.query as Record<string, string>
 
-      let query = "SELECT * FROM projects WHERE tenant_id = $1"
+      let query = 'SELECT * FROM projects WHERE tenant_id = $1'
       const params: unknown[] = [tenantId]
       let idx = 2
 
-      if (!showArchived) { query += " AND archived_at IS NULL" }
-      if (status) { query += ` AND status = $${idx++}`; params.push(status) }
-      if (client_id) { query += ` AND client_id = $${idx++}`; params.push(client_id) }
-      query += " ORDER BY created_at DESC"
+      if (client_id) {
+        query += ` AND client_id = $${idx++}`
+        params.push(client_id)
+      }
+      if (status) {
+        query += ` AND status = $${idx++}`
+        params.push(status)
+      }
+
+      query += ' ORDER BY created_at DESC'
 
       const result = await pool.query(query, params)
       return reply.code(200).send({ projects: result.rows })
     },
   })
 
-  fastify.post("/api/v1/projects", {
-    preHandler: [(fastify as any).authenticate, requireRole(["admin", "manager"])],
+  // POST /api/v1/projects — create
+  fastify.post('/api/v1/projects', {
+    preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
-      const { name, client_id, status, start_date, end_date, budget, phases } = request.body as any
+      const { client_id, name, description, status = 'Active', start_date, end_date, budget } = request.body as any
+
+      if (!name) {
+        return reply.code(400).send({ error: 'name is required' })
+      }
+
       const result = await pool.query(
-        "INSERT INTO projects (tenant_id, name, client_id, status, start_date, end_date, budget, phases) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
-        [tenantId, name, client_id ?? null, status ?? "Active", start_date ?? null, end_date ?? null, budget ?? null, JSON.stringify(phases ?? [])]
+        `INSERT INTO projects (tenant_id, client_id, name, description, status, start_date, end_date, budget)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [tenantId, client_id ?? null, name, description ?? null, status, start_date ?? null, end_date ?? null, budget ?? null],
       )
+
       return reply.code(201).send({ project: result.rows[0] })
     },
   })
 
-  fastify.get("/api/v1/projects/:id", {
-    preHandler: [(fastify as any).authenticate, requireRole(["admin", "manager", "team_member"])],
+  // GET /api/v1/projects/:id — detail
+  fastify.get('/api/v1/projects/:id', {
+    preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
       const { id } = request.params as any
+
       const result = await pool.query(
-        "SELECT p.*, COUNT(t.id)::int AS task_count FROM projects p LEFT JOIN tasks t ON t.project_id = p.id WHERE p.id = $1 AND p.tenant_id = $2 GROUP BY p.id",
-        [id, tenantId]
+        `SELECT p.*, c.name AS client_name
+         FROM projects p
+         LEFT JOIN clients c ON c.id = p.client_id
+         WHERE p.id = $1 AND p.tenant_id = $2`,
+        [id, tenantId],
       )
-      if (result.rows.length === 0) { return reply.code(404).send({ error: "not_found" }) }
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' })
+      }
       return reply.code(200).send({ project: result.rows[0] })
     },
   })
 
-  fastify.patch("/api/v1/projects/:id", {
-    preHandler: [(fastify as any).authenticate, requireRole(["admin", "manager"])],
+  // PATCH /api/v1/projects/:id — update arbitrary fields
+  fastify.patch('/api/v1/projects/:id', {
+    preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
       const { id } = request.params as any
-      const { name, status, client_id, start_date, end_date, budget, phases } = request.body as any
+      const body = request.body as Record<string, unknown>
+
+      const allowedFields = ['name', 'description', 'status', 'start_date', 'end_date', 'budget', 'client_id', 'health', 'color', 'phases']
+      const setClauses: string[] = []
+      const params: unknown[] = []
+      let idx = 1
+
+      for (const field of allowedFields) {
+        if (field in body) {
+          setClauses.push(`${field} = $${idx++}`)
+          // JSONB fields must be serialized
+          params.push(field === 'phases' ? JSON.stringify(body[field]) : body[field])
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return reply.code(400).send({ error: 'No valid fields to update' })
+      }
+
+      params.push(id, tenantId)
       const result = await pool.query(
-        "UPDATE projects SET name = COALESCE($1, name), status = COALESCE($2, status), client_id = COALESCE($3, client_id), start_date = COALESCE($4, start_date), end_date = COALESCE($5, end_date), budget = COALESCE($6, budget), phases = COALESCE($7, phases) WHERE id = $8 AND tenant_id = $9 RETURNING *",
-        [name, status, client_id, start_date, end_date, budget, phases ? JSON.stringify(phases) : null, id, tenantId]
+        `UPDATE projects SET ${setClauses.join(', ')} WHERE id = $${idx++} AND tenant_id = $${idx} RETURNING *`,
+        params,
       )
-      if (result.rows.length === 0) { return reply.code(404).send({ error: "not_found" }) }
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' })
+      }
+
       return reply.code(200).send({ project: result.rows[0] })
     },
   })
 
-  fastify.patch("/api/v1/projects/:id/archive", {
-    preHandler: [(fastify as any).authenticate, requireRole(["admin", "manager"])],
+  // PATCH /api/v1/projects/:id/archive — soft archive
+  fastify.patch('/api/v1/projects/:id/archive', {
+    preHandler: [(fastify as any).authenticate, requireRole(['manager', 'admin', 'super_admin'])],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+
+      const result = await pool.query(
+        `UPDATE projects SET status = 'Archived' WHERE id = $1 AND tenant_id = $2 RETURNING *`,
+        [id, tenantId],
+      )
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' })
+      }
+
+      return reply.code(200).send({ project: result.rows[0] })
+    },
+  })
+
+  // DELETE /api/v1/projects/:id — hard delete (admin/super_admin only)
+  fastify.delete('/api/v1/projects/:id', {
+    preHandler: [(fastify as any).authenticate, requireRole(['admin', 'super_admin'])],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+
+      const result = await pool.query(
+        'DELETE FROM projects WHERE id = $1 AND tenant_id = $2 RETURNING id',
+        [id, tenantId],
+      )
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Project not found' })
+      }
+
+      return reply.code(204).send()
+    },
+  })
+
+  // ─── Project Notes ─────────────────────────────────────────────────────────
+
+  // GET /api/v1/projects/:id/notes
+  fastify.get('/api/v1/projects/:id/notes', {
+    preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
       const { id } = request.params as any
       const result = await pool.query(
-        "UPDATE projects SET archived_at = now() WHERE id = $1 AND tenant_id = $2 RETURNING *",
-        [id, tenantId]
+        `SELECT id, project_id, content, author_id, author_name, created_at, updated_at
+         FROM project_notes
+         WHERE project_id = $1 AND tenant_id = $2
+         ORDER BY created_at DESC`,
+        [id, tenantId],
       )
-      if (result.rows.length === 0) { return reply.code(404).send({ error: "not_found" }) }
-      return reply.code(200).send({ project: result.rows[0] })
+      return reply.code(200).send(result.rows)
+    },
+  })
+
+  // POST /api/v1/projects/:id/notes
+  fastify.post('/api/v1/projects/:id/notes', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+      const { content, author_name } = request.body as any
+      const authorId = (request as any).user?.sub ?? (request as any).user?.id ?? ''
+
+      if (!content?.trim()) {
+        return reply.code(400).send({ error: 'content is required' })
+      }
+
+      const result = await pool.query(
+        `INSERT INTO project_notes (tenant_id, project_id, content, author_id, author_name)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, project_id, content, author_id, author_name, created_at, updated_at`,
+        [tenantId, id, content.trim(), authorId, author_name ?? ''],
+      )
+      return reply.code(201).send(result.rows[0])
+    },
+  })
+
+  // DELETE /api/v1/projects/:id/notes/:noteId
+  fastify.delete('/api/v1/projects/:id/notes/:noteId', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { noteId } = request.params as any
+
+      const result = await pool.query(
+        `DELETE FROM project_notes WHERE id = $1 AND tenant_id = $2 RETURNING id`,
+        [noteId, tenantId],
+      )
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Note not found' })
+      }
+      return reply.code(200).send({ deleted: true })
+    },
+  })
+
+  // ─── Project Members ────────────────────────────────────────────────────────
+
+  // GET /api/v1/projects/:id/members
+  fastify.get('/api/v1/projects/:id/members', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+      const result = await pool.query(
+        `SELECT pm.id, pm.project_id, pm.user_id, pm.user_name, pm.role, pm.added_at,
+                COALESCE(SUM(te.duration_minutes), 0)::int AS logged_minutes
+         FROM project_members pm
+         LEFT JOIN time_entries te
+           ON te.project_id = pm.project_id AND te.user_id = pm.user_id
+         WHERE pm.project_id = $1 AND pm.tenant_id = $2
+         GROUP BY pm.id, pm.project_id, pm.user_id, pm.user_name, pm.role, pm.added_at
+         ORDER BY pm.added_at`,
+        [id, tenantId],
+      )
+      return reply.code(200).send(result.rows)
+    },
+  })
+
+  // POST /api/v1/projects/:id/members
+  fastify.post('/api/v1/projects/:id/members', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+      const { user_id, user_name, role } = request.body as any
+
+      if (!user_id) {
+        return reply.code(400).send({ error: 'user_id is required' })
+      }
+
+      const result = await pool.query(
+        `INSERT INTO project_members (tenant_id, project_id, user_id, user_name, role)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (project_id, user_id) DO UPDATE SET role = EXCLUDED.role
+         RETURNING id, project_id, user_id, user_name, role, added_at`,
+        [tenantId, id, user_id, user_name ?? '', role ?? 'member'],
+      )
+      return reply.code(201).send(result.rows[0])
+    },
+  })
+
+  // DELETE /api/v1/projects/:id/members/:userId
+  fastify.delete('/api/v1/projects/:id/members/:userId', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id, userId } = request.params as any
+
+      const result = await pool.query(
+        `DELETE FROM project_members WHERE project_id = $1 AND user_id = $2 AND tenant_id = $3 RETURNING id`,
+        [id, userId, tenantId],
+      )
+
+      if (result.rows.length === 0) {
+        return reply.code(404).send({ error: 'Member not found' })
+      }
+      return reply.code(200).send({ deleted: true })
+    },
+  })
+
+  // ─── Project Activity ───────────────────────────────────────────────────────
+
+  // GET /api/v1/projects/:id/activity — audit log entries for this project
+  fastify.get('/api/v1/projects/:id/activity', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const { id } = request.params as any
+      const result = await pool.query(
+        `SELECT id, actor_id, actor_name, action, target_type, target_id, target_label, payload, created_at
+         FROM audit_log
+         WHERE target_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [id],
+      )
+      return reply.code(200).send(result.rows)
     },
   })
 }

@@ -5,7 +5,6 @@ import type { Session } from "next-auth"
 import { SessionProvider } from "next-auth/react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
-import { useUIStore } from "@/stores/ui-store"
 
 interface AppShellProps {
   session: Session
@@ -13,14 +12,12 @@ interface AppShellProps {
 }
 
 export function AppShell({ session, children }: AppShellProps) {
-  const { sidebarCollapsed, toggleSidebar } = useUIStore()
-
   return (
     <SessionProvider session={session}>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+        <Sidebar session={session} />
         <div className="flex flex-1 flex-col overflow-hidden">
-          <Header session={session} onMenuClick={toggleSidebar} />
+          <Header session={session} />
           <main className="flex-1 overflow-auto p-6">
             {children}
           </main>

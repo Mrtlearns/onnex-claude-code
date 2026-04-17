@@ -1,7 +1,9 @@
 // apps/api/src/routes/deals.ts
 // Phase 9: Deals CRUD + stage PATCH + convert-to-invoice POST
+// Phase 12: n8n webhook trigger on deal_won
 import type { FastifyInstance } from 'fastify'
 import { requireRole } from '../plugins/require-role.js'
+import { fireN8nWebhook } from './settings.js'
 
 function getTenantId(request: any): string {
   return request.user?.tenantId ?? request.user?.tenant_id ?? ''
@@ -113,12 +115,23 @@ export async function dealsRoutes(fastify: FastifyInstance) {
   })
 
   // PATCH /api/v1/deals/:id/stage — move pipeline stage {status, stage}
+  // NOTIF-02 trigger: inserts notification for deal owner when stage changes
   fastify.patch('/api/v1/deals/:id/stage', {
     preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       const tenantId = getTenantId(request)
       const { id } = request.params as any
       const { status, stage } = request.body as any
+
+      // Fetch current deal before update to get title and owner for notification
+      const existingResult = await pool.query(
+        'SELECT * FROM deals WHERE id = $1 AND tenant_id = $2',
+        [id, tenantId],
+      )
+      if (existingResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Deal not found' })
+      }
+      const existingDeal = existingResult.rows[0]
 
       const result = await pool.query(
         'UPDATE deals SET status = $1, stage = $2 WHERE id = $3 AND tenant_id = $4 RETURNING *',
@@ -128,6 +141,47 @@ export async function dealsRoutes(fastify: FastifyInstance) {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Deal not found' })
       }
+
+      // NOTIF-02: Notify deal owner when stage changes
+      // owner_id is the column in deals table (set on create); fallback to owner_user_id or created_by if schema differs
+      const ownerUserId = existingDeal.owner_id ?? existingDeal.owner_user_id ?? existingDeal.created_by
+      if (ownerUserId) {
+        try {
+          await pool.query(
+            `INSERT INTO notifications (tenant_id, user_id, type, title, body, entity_type, entity_id)
+             VALUES ($1, $2, 'deal_stage_changed', 'Deal stage updated', $3, 'deal', $4)`,
+            [tenantId, ownerUserId, `${existingDeal.title} moved to ${stage}`, existingDeal.id],
+          )
+        } catch {
+          // Non-fatal — notification failure should not block stage update response
+        }
+      }
+
+      // Audit: deal stage changed (non-fatal)
+      try {
+        await pool.query(
+          `INSERT INTO audit_log (actor_id, actor_name, action, target_type, target_id, target_label, payload)
+           VALUES ($1, $2, 'deal_stage_changed', 'deal', $3, $4, $5)`,
+          [
+            request.user?.sub ?? null,
+            request.user?.name ?? request.user?.preferred_username ?? null,
+            existingDeal.id,
+            existingDeal.title,
+            JSON.stringify({ old_stage: existingDeal.stage, new_stage: stage, old_status: existingDeal.status, new_status: status }),
+          ],
+        )
+      } catch {
+        // Non-fatal — audit log failure should not block stage update response
+      }
+
+      // Phase 12: n8n webhook trigger — deal_won
+      if (status === 'won') {
+        await fireN8nWebhook(pool, 'deal_won', {
+          deal_id: existingDeal.id,
+          tenant_id: tenantId,
+        })
+      }
+
       return reply.code(200).send({ deal: result.rows[0] })
     },
   })
@@ -157,6 +211,23 @@ export async function dealsRoutes(fastify: FastifyInstance) {
          VALUES ($1, $2, $3, 'draft') RETURNING *`,
         [tenantId, deal.client_id, deal.id],
       )
+
+      // Audit: deal converted to invoice (non-fatal)
+      try {
+        await pool.query(
+          `INSERT INTO audit_log (actor_id, actor_name, action, target_type, target_id, target_label, payload)
+           VALUES ($1, $2, 'deal_converted_to_invoice', 'deal', $3, $4, $5)`,
+          [
+            request.user?.sub ?? null,
+            request.user?.name ?? request.user?.preferred_username ?? null,
+            deal.id,
+            deal.title,
+            JSON.stringify({ invoice_id: invoiceResult.rows[0].id }),
+          ],
+        )
+      } catch {
+        // Non-fatal — audit log failure should not block convert response
+      }
 
       return reply.code(201).send({ invoice: invoiceResult.rows[0] })
     },

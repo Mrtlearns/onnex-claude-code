@@ -12,12 +12,13 @@ export function CommentsPanel({ taskId }: { taskId: string }) {
   const qc = useQueryClient()
   const [body, setBody] = useState("")
 
-  const { data: comments = [], isLoading } = useQuery<TaskComment[]>({
+  const { data: raw, isLoading } = useQuery({
     queryKey: ["comments", taskId],
     queryFn: () =>
       fetch(`/api/bff/tasks/${taskId}/comments`).then(r => r.json()),
     staleTime: 30_000,
   })
+  const comments: TaskComment[] = Array.isArray(raw) ? raw : []
 
   const { mutate: addComment, isPending } = useMutation({
     mutationFn: async (commentBody: string) =>

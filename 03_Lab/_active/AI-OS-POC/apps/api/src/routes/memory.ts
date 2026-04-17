@@ -3,7 +3,10 @@ import OpenAI from "openai";
 import pgvector from "pgvector/pg";
 import { Client, Connection } from "@temporalio/client";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+});
 
 // Lazy Temporal client singleton
 let temporalClient: Client | undefined;
@@ -24,9 +27,10 @@ async function getTemporalClient(): Promise<Client> {
 
 async function getEmbedding(text: string): Promise<number[]> {
   const response = await openai.embeddings.create({
-    model: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
+    model: 'gemini-embedding-001',
     input: text.trim(),
-  });
+    dimensions: 768,
+  } as any);
   return response.data[0].embedding;
 }
 

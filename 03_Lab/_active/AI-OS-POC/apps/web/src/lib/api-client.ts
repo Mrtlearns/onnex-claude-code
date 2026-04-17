@@ -5,7 +5,7 @@ import "server-only"
 
 import type { Task, Subtask, TaskComment } from "@/types/api"
 
-const AIOS_API = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3000"
+const AIOS_API = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3001"
 
 export async function apiFetch<T>(
   path: string,
@@ -66,7 +66,8 @@ export async function apiGetTasks(
     }
   }
   const query = searchParams.toString()
-  return apiGet<Task[]>(`/api/v1/tasks${query ? `?${query}` : ""}`, token)
+  const data = await apiGet<{ tasks: Task[] } | Task[]>(`/api/v1/tasks${query ? `?${query}` : ""}`, token)
+  return Array.isArray(data) ? data : (data as { tasks: Task[] }).tasks ?? []
 }
 
 export async function apiGetTask(token: string, id: string): Promise<Task> {
@@ -114,7 +115,8 @@ export async function apiGetClients(
   token: string,
   params?: Record<string, string | undefined>,
 ): Promise<Client[]> {
-  return apiGet<Client[]>(`/api/v1/clients${buildQueryString(params)}`, token)
+  const data = await apiGet<{ clients: Client[] } | Client[]>(`/api/v1/clients${buildQueryString(params)}`, token)
+  return Array.isArray(data) ? data : (data as { clients: Client[] }).clients ?? []
 }
 
 export async function apiGetClient(token: string, id: string): Promise<Client> {
@@ -151,7 +153,8 @@ export async function apiGetProjects(
   token: string,
   params?: Record<string, string | undefined>,
 ): Promise<Project[]> {
-  return apiGet<Project[]>(`/api/v1/projects${buildQueryString(params)}`, token)
+  const data = await apiGet<{ projects: Project[] } | Project[]>(`/api/v1/projects${buildQueryString(params)}`, token)
+  return Array.isArray(data) ? data : (data as { projects: Project[] }).projects ?? []
 }
 
 export async function apiGetProject(token: string, id: string): Promise<Project> {
@@ -179,7 +182,8 @@ import type { Deal, Invoice, InvoiceLineItem, TimeEntry, WeeklySummaryDay } from
 
 export async function apiGetDeals(token: string, params?: Record<string, string>): Promise<Deal[]> {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-  return apiFetch(`/api/v1/deals${qs}`, token);
+  const data = await apiFetch<{ deals: Deal[] } | Deal[]>(`/api/v1/deals${qs}`, token);
+  return Array.isArray(data) ? data : (data as { deals: Deal[] }).deals ?? [];
 }
 export async function apiGetDeal(token: string, id: string): Promise<Deal> {
   return apiFetch(`/api/v1/deals/${id}`, token);
@@ -200,7 +204,8 @@ export async function apiConvertDealToInvoice(token: string, dealId: string): Pr
 // -- Phase 9: Financial Loop -- Invoices --------------------------------------
 export async function apiGetInvoices(token: string, params?: Record<string, string>): Promise<Invoice[]> {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-  return apiFetch(`/api/v1/invoices${qs}`, token);
+  const data = await apiFetch<{ invoices: Invoice[] } | Invoice[]>(`/api/v1/invoices${qs}`, token);
+  return Array.isArray(data) ? data : (data as { invoices: Invoice[] }).invoices ?? [];
 }
 export async function apiGetInvoice(token: string, id: string): Promise<Invoice> {
   return apiFetch(`/api/v1/invoices/${id}`, token);
@@ -224,7 +229,8 @@ export async function apiCreateLineItem(token: string, invoiceId: string, body: 
 // -- Phase 9: Financial Loop -- Time Entries ----------------------------------
 export async function apiGetTimeEntries(token: string, params?: Record<string, string>): Promise<TimeEntry[]> {
   const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-  return apiFetch(`/api/v1/time-entries${qs}`, token);
+  const data = await apiFetch<{ timeEntries: TimeEntry[] } | TimeEntry[]>(`/api/v1/time-entries${qs}`, token);
+  return Array.isArray(data) ? data : (data as { timeEntries: TimeEntry[] }).timeEntries ?? [];
 }
 export async function apiCreateTimeEntry(token: string, body: unknown): Promise<TimeEntry> {
   return apiFetch('/api/v1/time-entries', token, { method: 'POST', body: JSON.stringify(body) });
@@ -236,7 +242,8 @@ export async function apiDeleteTimeEntry(token: string, id: string): Promise<voi
   return apiFetch(`/api/v1/time-entries/${id}`, token, { method: 'DELETE' });
 }
 export async function apiGetWeeklySummary(token: string, params: { user_id: string; week_start: string }): Promise<WeeklySummaryDay[]> {
-  return apiFetch(`/api/v1/time-entries/weekly-summary?user_id=${params.user_id}&week_start=${params.week_start}`, token);
+  const data = await apiFetch<{ summary: WeeklySummaryDay[] } | WeeklySummaryDay[]>(`/api/v1/time-entries/weekly-summary?user_id=${params.user_id}&week_start=${params.week_start}`, token);
+  return Array.isArray(data) ? data : (data as { summary: WeeklySummaryDay[] }).summary ?? [];
 }
 
 // === Phase 10: Documents, Dashboard, Notifications ===
@@ -254,7 +261,7 @@ export async function apiGetPaperlessDocs(token: string): Promise<PaperlessDocum
 
 // Document upload → triggers Temporal workflow
 export async function apiUploadDocument(token: string, formData: FormData): Promise<{ workflowRunId: string }> {
-  const BASE_URL = process.env.AIOS_API_INTERNAL_URL ?? 'http://aios-api:3000'
+  const BASE_URL = process.env.AIOS_API_INTERNAL_URL ?? 'http://aios-api:3001'
   const res = await fetch(`${BASE_URL}/api/v1/documents/upload`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` }, // NO Content-Type — fetch sets multipart boundary
@@ -279,7 +286,8 @@ export async function apiDeleteDocumentLink(token: string, id: string): Promise<
 // === Phase 10: Notifications ===
 export async function apiGetNotifications(token: string, unreadOnly?: boolean): Promise<Notification[]> {
   const qs = unreadOnly ? '?unread_only=true' : ''
-  return apiFetch<Notification[]>(`/api/v1/notifications${qs}`, token)
+  const data = await apiFetch<{ notifications: Notification[] } | Notification[]>(`/api/v1/notifications${qs}`, token)
+  return Array.isArray(data) ? data : (data as { notifications: Notification[] }).notifications ?? []
 }
 export async function apiMarkNotificationRead(token: string, id: string): Promise<void> {
   await apiFetch<void>(`/api/v1/notifications/${id}/read`, token, { method: 'PATCH' })
@@ -290,11 +298,126 @@ export async function apiMarkAllNotificationsRead(token: string): Promise<void> 
 
 // === Phase 10: Dashboard ===
 export async function apiGetDashboardKpis(token: string): Promise<DashboardKpis> {
-  return apiFetch<DashboardKpis>('/api/v1/dashboard/kpis', token)
+  const data = await apiFetch<{ kpis: DashboardKpis }>('/api/v1/dashboard/kpis', token)
+  return data.kpis
 }
 export async function apiGetActivity(token: string): Promise<ActivityEvent[]> {
-  return apiFetch<ActivityEvent[]>('/api/v1/activity', token)
+  const data = await apiFetch<{ activity: ActivityEvent[] }>('/api/v1/activity', token)
+  return data.activity ?? []
 }
 export async function apiGetTeamWorkload(token: string): Promise<TeamWorkloadItem[]> {
   return apiFetch<TeamWorkloadItem[]>('/api/v1/reports/team-workload', token)
 }
+
+// === Phase 11: Reports ===
+import type { UtilizationRow, RevenueRow, ProfitabilityRow, ClientActivityRow, AdminUser, AuditLogEntry, ReportQueryParams } from "@/types/api"
+
+function buildReportQs(params: ReportQueryParams): string {
+  const qs = new URLSearchParams({ period: params.period })
+  if (params.start) qs.set('start', params.start)
+  if (params.end) qs.set('end', params.end)
+  return qs.toString()
+}
+
+export async function apiGetUtilizationReport(token: string, params: ReportQueryParams): Promise<UtilizationRow[]> {
+  return apiFetch<UtilizationRow[]>(`/api/v1/reports/utilization?${buildReportQs(params)}`, token)
+}
+
+export async function apiGetRevenueReport(token: string, params: ReportQueryParams): Promise<RevenueRow[]> {
+  return apiFetch<RevenueRow[]>(`/api/v1/reports/revenue?${buildReportQs(params)}`, token)
+}
+
+export async function apiGetProfitabilityReport(token: string, params: ReportQueryParams): Promise<ProfitabilityRow[]> {
+  return apiFetch<ProfitabilityRow[]>(`/api/v1/reports/profitability?${buildReportQs(params)}`, token)
+}
+
+export async function apiGetClientActivityReport(token: string, params: ReportQueryParams): Promise<ClientActivityRow[]> {
+  return apiFetch<ClientActivityRow[]>(`/api/v1/reports/client-activity?${buildReportQs(params)}`, token)
+}
+
+
+// === Phase 11: Admin ===
+
+export async function apiGetAdminUsers(token: string): Promise<AdminUser[]> {
+  return apiFetch<AdminUser[]>('/api/v1/admin/users', token)
+}
+
+export async function apiPatchUserRole(token: string, userId: string, role: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/admin/users/${userId}/role`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  })
+}
+
+export async function apiSuspendUser(token: string, userId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/admin/users/${userId}/suspend`, token, { method: 'POST' })
+}
+
+export async function apiInviteUser(token: string, body: { email: string; role: string }): Promise<{ invited: boolean }> {
+  return apiFetch<{ invited: boolean }>('/api/v1/admin/invite', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function apiGetAuditLog(token: string): Promise<AuditLogEntry[]> {
+  const data = await apiFetch<{ auditLog: AuditLogEntry[] } | { entries: AuditLogEntry[] } | AuditLogEntry[]>('/api/v1/admin/audit-log', token)
+  if (Array.isArray(data)) return data
+  return (data as any).auditLog ?? (data as any).entries ?? (data as any).log ?? []
+}
+
+// === Phase 12: Settings, AI Assistant, Client Portal ===
+import type { WorkspaceSettings, SmtpConfig, SmtpConfigInput, N8nConfig, IntegrationStatus, AiChatResponse, AiMemoryStats, PortalMe, PortalProject, PortalInvoice, PortalDocument } from '@/types/api'
+
+// ─── Settings Wrappers ────────────────────────────────────────────────────────
+
+export const apiGetWorkspaceSettings = (token: string) =>
+  apiFetch<WorkspaceSettings>('/api/v1/settings/workspace', token)
+
+export const apiUpdateWorkspaceSettings = (token: string, data: Partial<WorkspaceSettings>) =>
+  apiFetch<WorkspaceSettings>('/api/v1/settings/workspace', token, { method: 'PUT', body: JSON.stringify(data) })
+
+export const apiGetSmtpConfig = (token: string) =>
+  apiFetch<SmtpConfig>('/api/v1/settings/smtp', token)
+
+export const apiUpdateSmtpConfig = (token: string, data: SmtpConfigInput) =>
+  apiFetch<{ ok: true }>('/api/v1/settings/smtp', token, { method: 'PUT', body: JSON.stringify(data) })
+
+export const apiTestSmtpSend = (token: string, to: string) =>
+  apiFetch<{ success: boolean; error?: string }>('/api/v1/settings/smtp/test-send', token, {
+    method: 'POST', body: JSON.stringify({ to })
+  })
+
+export const apiGetN8nConfig = (token: string) =>
+  apiFetch<N8nConfig>('/api/v1/settings/n8n', token)
+
+export const apiUpdateN8nConfig = (token: string, data: N8nConfig) =>
+  apiFetch<{ ok: true }>('/api/v1/settings/n8n', token, { method: 'PUT', body: JSON.stringify(data) })
+
+export const apiGetIntegrations = (token: string) =>
+  apiFetch<IntegrationStatus[]>('/api/v1/settings/integrations', token)
+
+// ─── AI Assistant Wrappers ────────────────────────────────────────────────────
+
+export const apiAiChat = (token: string, query: string) =>
+  apiFetch<AiChatResponse>('/api/v1/ai/chat', token, { method: 'POST', body: JSON.stringify({ query }) })
+
+export const apiGetAiMemoryStats = (token: string) =>
+  apiFetch<AiMemoryStats>('/api/v1/ai/memory/stats', token)
+
+export const apiClearAiMemory = (token: string) =>
+  apiFetch<{ deleted: number }>('/api/v1/ai/memory', token, { method: 'DELETE' })
+
+// ─── Client Portal Wrappers ───────────────────────────────────────────────────
+
+export const apiGetPortalMe = (token: string) =>
+  apiFetch<PortalMe>('/api/v1/portal/me', token)
+
+export const apiGetPortalProjects = (token: string) =>
+  apiFetch<{ projects: PortalProject[] }>('/api/v1/portal/projects', token)
+
+export const apiGetPortalInvoices = (token: string) =>
+  apiFetch<{ invoices: PortalInvoice[] }>('/api/v1/portal/invoices', token)
+
+export const apiGetPortalDocuments = (token: string) =>
+  apiFetch<{ documents: PortalDocument[] }>('/api/v1/portal/documents', token)

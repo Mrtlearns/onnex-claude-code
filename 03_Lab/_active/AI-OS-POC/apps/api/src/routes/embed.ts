@@ -2,10 +2,11 @@ import type { FastifyInstance } from "fastify";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.GEMINI_API_KEY,
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 });
 
-const EMBEDDING_MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
+const EMBEDDING_MODEL = "gemini-embedding-001";
 
 export default async function embedRoutes(fastify: FastifyInstance) {
   // POST /api/v1/embed — accepts { text: string } and returns embedding vector
@@ -17,15 +18,16 @@ export default async function embedRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "text field is required and must be a non-empty string" });
     }
 
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "REPLACE_WITH_REAL_KEY") {
-      return reply.code(503).send({ error: "OPENAI_API_KEY not configured" });
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "REPLACE_WITH_REAL_KEY") {
+      return reply.code(503).send({ error: "GEMINI_API_KEY not configured" });
     }
 
     try {
       const response = await openai.embeddings.create({
         model: EMBEDDING_MODEL,
-        input: text.trim()
-      });
+        input: text.trim(),
+        dimensions: 768,
+      } as any);
 
       const embedding = response.data[0].embedding;
 
@@ -39,7 +41,7 @@ export default async function embedRoutes(fastify: FastifyInstance) {
         }
       });
     } catch (err: any) {
-      fastify.log.error({ err }, "OpenAI embedding error");
+      fastify.log.error({ err }, "Gemini embedding error");
       const status = err?.status ?? 500;
       return reply.code(status).send({
         error: "Embedding failed",
@@ -48,13 +50,13 @@ export default async function embedRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // GET /api/v1/embed/status — quick check that OpenAI API key is configured
+  // GET /api/v1/embed/status — quick check that Gemini API key is configured
   fastify.get("/api/v1/embed/status", async (_req, reply) => {
-    const hasKey = !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "REPLACE_WITH_REAL_KEY");
+    const hasKey = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "REPLACE_WITH_REAL_KEY");
     return reply.code(200).send({
       configured: hasKey,
       model: EMBEDDING_MODEL,
-      dimensions: 1536
+      dimensions: 768
     });
   });
 }

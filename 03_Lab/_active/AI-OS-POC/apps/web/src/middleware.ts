@@ -8,7 +8,10 @@ export { auth as middleware } from "@/auth"
 
 export const config = {
   matcher: [
-    // Match all paths except static assets, Next.js internals, and auth endpoints
-    "/((?!_next/static|_next/image|favicon.ico|api/auth).*)",
+    // Match all paths except:
+    // - Next.js internals and static assets
+    // - Auth.js endpoints (api/auth)
+    // - Authentik SSO paths proxied to authentik-server (application, flows, if, api/v3, static, .well-known)
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|application/|flows/|if/|api/v3/|static/|\\.well-known/).*)",
   ],
 }

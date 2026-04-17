@@ -2,11 +2,13 @@
 // apps/web/src/app/(protected)/projects/components/project-form.tsx
 // Create/Edit project form with Zod + React Hook Form validation
 
+import { useEffect } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -33,10 +35,14 @@ export function ProjectForm({ project, onSuccess, onCancel }: ProjectFormProps) 
     staleTime: 60_000,
   })
 
+  // Normalize ISO timestamp → YYYY-MM-DD for <input type="date">
+  const toDateInput = (d?: string) => (d ? d.slice(0, 10) : "")
+
   const {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors },
   } = useForm<CreateProjectInput>({
     resolver: zodResolver(CreateProjectSchema),
@@ -44,11 +50,31 @@ export function ProjectForm({ project, onSuccess, onCancel }: ProjectFormProps) 
       name: project?.name ?? "",
       client_id: project?.client_id ?? "",
       status: project?.status ?? "Active",
-      start_date: project?.start_date ?? "",
-      end_date: project?.end_date ?? "",
+      start_date: toDateInput(project?.start_date),
+      end_date: toDateInput(project?.end_date),
       budget: project?.budget,
+      description: project?.description ?? "",
+      health: project?.health,
+      color: project?.color ?? "slate",
     },
   })
+
+  // Re-populate form when project prop arrives (dialog may mount before data loads)
+  useEffect(() => {
+    if (project) {
+      reset({
+        name: project.name,
+        client_id: project.client_id ?? "",
+        status: project.status,
+        start_date: toDateInput(project.start_date),
+        end_date: toDateInput(project.end_date),
+        budget: project.budget,
+        description: project.description ?? "",
+        health: project.health,
+        color: project.color ?? "slate",
+      })
+    }
+  }, [project, reset])
 
   const mutation = useMutation({
     mutationFn: async (data: CreateProjectInput) => {
@@ -182,6 +208,66 @@ export function ProjectForm({ project, onSuccess, onCancel }: ProjectFormProps) 
         {errors.budget && (
           <p className="text-sm text-destructive">{errors.budget.message}</p>
         )}
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="project-health" className="text-sm font-medium">
+          Health
+        </label>
+        <Controller
+          name="health"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value ?? "none"} onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}>
+              <SelectTrigger id="project-health" aria-label="Health">
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not set</SelectItem>
+                <SelectItem value="on_track">On Track</SelectItem>
+                <SelectItem value="at_risk">At Risk</SelectItem>
+                <SelectItem value="blocked">Blocked</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="project-color" className="text-sm font-medium">
+          Color
+        </label>
+        <Controller
+          name="color"
+          control={control}
+          render={({ field }) => (
+            <Select value={field.value ?? "slate"} onValueChange={field.onChange}>
+              <SelectTrigger id="project-color" aria-label="Color">
+                <SelectValue placeholder="Slate (default)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="slate">Slate</SelectItem>
+                <SelectItem value="blue">Blue</SelectItem>
+                <SelectItem value="green">Green</SelectItem>
+                <SelectItem value="purple">Purple</SelectItem>
+                <SelectItem value="amber">Amber</SelectItem>
+                <SelectItem value="red">Red</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="project-description" className="text-sm font-medium">
+          Description
+        </label>
+        <Textarea
+          id="project-description"
+          placeholder="Project overview, goals, context..."
+          rows={3}
+          {...register("description")}
+        />
       </div>
 
       {mutation.isError && (

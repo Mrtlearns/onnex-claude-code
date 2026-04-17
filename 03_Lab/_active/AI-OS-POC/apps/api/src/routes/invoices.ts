@@ -1,7 +1,9 @@
 // apps/api/src/routes/invoices.ts
 // Phase 9: Invoices CRUD + finance-role gate + PDF generation + SMTP send + T&M line items
+// Phase 12: n8n webhook trigger on invoice_sent
 import type { FastifyInstance } from 'fastify'
 import { requireRole } from '../plugins/require-role.js'
+import { fireN8nWebhook } from './settings.js'
 
 function getTenantId(request: any): string {
   return request.user?.tenantId ?? request.user?.tenant_id ?? ''
@@ -169,6 +171,26 @@ export async function invoicesRoutes(fastify: FastifyInstance) {
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Invoice not found' })
       }
+
+      // Audit: invoice paid (non-fatal)
+      if (status === 'paid') {
+        try {
+          await pool.query(
+            `INSERT INTO audit_log (actor_id, actor_name, action, target_type, target_id, target_label, payload)
+             VALUES ($1, $2, 'invoice_paid', 'invoice', $3, $4, $5)`,
+            [
+              request.user?.sub ?? null,
+              request.user?.name ?? request.user?.preferred_username ?? null,
+              id,
+              `Invoice #${String(id).slice(0, 8).toUpperCase()}`,
+              JSON.stringify({ paid_at: paid_at ?? null }),
+            ],
+          )
+        } catch {
+          // Non-fatal — audit log failure should not block status update response
+        }
+      }
+
       return reply.code(200).send({ invoice: result.rows[0] })
     },
   })
@@ -288,7 +310,60 @@ export async function invoicesRoutes(fastify: FastifyInstance) {
         [id, tenantId],
       )
 
+      // Phase 12: n8n webhook trigger — invoice_sent (non-fatal)
+      await fireN8nWebhook(pool, 'invoice_sent', {
+        invoice_id: id,
+        tenant_id: tenantId,
+      })
+
+      // Audit: invoice sent (non-fatal)
+      try {
+        await pool.query(
+          `INSERT INTO audit_log (actor_id, actor_name, action, target_type, target_id, target_label, payload)
+           VALUES ($1, $2, 'invoice_sent', 'invoice', $3, $4, $5)`,
+          [
+            request.user?.sub ?? null,
+            request.user?.name ?? request.user?.preferred_username ?? null,
+            id,
+            `Invoice #${String(id).slice(0, 8).toUpperCase()}`,
+            JSON.stringify({ client_name: invoice.client_name, sent_to: clientEmail }),
+          ],
+        )
+      } catch {
+        // Non-fatal — audit log failure should not block send response
+      }
+
       return reply.code(200).send({ sent: true })
+    },
+  })
+
+  // GET /api/v1/invoices/:id/pdf — generate and stream PDF for download
+  // Used by portal invoice list "Download PDF" links and direct download
+  fastify.get('/api/v1/invoices/:id/pdf', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id } = request.params as any
+
+      const invoiceResult = await pool.query(
+        'SELECT * FROM invoices WHERE id = $1 AND tenant_id = $2',
+        [id, tenantId],
+      )
+      if (invoiceResult.rows.length === 0) {
+        return reply.code(404).send({ error: 'Invoice not found' })
+      }
+      const invoice = invoiceResult.rows[0]
+
+      const lineItemsResult = await pool.query(
+        'SELECT * FROM invoice_line_items WHERE invoice_id = $1',
+        [id],
+      )
+
+      const pdfBuffer = await generateInvoicePdf(invoice, lineItemsResult.rows)
+
+      reply.header('Content-Type', 'application/pdf')
+      reply.header('Content-Disposition', `inline; filename="invoice-${String(id).slice(0, 8).toUpperCase()}.pdf"`)
+      return reply.code(200).send(pdfBuffer)
     },
   })
 }

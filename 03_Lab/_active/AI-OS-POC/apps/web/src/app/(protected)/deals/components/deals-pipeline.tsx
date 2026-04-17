@@ -3,6 +3,8 @@
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -14,6 +16,7 @@ import type { Deal, DealStatus } from "@/types/api"
 import { DealColumn } from "./deal-column"
 import { DealDetailSheet } from "./deal-detail-sheet"
 import { DealForm } from "./deal-form"
+import { DealCardContent } from "./deal-card"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -29,6 +32,7 @@ export function DealsPipeline() {
   const qc = useQueryClient()
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [showNewDealSheet, setShowNewDealSheet] = useState(false)
+  const [activeDeal, setActiveDeal] = useState<Deal | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -59,7 +63,13 @@ export function DealsPipeline() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["deals"] }),
   })
 
+  function handleDragStart(event: DragStartEvent) {
+    const deal = allDeals.find(d => d.id === event.active.id)
+    if (deal) setActiveDeal(deal)
+  }
+
   function handleDragEnd(event: DragEndEvent) {
+    setActiveDeal(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
     const newStatus = over.id as DealStatus
@@ -87,7 +97,7 @@ export function DealsPipeline() {
       </div>
 
       {/* Kanban board */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {PIPELINE_STAGES.map(status => (
             <DealColumn
@@ -98,6 +108,13 @@ export function DealsPipeline() {
             />
           ))}
         </div>
+        <DragOverlay dropAnimation={null}>
+          {activeDeal ? (
+            <div className="rounded-md border bg-slate-800 border-slate-600 shadow-2xl rotate-1 scale-105 ring-2 ring-primary/40">
+              <DealCardContent deal={activeDeal} />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* Deal detail sheet */}

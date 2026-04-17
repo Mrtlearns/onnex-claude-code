@@ -2,10 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { useRouter, usePathname } from "next/navigation"
-import type { Task } from "@/types/api"
+import type { Task, TaskDependency } from "@/types/api"
 import { Button } from "@/components/ui/button"
 import { KanbanBoard } from "./components/kanban-board"
 import { TaskListView } from "./components/task-list-view"
+import { TaskGanttView } from "./components/task-gantt-view"
 import { TaskForm } from "./components/task-form"
 import { useState } from "react"
 import {
@@ -14,7 +15,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { LayoutGrid, List } from "lucide-react"
+import { LayoutGrid, List, GanttChart, FileText } from "lucide-react"
+import { MeetingMinutesDialog } from "./components/meeting-minutes-dialog"
 
 interface TasksClientProps {
   searchParams: {
@@ -29,6 +31,7 @@ export function TasksClient({ searchParams }: TasksClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [showNewTask, setShowNewTask] = useState(false)
+  const [showMeeting, setShowMeeting] = useState(false)
 
   const view = searchParams.view ?? "kanban"
   const isMyTasks = searchParams.assignee_id === "me"
@@ -38,15 +41,24 @@ export function TasksClient({ searchParams }: TasksClientProps) {
   if (searchParams.project_id) apiParams.project_id = searchParams.project_id
   if (searchParams.status) apiParams.status = searchParams.status
 
-  const { data: tasks = [] } = useQuery<Task[]>({
-    queryKey: ["tasks", apiParams],
+  const { data: tasksData } = useQuery<Task[] | { tasks: Task[]; dependencies: TaskDependency[] }>({
+    queryKey: ["tasks", apiParams, view],
     queryFn: async () => {
+      const params = view === "gantt" ? { ...apiParams, view: "gantt" } : apiParams
       const qs = new URLSearchParams()
-      Object.entries(apiParams).forEach(([k, v]) => v && qs.set(k, v))
+      Object.entries(params).forEach(([k, v]) => v && qs.set(k, v))
       return fetch(`/api/bff/tasks${qs.toString() ? "?" + qs.toString() : ""}`).then(r => r.json())
     },
     staleTime: 60_000,
   })
+
+  // Normalize — BFF may return array (list/kanban) or object with tasks + dependencies (gantt)
+  const tasks: Task[] = Array.isArray(tasksData)
+    ? tasksData
+    : (tasksData as any)?.tasks ?? []
+  const dependencies: TaskDependency[] = Array.isArray(tasksData)
+    ? []
+    : (tasksData as any)?.dependencies ?? []
 
   function updateUrl(updates: Record<string, string | undefined>) {
     const sp = new URLSearchParams()
@@ -74,6 +86,7 @@ export function TasksClient({ searchParams }: TasksClientProps) {
             size="icon"
             className="h-8 w-8"
             onClick={() => updateUrl({ view: "kanban" })}
+            title="Kanban"
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -82,8 +95,22 @@ export function TasksClient({ searchParams }: TasksClientProps) {
             size="icon"
             className="h-8 w-8"
             onClick={() => updateUrl({ view: "list" })}
+            title="List"
           >
             <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={view === "gantt" ? "default" : "outline"}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => updateUrl({ view: "gantt" })}
+            title="Gantt"
+          >
+            <GanttChart className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowMeeting(true)}>
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            From Meeting
           </Button>
           <Button size="sm" onClick={() => setShowNewTask(true)}>
             New Task
@@ -93,8 +120,10 @@ export function TasksClient({ searchParams }: TasksClientProps) {
 
       {view === "kanban" ? (
         <KanbanBoard tasks={tasks} />
-      ) : (
+      ) : view === "list" ? (
         <TaskListView tasks={tasks} />
+      ) : (
+        <TaskGanttView tasks={tasks} dependencies={dependencies} />
       )}
 
       <Sheet open={showNewTask} onOpenChange={setShowNewTask}>
@@ -107,6 +136,12 @@ export function TasksClient({ searchParams }: TasksClientProps) {
           </div>
         </SheetContent>
       </Sheet>
+
+      <MeetingMinutesDialog
+        open={showMeeting}
+        onOpenChange={setShowMeeting}
+        defaultProjectId={searchParams.project_id}
+      />
     </div>
   )
 }

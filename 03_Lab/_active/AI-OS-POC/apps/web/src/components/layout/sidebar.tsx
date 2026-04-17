@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare, Handshake,
   FileText, Clock, File, BarChart2, Shield, Bell, Bot, Settings2,
-  ExternalLink, Menu,
+  ExternalLink, Menu, BrainCircuit,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -29,6 +29,8 @@ export const NAV_ITEMS = [
   { label: "Admin",         href: "/admin",         icon: Shield,          permission: "manage:all",      phase: 11 },
   { label: "Notifications", href: "/notifications", icon: Bell,            permission: "read:all",        phase: 10 },
   { label: "AI Assistant",  href: "/ai",            icon: Bot,             permission: "read:all",        phase: 12 },
+  // DEV NOTE: brain-cognitive is an optional feature module — remove this line + the brain-cognitive dirs to disable
+  { label: "BRAIN",         href: "/brain-cognitive", icon: BrainCircuit,  permission: "read:all",        phase: 12 },
   { label: "Settings",      href: "/settings",      icon: Settings2,       permission: "manage:all",      phase: 12 },
   { label: "Client Portal", href: "/portal",        icon: ExternalLink,    permission: "read:own_portal", phase: 12 },
 ] as const
@@ -81,6 +83,8 @@ function SidebarContent({ role, collapsed }: { role: UserRole | undefined; colla
 interface SidebarProps {
   collapsed?: boolean
   onToggleCollapse?: () => void
+  // session may be passed from server layouts — useSession() is the canonical source inside this component
+  session?: unknown
 }
 
 export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {

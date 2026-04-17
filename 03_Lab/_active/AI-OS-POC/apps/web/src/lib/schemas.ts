@@ -8,6 +8,8 @@ export const CreateTaskSchema = z.object({
   assignee_id: z.string().optional(),
   status: z.enum(["Backlog", "In Progress", "Review", "Done"]).default("Backlog"),
   due_date: z.string().optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
   description: z.string().optional(),
 })
 
@@ -46,7 +48,7 @@ export type CreateTimeEntryInput = z.infer<typeof CreateTimeEntrySchema>;
 export const CreateDocumentLinkSchema = z.object({
   document_source: z.enum(['paperless', 'nextcloud']),
   document_id: z.string().min(1),
-  entity_type: z.enum(['client', 'project', 'deal']),
+  entity_type: z.enum(['client', 'project', 'deal', 'task']),
   entity_id: z.string().uuid(),
 })
 export type CreateDocumentLinkInput = z.infer<typeof CreateDocumentLinkSchema>
@@ -56,3 +58,42 @@ export const UploadDocumentSchema = z.object({
   entity_id: z.string().uuid().optional(),
 })
 export type UploadDocumentInput = z.infer<typeof UploadDocumentSchema>
+
+// === Phase 11: Admin — Invite User ===
+export const InviteUserSchema = z.object({
+  email: z.string().email("Valid email required"),
+  role: z.enum(['admin', 'manager', 'finance', 'pm', 'team_member', 'client'], {
+    errorMap: () => ({ message: 'Select a valid role' }),
+  }),
+})
+export type InviteUserInput = z.infer<typeof InviteUserSchema>
+
+// ─── Phase 12: Settings ───────────────────────────────────────────────────
+
+export const WorkspaceSettingsSchema = z.object({
+  name: z.string().min(1).max(100),
+  logo_url: z.string().url().nullable().optional(),
+  timezone: z.string().min(1),
+  default_currency: z.string().length(3),
+})
+
+export const SmtpConfigSchema = z.object({
+  host: z.string().min(1),
+  port: z.coerce.number().int().min(1).max(65535),
+  user: z.string().min(1),
+  from_address: z.string().email(),
+  password: z.string().optional(),
+})
+
+export const N8nConfigSchema = z.object({
+  webhook_url: z.string().url().nullable(),
+  enabled_events: z.array(z.enum(['deal_won', 'invoice_sent', 'task_completed'])),
+})
+
+export const StorageSettingsSchema = z.object({
+  url: z.string().url('Must be a valid URL'),
+  bucket: z.string().min(1, 'Bucket is required'),
+  access_key: z.string().min(1, 'Access key is required'),
+  secret_key: z.string().optional(),
+  region: z.string().min(1, 'Region is required'),
+})

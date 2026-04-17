@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 
 const STATUS_OPTIONS: TaskStatus[] = ["Backlog", "In Progress", "Review", "Done"]
 const NO_PROJECT = "__none__"
+const NO_ASSIGNEE = "__none_assignee__"
 
 interface TaskFormProps {
   defaultStatus?: TaskStatus
@@ -119,12 +120,23 @@ export function TaskForm({ defaultStatus = "Backlog", onSuccess, onCancel, taskI
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs">Assignee ID (optional)</Label>
-        <Input
-          {...register("assignee_id")}
-          placeholder="User ID"
-          className="h-8 text-sm"
-        />
+        <Label className="text-xs">Assignee</Label>
+        <Select
+          value={watch("assignee_id") ?? NO_ASSIGNEE}
+          onValueChange={val => setValue("assignee_id", val === NO_ASSIGNEE ? undefined : val)}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue placeholder="Unassigned" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_ASSIGNEE} className="text-sm">Unassigned</SelectItem>
+            <SelectItem value="__ai__" className="text-sm">
+              <span className="flex items-center gap-1.5">
+                🤖 AI Agent
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-1.5">
@@ -134,6 +146,17 @@ export function TaskForm({ defaultStatus = "Backlog", onSuccess, onCancel, taskI
           {...register("due_date")}
           className="h-8 text-sm"
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Start Date</Label>
+          <Input type="date" {...register("start_date")} className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">End Date</Label>
+          <Input type="date" {...register("end_date")} className="h-8 text-sm" />
+        </div>
       </div>
 
       <div className="space-y-1.5">

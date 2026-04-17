@@ -12,12 +12,13 @@ export function SubtasksPanel({ taskId }: { taskId: string }) {
   const qc = useQueryClient()
   const [newTitle, setNewTitle] = useState("")
 
-  const { data: subtasks = [], isLoading } = useQuery<Subtask[]>({
+  const { data: raw, isLoading } = useQuery({
     queryKey: ["subtasks", taskId],
     queryFn: () =>
       fetch(`/api/bff/tasks/${taskId}/subtasks`).then(r => r.json()),
     staleTime: 30_000,
   })
+  const subtasks: Subtask[] = Array.isArray(raw) ? raw : []
 
   const { mutate: toggleSubtask } = useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) =>

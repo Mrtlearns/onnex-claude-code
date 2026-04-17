@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { NextRequest, NextResponse } from "next/server"
 
-const API_BASE = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3000"
+const API_BASE = process.env.AIOS_API_INTERNAL_URL ?? "http://aios-api:3001"
 
 export async function PATCH(
   req: NextRequest,
