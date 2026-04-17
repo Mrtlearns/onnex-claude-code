@@ -14,6 +14,7 @@ import uuid
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
@@ -66,6 +67,7 @@ async def suggest_controls_for_artifact(
         cached = await conn.fetch(
             """
             SELECT acs.control_definition_id, acs.similarity_score, acs.top_chunk_texts,
+                   acs.applied_at IS NOT NULL AS applied,
                    cd.nist_id, cd.cmmc_id, cd.requirement_text, cd.family, cd.family_abbrev
             FROM artifact_control_suggestions acs
             JOIN control_definitions cd ON acs.control_definition_id = cd.id
@@ -231,8 +233,98 @@ def _format_suggestions(artifact_id: str, rows: list) -> dict:
                 "family_abbrev": r["family_abbrev"],
                 "similarity_score": round(float(r["similarity_score"]), 4),
                 "supporting_chunks": list(r["top_chunk_texts"] or []),
+                "applied": bool(r["applied"]) if r.get("applied") is not None else False,
             }
             for r in rows
         ],
         "cached": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /{artifact_id}/apply-to-control
+# ---------------------------------------------------------------------------
+
+class ApplyBody(BaseModel):
+    control_definition_id: str
+    program_id: str
+
+
+@router.post("/{artifact_id}/apply-to-control")
+async def apply_suggestion(
+    artifact_id: str,
+    body: ApplyBody,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Mark an artifact_control_suggestions row as applied for a given control."""
+    # Validate artifact UUID
+    try:
+        art_uid = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid artifact_id")
+
+    # Validate body UUIDs
+    try:
+        ctrl_def_uid = uuid.UUID(body.control_definition_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid control_definition_id")
+    try:
+        prog_uid = uuid.UUID(body.program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid program_id")
+
+    # Fetch artifact and verify org access
+    artifact = await conn.fetchrow(
+        """
+        SELECT ar.id, p.org_id
+        FROM artifacts ar
+        JOIN program_controls pc ON ar.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE ar.id = $1
+        """,
+        art_uid,
+    )
+    if not artifact:
+        raise HTTPException(404, "Artifact not found")
+
+    require_same_org(str(artifact["org_id"]), user)
+
+    # Find program_controls row
+    pc_row = await conn.fetchrow(
+        """
+        SELECT id FROM program_controls
+        WHERE control_definition_id = $1 AND program_id = $2
+        """,
+        ctrl_def_uid,
+        prog_uid,
+    )
+    if not pc_row:
+        raise HTTPException(404, "Program control not found for given control_definition_id and program_id")
+
+    # Resolve applied_by — only set FK if the user actually exists in users table
+    applied_by: uuid.UUID | None = None
+    try:
+        candidate = uuid.UUID(user["user_id"])
+        exists = await conn.fetchval("SELECT 1 FROM users WHERE id = $1", candidate)
+        if exists:
+            applied_by = candidate
+    except (ValueError, KeyError):
+        pass
+
+    # Upsert into artifact_control_suggestions
+    await conn.execute(
+        """
+        INSERT INTO artifact_control_suggestions
+          (artifact_id, control_definition_id, similarity_score, top_chunk_texts, applied_at, applied_by)
+        VALUES ($1, $2, 0, ARRAY[]::TEXT[], NOW(), $3)
+        ON CONFLICT (artifact_id, control_definition_id) DO UPDATE
+          SET applied_at = NOW(),
+              applied_by = $3
+        """,
+        art_uid,
+        ctrl_def_uid,
+        applied_by,
+    )
+
+    return {"ok": True, "program_control_id": str(pc_row["id"])}

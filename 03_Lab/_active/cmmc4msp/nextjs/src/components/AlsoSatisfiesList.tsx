@@ -14,6 +14,7 @@ interface Suggestion {
   family_abbrev: string
   similarity_score: number
   supporting_chunks: string[]
+  applied?: boolean
 }
 
 interface SuggestionsResponse {
@@ -65,8 +66,15 @@ export function AlsoSatisfiesList({ artifactId, orgSlug, programId, onApply }: A
       })
       if (!r.ok) throw new Error('Failed to fetch suggestions')
       const data: SuggestionsResponse = await r.json()
-      setSuggestions(data.suggestions || [])
+      const suggestions = data.suggestions || []
+      setSuggestions(suggestions)
       setNote(data.note || '')
+      // Pre-populate applied state from server-side applied_at flag
+      const preApplied: Record<string, boolean> = {}
+      for (const s of suggestions) {
+        if (s.applied) preApplied[s.control_definition_id] = true
+      }
+      setApplied(preApplied)
       setState('done')
     } catch {
       setState('error')

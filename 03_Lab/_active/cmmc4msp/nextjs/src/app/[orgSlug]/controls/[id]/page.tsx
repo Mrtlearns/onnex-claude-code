@@ -57,6 +57,22 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
   const pc = data?.program_controls_by_pk
   const def = pc?.control_definition
 
+  const makeApplyHandler = (artifactId: string) => async (controlDefinitionId: string) => {
+    const token = (session?.user as any)?.accessToken
+    const API = process.env.NEXT_PUBLIC_API_URL || ''
+    await fetch(`${API}/api/artifacts/${artifactId}/apply-to-control`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        control_definition_id: controlDefinitionId,
+        program_id: pc?.program_id || '',
+      }),
+    })
+  }
+
   const handleStatusSave = async () => {
     await updateStatus({ variables: { id, status: statusDraft, notes: notesDraft } })
     setStatusSaved(true)
@@ -230,6 +246,7 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
                       artifactId={artifact.id}
                       orgSlug={orgSlug}
                       programId={pc.program_id || ''}
+                      onApply={canEdit ? makeApplyHandler(artifact.id) : undefined}
                     />
                   )}
 
