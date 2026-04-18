@@ -274,8 +274,8 @@ async def test_override_assessment_verdict_to_status_mapping(async_client):
 
     expected_statuses = {
         "met": "fully_implemented",
-        "partial": "partially_implemented",
-        "not_met": "not_implemented",
+        "partial": "implementation_begun",
+        "not_met": "not_yet_addressed",
         "not_applicable": "not_applicable",
     }
 

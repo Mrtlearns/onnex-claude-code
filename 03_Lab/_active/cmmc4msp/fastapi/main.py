@@ -29,6 +29,12 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "WEBHOOK_SECRET env var must be set to a strong random value (not 'changeme' or empty)"
         )
+    import os as _os
+    if not _os.getenv("INTERNAL_API_KEY"):
+        logger.warning(
+            "INTERNAL_API_KEY is not set — /api/orgs/onboard is open to unauthenticated callers; "
+            "set this env var in production"
+        )
     app.state.pool = await create_pool()
 
     app.state.minio = Minio(

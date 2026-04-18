@@ -13,11 +13,13 @@ from app.models import AssessmentOverride
 
 router = APIRouter()
 
-# Map assessment verdict to program_control status
+# Map assessment verdict to program_control status — must match control_status enum in DB
 _VERDICT_TO_STATUS = {
+    "pass": "fully_implemented",
     "met": "fully_implemented",
-    "partial": "partially_implemented",
-    "not_met": "not_implemented",
+    "partial": "implementation_begun",
+    "fail": "not_yet_addressed",
+    "not_met": "not_yet_addressed",
     "not_applicable": "not_applicable",
 }
 
