@@ -1,8 +1,8 @@
 # CMMC Compliance OS — Product Guide
 
-**Version:** 1.0 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
+**Version:** 1.1 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
 **Stack:** Next.js 14 · FastAPI · PostgreSQL + pgvector · Hasura GraphQL · n8n · MinIO · Authentik  
-**Test Suite:** 341 passing, 0 failures
+**Test Suite:** 353 passing, 0 failures
 
 ---
 
@@ -17,8 +17,8 @@ Eighty thousand U.S. defense contractors must achieve CMMC Level 2 certification
 - Built specifically for CMMC Level 2 — not a generic GRC tool mapped to CMMC as an afterthought
 - MSP-native: one operator dashboard manages unlimited client organizations with full tenant isolation
 - Claude LLM assesses every artifact — not rule-based keyword matching, but actual comprehension of whether a policy document satisfies a control's assessment objectives
-- 10 AI-powered features beyond basic compliance tracking: conversational copilot per control, policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, and direct integrations with Entra ID, Okta, Defender, CrowdStrike, M365, and Splunk
-- 341 tests, 14 active n8n workflows, 35 test files — production-ready, not prototype-grade
+- 12 AI-powered features: conversational copilot per control, policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, direct integrations with Entra ID/Okta/Defender/CrowdStrike/M365/Splunk, **program-level AI sweep** for the MSP controller, and **task-queue copilot** for individual contributors
+- 353 tests, 14 active n8n workflows, 36 test files — production-ready, not prototype-grade
 
 If your MSP manages five defense contractor clients, this platform saves 200+ hours of manual compliance work per engagement and produces a defensible, C3PAO-ready audit package on demand.
 
@@ -40,7 +40,9 @@ If your MSP manages five defense contractor clients, this platform saves 200+ ho
 12. [Feature 8: Gap Synthesis](#feature-8-gap-synthesis)
 13. [Feature 9: SSP Narrative Generation](#feature-9-ssp-narrative-generation)
 14. [Feature 10: Evidence Source Integrations (6 Providers)](#feature-10-evidence-source-integrations-6-providers)
-15. [Test Coverage](#test-coverage)
+15. [Feature 11: Program AI Sweep (MSP Controller Bulk Analysis)](#feature-11-program-ai-sweep-msp-controller-bulk-analysis)
+16. [Feature 12: Task Queue Inline Copilot (Task Member AI)](#feature-12-task-queue-inline-copilot-task-member-ai)
+17. [Test Coverage](#test-coverage)
 16. [Deployment & Operations](#deployment--operations)
 17. [Pricing & Packaging](#pricing--packaging)
 18. [Glossary](#glossary)
@@ -875,15 +877,125 @@ n8n Workflow 12 runs at 02:00 UTC and syncs all active integrations automaticall
 
 ---
 
+## Feature 11: Program AI Sweep (MSP Controller Bulk Analysis)
+
+**What it does:** One API call analyzes all non-fully-implemented controls across an entire program, returns a Claude-ranked action plan, and lets the MSP apply bulk status updates with a single click.
+
+**Why it matters:** MSPs managing 20-50 client orgs can't afford to open each control one at a time to understand what's needed. The Sweep gives the controller a portfolio triage tool — exactly which controls to attack first, why, and what to do — in under 60 seconds.
+
+### How It Works
+
+1. Sweep fetches every non-fully-implemented, applicable control for the program (up to 50 at a time) — including Phase, current status, artifact count, and any prior gap analysis results
+2. A ranked prompt is sent to Claude Sonnet 4.6, which produces:
+   - A 2-3 sentence executive summary of the program's compliance posture
+   - 2-4 recurring gap themes across controls
+   - A ranked action list — each entry has: `nist_id`, `priority_rank`, `recommended_action`, `gap_summary`, `confidence`
+3. Ranked actions are stored in `sweep_actions` table for review and selective application
+4. Controller selects which actions to apply → bulk status updates fire with activity log entries
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/programs/{program_id}/ai-sweep` | Trigger sweep (background, returns immediately) |
+| `GET` | `/api/programs/{program_id}/ai-sweep` | List recent sweeps (last 10) |
+| `GET` | `/api/programs/{program_id}/ai-sweep/{sweep_id}` | Get sweep results + ranked actions |
+| `POST` | `/api/programs/{program_id}/ai-sweep/{sweep_id}/apply` | Apply selected actions (bulk status update) |
+
+### Example Sweep Response
+
+```json
+{
+  "id": "uuid",
+  "status": "ready",
+  "control_count": 32,
+  "sweep_report": {
+    "summary": "Phase 1 is 70% complete. AC and IA families are the primary blockers — 8 of 17 Phase 1 controls lack any evidence. Immediate priority: upload Conditional Access policy and MFA configuration screenshots.",
+    "themes": [
+      "Missing access control policy documentation (AC family)",
+      "No MFA evidence uploaded (IA family)",
+      "Audit logging not configured or evidenced (AU family)"
+    ]
+  },
+  "actions": [
+    {
+      "nist_id": "3.1.1",
+      "priority_rank": 1,
+      "current_status": "not_implemented",
+      "recommended_action": "Upload Entra ID Conditional Access policy export — satisfies AC.L2-3.1.1 through 3.1.3",
+      "gap_summary": "No access control policy artifact uploaded. Phase 1 gate blocker — must be satisfied before Phase 2 unlocks.",
+      "confidence": 0.91,
+      "applied": false
+    }
+  ]
+}
+```
+
+### How to Use
+
+1. `POST /api/programs/{program_id}/ai-sweep` — fires in background; response: `{"sweep_id": "uuid", "status": "pending"}`
+2. Poll `GET /api/programs/{program_id}/ai-sweep/{sweep_id}` until `status = "ready"` (~30-60s for 30 controls)
+3. Review ranked actions — read `gap_summary` and `recommended_action` per control
+4. `POST /api/programs/{program_id}/ai-sweep/{sweep_id}/apply` with `{"action_ids": ["uuid1", "uuid2"]}` to bulk-update selected controls to `planned` status
+5. Each applied action is logged to `activity_log` with sweep attribution
+
+> **Role gate:** msp_admin, client_admin, super_admin only. client_user receives 403.
+
+---
+
+## Feature 12: Task Queue Inline Copilot (Task Member AI)
+
+**What it does:** Embeds the full RAG-powered Copilot directly inside each task card in the task queue — so contributors get AI guidance on their assigned controls without navigating away from their work list.
+
+**Why it matters:** Previously, a task member assigned to AC.L2-3.1.1 had to click through to the control detail page, find the Copilot tab, and then ask their question. With inline Copilot, the AI meets them where they work — inside their task queue. This is the highest-frequency touchpoint for contributors and the feature most likely to drive daily active use.
+
+### How It Works
+
+- Each task card in `/{orgSlug}/tasks` now has a purple **✦ Copilot** button alongside **Upload Evidence**
+- Clicking opens an inline streaming chat panel grounded in:
+  - The assigned control's definition + objectives + proof guidance
+  - The org's uploaded artifacts for that control (pgvector similarity)
+  - NIST SP 800-171A assessment guidance (1,331 chunks across 407 controls)
+- One panel open at a time — clicking another card's button closes the previous
+- Chat history persists per user per control (same backend as the full Copilot)
+- Clicking **Close** collapses the panel without losing history
+
+### How to Use
+
+1. Navigate to `/{orgSlug}/tasks`
+2. Find an assigned task — click the purple **✦ Copilot** button on the card
+3. Type your question directly: *"What evidence do I need to satisfy this?"* / *"We use CrowdStrike — what screenshot proves this?"*
+4. Response streams in real-time; ask follow-ups
+5. Click **Upload Evidence** when ready to upload artifacts based on the guidance
+
+### Typical Contributor Flow
+
+```
+Task queue loads → see 5 assigned controls
+→ Click ✦ Copilot on "AC.L2-3.1.1 (Assigned, due in 3 days)"
+→ Ask: "We use Azure AD — what exactly do I need to screenshot?"
+→ Copilot: "Upload a screenshot of your Conditional Access policy list
+   showing all policies applied to CUI-accessing users. The assessor
+   needs to see policy names, enforcement mode, and target groups.
+   Your existing 'MFA-Required-CUI' policy (seen in artifact a3f2...) 
+   already covers objectives [a] and [b] — you just need [c]: 
+   the audit log showing a failed login attempt was blocked."
+→ Contributor uploads targeted screenshot → evidence assessed automatically
+```
+
+> **No additional API calls required** — the inline Copilot reuses the existing `/api/controls/program/{program_id}/{control_id}/chat` streaming endpoint. Both `program_id` and `program_control.id` are already present in the `GET_MY_ASSIGNMENTS` GraphQL query.
+
+---
+
 ## Test Coverage
 
-**341 tests · 0 failures · 21.79 seconds runtime · 35 test files**
+**353 tests · 0 failures · 22.44 seconds runtime · 36 test files**
 
 Every router, service, and workflow integration is covered. The test suite runs in CI on every commit and is a hard gate before deployment.
 
 | Test File | Tests | Coverage Area |
 |-----------|-------|---------------|
-| `test_analytics.py` | 8 | MSP portfolio analytics endpoint, role enforcement |
+| `test_analytics.py` | 8 | MSP portfolio analytics endpoint, role enforcement, SPRS histogram |
 | `test_audit.py` | 10 | Audit package creation, status polling, download URL generation |
 | `test_copilot_service.py` | 8 | RAG retrieval, embedding search, context assembly |
 | `test_copilot_endpoints.py` | 10 | Chat API, history retrieval, SSE streaming |
@@ -893,31 +1005,32 @@ Every router, service, and workflow integration is covered. The test suite runs 
 | `test_email_service.py` | 8 | Email template rendering, Resend API calls, preference enforcement |
 | `test_freshness.py` | 8 | Threshold calculation per family, stale detection, notification trigger |
 | `test_gap_analysis.py` | 10 | Objective decomposition, vector retrieval, gap output structure |
-| `test_integrations_router.py` | 12 | All 5 integration endpoints, credential storage, sync trigger |
+| `test_integrations_router.py` | 12 | All 6 integration endpoints, credential storage, sync trigger |
 | `test_integration_service.py` | 10 | Per-provider sync logic, artifact creation, assessment trigger |
 | `test_notifications_router.py` | 8 | Preference CRUD, unsubscribe token validation |
 | `test_policy_draft_service.py` | 8 | Context assembly, prompt construction, DOCX output |
 | `test_policy_draft_endpoints.py` | 10 | Draft trigger, list, review (approve/reject) |
 | `test_ssp_interview.py` | 12 | Interview creation, pre-population, generation, commit flow |
-| `test_analytics.py` | 8 | SPRS calculation, phase scoring, SSP penalty rule |
-| `test_artifacts_router.py` | — | Upload, presigned URL, status check |
-| `test_assessments_router.py` | — | Verdict retrieval, MSP override |
-| `test_assignments_router.py` | — | Assignment CRUD, due date management |
-| `test_controls_router.py` | — | Control list, filter by phase/family/status |
-| `test_orgs_router.py` | — | Org creation, onboarding trigger |
-| `test_programs_router.py` | — | Program CRUD, SPRS retrieval |
-| `test_reports_router.py` | — | SSP PDF, POA&M PDF generation |
-| `test_webhooks_router.py` | — | n8n callback handling, assessment-complete processing |
-| `test_sprs_service.py` | — | SPRS formula, FAR & Above scoring, SSP gate rule |
-| `test_minio_service.py` | — | Presigned URL generation, bucket operations |
-| `test_email_service.py` | — | Template rendering, delivery confirmation |
-| `test_embeddings_service.py` | — | Chunk embedding, cosine similarity search |
-| `test_extraction_service.py` | — | PDF, DOCX, image text extraction |
-| `test_n8n_service.py` | — | Webhook trigger construction, retry logic |
-| `test_authentik_service.py` | — | JWT validation, claim extraction, invite flow |
-| `test_health.py` | — | Health endpoint, DB connectivity check |
-| `test_deps.py` | — | Auth dependency injection, role checking |
-| `test_invites_router.py` | — | Invite token creation, 72h expiry, role assignment |
+| `test_sweep.py` | 12 | Sweep creation (202 async), list, get detail, apply bulk actions, role gate, service unit test |
+| `test_artifacts_router.py` | 9 | Upload, presigned URL, status check, drift dismiss |
+| `test_assessments_router.py` | 17 | Verdict retrieval, MSP override, confidence scoring |
+| `test_assignments_router.py` | 21 | Assignment CRUD, state machine transitions, role enforcement |
+| `test_controls_router.py` | 4 | Control list, filter by phase/family/status, PATCH trigger |
+| `test_orgs_router.py` | 8 | Org creation, onboarding trigger |
+| `test_programs_router.py` | 21 | Program CRUD, SPRS retrieval, freshness, sweep endpoints |
+| `test_reports_router.py` | 15 | SSP PDF, POA&M PDF generation, download URL |
+| `test_webhooks_router.py` | 5 | n8n callback handling, assessment-complete, secret enforcement |
+| `test_sprs_service.py` | 7 | SPRS formula, FAR & Above scoring, SSP gate rule |
+| `test_minio_service.py` | 11 | Presigned URL generation, bucket operations |
+| `test_embeddings_service.py` | 12 | Chunk embedding, cosine similarity search |
+| `test_extraction_service.py` | 7 | PDF, DOCX, image text extraction |
+| `test_n8n_service.py` | 10 | Webhook trigger construction, retry logic |
+| `test_authentik_service.py` | 8 | JWT validation, claim extraction, invite flow |
+| `test_health.py` | 2 | Health endpoint, DB connectivity check |
+| `test_deps.py` | 10 | Auth dependency injection, role checking |
+| `test_invites_router.py` | 13 | Invite token creation, 72h expiry, role assignment |
+| `test_suggestions_router.py` | 7 | RAG cross-control suggestions, apply suggestion |
+| `test_msps_router.py` | 8 | MSP CRUD, admin management |
 
 ```bash
 # Run full test suite
@@ -1094,7 +1207,7 @@ Best for: Small DIB contractors, < 50 employees, single CUI system
 - Up to 5 user seats
 - MSP managed service: monthly check-in, assessment reviews
 
-**Not included:** Copilot, policy generation, integrations, portfolio analytics (MSP-side features), gap synthesis
+**Not included:** Copilot, policy generation, integrations, portfolio analytics (MSP-side features), gap synthesis, Program AI Sweep, task queue Copilot
 
 ---
 
@@ -1103,14 +1216,15 @@ Best for: Mid-size DIB contractors, 50-500 employees, 1-3 CUI systems
 
 **Includes everything in Starter, plus:**
 - Per-control AI Copilot (conversational RAG)
+- **Task Queue Inline Copilot** — AI guidance inside each contributor's work list
 - AI Policy Draft Generation (up to 30 policies)
 - Gap Synthesis analysis
 - Evidence Freshness Monitoring
 - Evidence Drift Detection
+- C3PAO Audit Package Export
 - Up to 3 programs (systems/SSPs)
 - Up to 25 user seats
 - Quarterly MSP compliance review call
-- C3PAO Audit Package Export
 
 ---
 
@@ -1119,6 +1233,7 @@ Best for: Large DIB contractors, 500+ employees, complex multi-system environmen
 
 **Includes everything in Professional, plus:**
 - SSP Narrative Generation (interview-driven)
+- **Program AI Sweep** — one-click portfolio triage, ranked action plan, bulk status apply
 - All 6 Evidence Source Integrations (Entra ID, Okta, Defender, CrowdStrike, M365, Splunk)
 - Unlimited programs
 - Unlimited user seats
@@ -1131,7 +1246,8 @@ Best for: Large DIB contractors, 500+ employees, complex multi-system environmen
 
 #### MSP Operator License | $500/month (flat, per MSP)
 Required for MSP to operate the platform. Includes:
-- MSP portfolio analytics dashboard
+- MSP portfolio analytics dashboard (cross-client SPRS, top failing controls, weekly activity)
+- Program AI Sweep access across all managed orgs
 - Unlimited client org management
 - Super admin access
 - Platform updates and bug fixes
@@ -1146,12 +1262,13 @@ Required for MSP to operate the platform. Includes:
 | Anthropic API (artifact assessment) | ~$0.002-0.008 per artifact |
 | Anthropic API (copilot query) | ~$0.005-0.015 per query |
 | Anthropic API (policy draft) | ~$0.05-0.20 per policy |
-| Anthropic API (gap synthesis) | ~$0.01-0.05 per analysis |
+| Anthropic API (gap synthesis, per control) | ~$0.01-0.05 per analysis |
+| Anthropic API (program AI sweep, 30 controls) | ~$0.05-0.15 per sweep |
 | Resend (email) | ~$0.001 per email |
 | VM hosting (32 GB RAM) | ~$200-400/month total |
 | MinIO storage | ~$0.02/GB/month |
 
-At 10 client orgs on Professional tier, monthly Anthropic costs are typically $50-150. Margins are high. The primary cost is MSP labor for onboarding and review — which this platform reduces by approximately 60-70% vs. manual processes.
+At 10 client orgs on Professional tier, monthly Anthropic costs are typically $50-150. Margins are high. The primary cost is MSP labor for onboarding and review — which this platform reduces by approximately 60-70% vs. manual processes. The Program AI Sweep alone typically saves 2-4 hours of MSP review time per client per quarter.
 
 ---
 
