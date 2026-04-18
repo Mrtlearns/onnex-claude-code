@@ -21,14 +21,14 @@
       "tools": {
         "Glob": 2,
         "Read": 6,
-        "Bash": 30,
+        "Bash": 45,
         "Write": 1,
         "ToolSearch": 2,
         "Monitor": 1,
         "Edit": 1
       },
-      "total_calls": 43,
-      "weight_total": 35
+      "total_calls": 58,
+      "weight_total": 50
     }
   ]
 }
