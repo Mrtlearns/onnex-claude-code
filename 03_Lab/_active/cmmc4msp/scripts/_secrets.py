@@ -88,3 +88,23 @@ def n8n_api() -> tuple[str, str]:
     url = os.environ.get("N8N_URL", "https://n8n.cmmc4msp.on-nex.us")
     key = require("N8N_API_KEY", prompt="n8n API key: ")
     return url, key
+
+
+def authentik() -> tuple[str, str]:
+    """Return (base_url, api_token) for Authentik."""
+    url = os.environ.get("AUTHENTIK_URL", "https://auth.cmmc4msp.on-nex.us")
+    token = require("AUTHENTIK_API_TOKEN", prompt="Authentik API token: ")
+    return url, token
+
+
+def postgres() -> str:
+    """Return DSN for direct PostgreSQL access."""
+    dsn = os.environ.get("DATABASE_URL")
+    if dsn:
+        return dsn
+    host = os.environ.get("POSTGRES_HOST", "localhost")
+    port = os.environ.get("POSTGRES_PORT", "5432")
+    db   = os.environ.get("POSTGRES_DB", "cmmc4msp")
+    user = os.environ.get("POSTGRES_USER", "cmmc")
+    pw   = require("POSTGRES_PASSWORD", prompt=f"Postgres password for {user}@{host}/{db}: ")
+    return f"postgresql://{user}:{pw}@{host}:{port}/{db}"
