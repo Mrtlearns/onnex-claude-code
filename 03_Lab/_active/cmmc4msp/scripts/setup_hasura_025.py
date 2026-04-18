@@ -12,8 +12,9 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repla
 import requests
 import json
 
-HASURA_URL = 'https://gql.cmmc4msp.on-nex.us'
-ADMIN_SECRET = '35cfc023477abf07b94f636d65dbb669dd7ef9106209ff949c0e0b3a96114026'
+from _secrets import hasura
+
+HASURA_URL, ADMIN_SECRET = hasura()
 
 HEADERS = {
     'X-Hasura-Admin-Secret': ADMIN_SECRET,
@@ -50,6 +51,9 @@ def main():
     # ------------------------------------------------------------------ #
     # 2. error_events — select permissions                                 #
     # ------------------------------------------------------------------ #
+    # msp_admin and org_admin must NOT see stack_trace or context — those fields
+    # can contain data from other tenants if msp_id tagging was incomplete.
+    # Only super_admin has full column access.
     error_events_perms = [
         (
             "super_admin",
@@ -58,7 +62,11 @@ def main():
         ),
         (
             "msp_admin",
-            "*",
+            [
+                "id", "msp_id", "org_id", "program_id", "correlation_id",
+                "source", "severity", "component", "message",
+                "triaged", "triaged_at", "triaged_by_report_id", "created_at",
+            ],
             {"msp_id": {"_eq": "X-Hasura-Msp-Id"}}
         ),
         (
@@ -66,7 +74,7 @@ def main():
             [
                 "id", "org_id", "program_id", "correlation_id",
                 "source", "severity", "component", "message",
-                "stack_trace", "context", "triaged", "created_at"
+                "triaged", "created_at",
             ],
             {"org_id": {"_eq": "X-Hasura-Org-Id"}}
         ),

@@ -4,12 +4,14 @@ Usage:
     python scripts/import_wf15.py
 
 Requires: paramiko  (pip install paramiko)
-VM: 10.10.110.41, user: mrt, password: Poll0000
+VM + credentials are resolved from the environment via _secrets.vm_ssh().
 """
 from __future__ import annotations
 
 import os
 import sys
+
+from _secrets import vm_ssh
 
 WORKFLOW_LOCAL = os.path.join(
     os.path.dirname(__file__),
@@ -18,9 +20,7 @@ WORKFLOW_LOCAL = os.path.join(
 WORKFLOW_REMOTE_TMP = "/tmp/15_error_triage_nightly.json"
 STACK_PATH = "/opt/stacks/cmmc4msp/n8n/workflows/15_error_triage_nightly.json"
 
-VM_HOST = "10.10.110.41"
-VM_USER = "mrt"
-VM_PASS = "Poll0000"  # noqa: S105
+VM_HOST, VM_USER, VM_PASS = vm_ssh()
 
 N8N_CONTAINER = "cmmc-n8n"
 

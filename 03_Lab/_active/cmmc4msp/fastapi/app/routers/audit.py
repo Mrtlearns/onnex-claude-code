@@ -14,6 +14,7 @@ from app.database import get_db
 from app.deps import get_current_user, require_msp_admin
 from app.logging_config import get_logger
 from app.services import error_events_service
+from app.services.background import run_with_pool
 from app.services.minio_service import download_bytes, get_presigned_download_url, upload_bytes
 
 logger = get_logger(__name__)
@@ -53,12 +54,27 @@ async def create_audit_package(
         uuid.UUID(user["user_id"]),
     )
 
+    pool = request.app.state.pool
     minio = request.app.state.minio
+    correlation_id = getattr(request.state, "correlation_id", None)
+    org_id = str(program["org_id"]) if program["org_id"] else None
 
-    async def _build() -> None:
+    async def _build(conn: asyncpg.Connection) -> None:
         await _generate_audit_package(package_id, prog_uid, conn, minio)
 
-    background_tasks.add_task(_build)
+    async def _on_audit_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE audit_packages SET status = 'error', error_message=$1 WHERE id = $2",
+            str(exc)[:2000], package_id,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, pool, _build,
+        component="audit.generate_audit_package",
+        correlation_id=correlation_id,
+        org_id=org_id,
+        on_error=_on_audit_error,
+    )
     return {"package_id": str(package_id), "status": "generating"}
 
 
@@ -205,19 +221,5 @@ async def _generate_audit_package(
             artifact_count,
             package_id,
         )
-    except Exception as exc:
-        import traceback as _tb
-        logger.exception("background_task_failed", task="audit_package_generation", exc=str(exc))
-        await error_events_service.record(
-            conn,
-            source="fastapi",
-            component="audit._generate_audit_package",
-            message=str(exc),
-            severity="error",
-            stack_trace=_tb.format_exc(),
-        )
-        await conn.execute(
-            "UPDATE audit_packages SET status = 'error', error_message=$1 WHERE id = $2",
-            str(exc)[:2000],
-            package_id,
-        )
+    except Exception:
+        raise

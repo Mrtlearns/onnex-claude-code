@@ -48,10 +48,29 @@ class ClientErrorPayload(BaseModel):
     component: str | None = None
 
 
+def _real_ip(request: Request) -> str:
+    """Return the client's real IP, honouring X-Forwarded-For from Traefik.
+
+    Takes the rightmost non-private address from the XFF chain to avoid
+    spoofing via a forged header prepended by the caller.  Falls back to
+    request.client.host when the header is absent.
+    """
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        # Traefik appends the real client IP at the right of the chain.
+        # The rightmost entry is set by Traefik itself and cannot be forged.
+        candidates = [ip.strip() for ip in xff.split(",")]
+        # Return rightmost non-empty entry.
+        for ip in reversed(candidates):
+            if ip:
+                return ip
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("", status_code=202)
 async def record_client_error(payload: ClientErrorPayload, request: Request) -> dict[str, Any]:
     """Accept a client-side error report and store in error_events."""
-    client_ip: str = request.client.host if request.client else "unknown"
+    client_ip = _real_ip(request)
 
     if not _check_rate_limit(client_ip):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")

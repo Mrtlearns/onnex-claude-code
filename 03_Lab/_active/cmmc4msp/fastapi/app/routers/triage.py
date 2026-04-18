@@ -78,29 +78,50 @@ async def run_triage(
 
     Auth (first match wins):
       1. X-Webhook-Secret header matches WEBHOOK_SECRET env var -> system call, accepted.
-      2. Valid JWT with role msp_admin or super_admin -> normal user call, accepted.
+         Fan-out: one scoped triage_report per distinct msp_id with untriaged events.
+      2. Valid JWT with role msp_admin or super_admin -> scoped to caller's msp_id.
       3. Anything else -> 401 / 403.
     """
     is_webhook = user["user_id"] == str(uuid.UUID(int=0))
+    pool = request.app.state.pool
 
-    # Webhook system calls use None as requested_by and no msp_id scoping
-    user_id: uuid.UUID | None = None if is_webhook else uuid.UUID(user["user_id"])
-    msp_id: uuid.UUID | None = (
-        uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
-    )
+    if is_webhook:
+        # Fan-out across all MSPs that have untriaged events.
+        # Each MSP gets its own isolated report — no cross-tenant data ever goes into one report.
+        msp_rows = await conn.fetch(
+            "SELECT DISTINCT msp_id FROM error_events WHERE triaged = FALSE AND msp_id IS NOT NULL"
+        )
+        if not msp_rows:
+            return {"report_ids": [], "status": "no_untriaged_events"}
+
+        report_ids: list[str] = []
+        for row in msp_rows:
+            report_msp_id: uuid.UUID = row["msp_id"]
+            report_id = uuid.uuid4()
+            await conn.execute(
+                "INSERT INTO triage_reports (id, requested_by, msp_id, status) VALUES ($1, $2, $3, 'pending')",
+                report_id, None, report_msp_id,
+            )
+            background_tasks.add_task(
+                error_triage_service.run_triage,
+                report_id=report_id,
+                requested_by=None,
+                msp_id=report_msp_id,
+                pool=pool,
+            )
+            report_ids.append(str(report_id))
+
+        return {"report_ids": report_ids, "status": "pending", "msp_count": len(report_ids)}
+
+    # JWT path — scoped to the caller's MSP.
+    user_id = uuid.UUID(user["user_id"])
+    msp_id: uuid.UUID | None = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
 
     report_id = uuid.uuid4()
     await conn.execute(
-        """
-        INSERT INTO triage_reports (id, requested_by, msp_id, status)
-        VALUES ($1, $2, $3, 'pending')
-        """,
-        report_id,
-        user_id,
-        msp_id,
+        "INSERT INTO triage_reports (id, requested_by, msp_id, status) VALUES ($1, $2, $3, 'pending')",
+        report_id, user_id, msp_id,
     )
-
-    pool = request.app.state.pool
     background_tasks.add_task(
         error_triage_service.run_triage,
         report_id=report_id,

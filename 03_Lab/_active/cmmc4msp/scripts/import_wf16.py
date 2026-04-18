@@ -12,12 +12,12 @@ import sys
 import time
 import paramiko
 
+from _secrets import vm_ssh
+
 # Force stdout to utf-8 on Windows to handle n8n CLI unicode output
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-HOST = "10.10.110.41"
-USER = "mrt"
-PASSWORD = "Poll0000"
+HOST, USER, PASSWORD = vm_ssh()
 N8N_CONTAINER = "cmmc-n8n"
 
 LOCAL_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

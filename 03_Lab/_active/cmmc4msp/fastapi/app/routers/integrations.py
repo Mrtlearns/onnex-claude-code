@@ -4,13 +4,14 @@ import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user
 from app.logging_config import get_logger
 from app.services import error_events_service
+from app.services.background import run_with_pool
 
 logger = get_logger(__name__)
 
@@ -124,6 +125,7 @@ async def list_integrations(
 @router.post("/{integration_id}/sync", status_code=202)
 async def trigger_sync(
     integration_id: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -142,29 +144,27 @@ async def trigger_sync(
     if user["role"] not in ("msp_admin", "super_admin") and str(integration["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
-    async def _sync():
-        import traceback as _tb
-        from app.services.integration_service import sync_integration
-        try:
-            await sync_integration(int_uid, conn)
-        except Exception as exc:
-            logger.exception("background_task_failed", task="integration_sync", exc=str(exc))
-            await error_events_service.record(
-                conn,
-                source="fastapi",
-                component="integrations.sync",
-                message=str(exc),
-                severity="error",
-                stack_trace=_tb.format_exc(),
-                org_id=str(integration["org_id"]) if integration["org_id"] else None,
-            )
-            await conn.execute(
-                "UPDATE integrations SET status='error', error_message=$1 WHERE id=$2",
-                str(exc)[:2000],
-                int_uid,
-            )
+    pool = request.app.state.pool
+    correlation_id = getattr(request.state, "correlation_id", None)
+    org_id = str(integration["org_id"]) if integration["org_id"] else None
 
-    background_tasks.add_task(_sync)
+    async def _sync(conn: asyncpg.Connection) -> None:
+        from app.services.integration_service import sync_integration
+        await sync_integration(int_uid, conn)
+
+    async def _on_sync_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE integrations SET status='error', error_message=$1 WHERE id=$2",
+            str(exc)[:2000], int_uid,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, pool, _sync,
+        component="integrations.sync",
+        correlation_id=correlation_id,
+        org_id=org_id,
+        on_error=_on_sync_error,
+    )
     return {"status": "syncing", "integration_id": integration_id}
 
 

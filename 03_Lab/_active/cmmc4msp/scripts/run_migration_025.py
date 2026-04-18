@@ -12,9 +12,9 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repla
 import os
 import paramiko
 
-HOST = '10.10.110.41'
-USER = 'mrt'
-PASS = 'Poll0000'
+from _secrets import vm_ssh
+
+HOST, USER, PASS = vm_ssh()
 
 MIGRATION_LOCAL = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

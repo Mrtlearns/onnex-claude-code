@@ -471,10 +471,16 @@ async def test_run_triage_super_admin_no_msp(async_client):
 
 @pytest.mark.asyncio
 async def test_run_triage_webhook_secret_bypass(async_client):
-    """POST /api/triage/run with correct X-Webhook-Secret succeeds without a JWT (202)."""
+    """POST /api/triage/run with correct X-Webhook-Secret fans out one report per MSP (202)."""
     from tests.conftest import WEBHOOK_SECRET
+    from unittest.mock import MagicMock
     client, conn = async_client
 
+    msp_uuid = uuid.UUID(MSP_ID)
+    msp_row = MagicMock()
+    msp_row.__getitem__ = lambda self, k: msp_uuid if k == "msp_id" else None
+
+    conn.fetch = AsyncMock(return_value=[msp_row])
     conn.execute = AsyncMock(return_value="INSERT 1")
 
     with patch("app.routers.triage.error_triage_service.run_triage", new=AsyncMock()):
@@ -485,9 +491,10 @@ async def test_run_triage_webhook_secret_bypass(async_client):
 
     assert resp.status_code == 202
     body = resp.json()
-    assert "report_id" in body
-    assert body["status"] == "pending"
-    uuid.UUID(body["report_id"])
+    assert "report_ids" in body
+    assert body["msp_count"] == 1
+    assert len(body["report_ids"]) == 1
+    uuid.UUID(body["report_ids"][0])
 
 
 @pytest.mark.asyncio

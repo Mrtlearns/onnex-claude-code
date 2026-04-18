@@ -167,7 +167,7 @@ Wait for `{"done": true, "status": "success"}`.
 import paramiko
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect('10.10.110.34', username='mrt', password='Poll0000')
+client.connect('10.10.110.34', username='mrt', password=os.environ['VM_SSH_PASSWORD'])
 _, stdout, _ = client.exec_command("grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|POSTGRES_PASSWORD)=' /opt/stacks/supabase/.env")
 print(stdout.read().decode())
 client.close()
@@ -290,7 +290,7 @@ This gives the new POC session immediate access to the full spec without needing
 import paramiko
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect('10.10.110.34', username='mrt', password='Poll0000')
+client.connect('10.10.110.34', username='mrt', password=os.environ['VM_SSH_PASSWORD'])
 
 # Schema exists
 _, stdout, _ = client.exec_command(

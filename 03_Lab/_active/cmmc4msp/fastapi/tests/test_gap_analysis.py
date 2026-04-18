@@ -77,10 +77,14 @@ async def test_trigger_gap_analysis_happy_path(async_client):
     conn.fetchrow = AsyncMock(return_value=_make_pc_record())
     conn.execute = AsyncMock(return_value="OK")
 
-    resp = await client.post(
-        f"{BASE_URL}/gap-analysis",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    with patch(
+        "app.services.gap_analysis_service.run_gap_analysis",
+        new=AsyncMock(return_value=None),
+    ):
+        resp = await client.post(
+            f"{BASE_URL}/gap-analysis",
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
     assert resp.status_code == 202
     data = resp.json()

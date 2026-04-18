@@ -26,19 +26,15 @@ import paramiko
 # Config
 # ---------------------------------------------------------------------------
 
-VM_HOST = "10.10.110.41"
-VM_USER = "mrt"
-VM_PASS = "Poll0000"
+from _secrets import n8n_api, vm_ssh
+
+VM_HOST, VM_USER, VM_PASS = vm_ssh()
 VM_PORT = 22
 
 LOCAL_ROOT = "D:/Code/Claude/03_Lab/_active/cmmc4msp"
 REMOTE_ROOT = "/opt/stacks/cmmc4msp"
 
-N8N_API_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJzdWIiOiIwZjMwMDE0NS1jOTUzLTQ1ZWUtOGE3ZC0yZGU5N2NmMjA1YzciLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNzhkNzlmZjMtYmViNS00ZWQ0LWIwOWQtZDJiMTNhMDFhZDJkIiwiaWF0IjoxNzc2MzAxNjM2fQ"
-    ".WvWO-V6NwWmkE1gaO8R6W79w8Fi_60gobg6169Ps_bI"
-)
+_N8N_URL, N8N_API_KEY = n8n_api()
 
 # FastAPI files: (local_relative_path, remote_relative_path)
 FASTAPI_FILES = [

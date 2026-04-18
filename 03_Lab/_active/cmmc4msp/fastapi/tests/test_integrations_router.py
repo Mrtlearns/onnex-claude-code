@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -225,10 +225,14 @@ async def test_trigger_sync_happy_path(async_client):
         return_value=_make_integration_row(integration_id=INTEGRATION_ID, org_id=ORG_ID)
     )
 
-    resp = await client.post(
-        f"/api/integrations/{INTEGRATION_ID}/sync",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    with patch(
+        "app.services.integration_service.sync_integration",
+        new=AsyncMock(return_value=None),
+    ):
+        resp = await client.post(
+            f"/api/integrations/{INTEGRATION_ID}/sync",
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
     assert resp.status_code == 202
     data = resp.json()

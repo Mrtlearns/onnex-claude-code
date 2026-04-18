@@ -110,69 +110,109 @@ app.include_router(triage.router, prefix="/api/triage", tags=["triage"])
 app.include_router(client_errors.router, prefix="/api/client-errors", tags=["client-errors"])
 
 
-@app.get("/health")
-async def health(request: Request):
-    """Health check — verifies DB, MinIO, Redis, n8n, and OpenRouter connectivity."""
-    components: dict[str, str] = {}
-
-    # --- Postgres ---
+async def _check_postgres() -> str:
     try:
         async with app.state.pool.acquire() as conn:
-            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout=4)
-        components["postgres"] = "up"
+            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout=3)
+        return "up"
     except Exception:
-        components["postgres"] = "down"
+        return "down"
 
-    # --- MinIO ---
+
+async def _check_minio() -> str:
     try:
-        minio = app.state.minio
-
-        def _minio_check():
-            minio.list_buckets()
-
         loop = asyncio.get_event_loop()
-        await asyncio.wait_for(loop.run_in_executor(None, _minio_check), timeout=4)
-        components["minio"] = "up"
+        await asyncio.wait_for(
+            loop.run_in_executor(None, app.state.minio.list_buckets), timeout=3
+        )
+        return "up"
     except Exception:
-        components["minio"] = "down"
+        return "down"
 
-    # --- Redis ---
+
+async def _check_redis() -> str:
     try:
-        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=3)
-        await asyncio.wait_for(r.ping(), timeout=4)
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+        await asyncio.wait_for(r.ping(), timeout=3)
         await r.aclose()
-        components["redis"] = "up"
+        return "up"
     except Exception:
-        components["redis"] = "down"
+        return "down"
 
-    # --- n8n ---
+
+async def _check_n8n() -> str:
     try:
         async with httpx.AsyncClient(timeout=3) as client:
             resp = await client.get(f"{settings.n8n_internal_url}/healthz")
-            components["n8n"] = "up" if resp.status_code < 500 else "degraded"
+        return "up" if resp.status_code < 500 else "degraded"
     except Exception:
-        components["n8n"] = "down"
+        return "down"
 
-    # --- OpenRouter ---
+
+async def _check_openrouter() -> str:
     try:
         async with httpx.AsyncClient(timeout=4) as client:
             resp = await client.get(
                 "https://openrouter.ai/api/v1/models",
                 headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
             )
-            components["openrouter"] = "up" if resp.status_code < 500 else "degraded"
+        return "up" if resp.status_code < 500 else "degraded"
     except Exception:
-        components["openrouter"] = "down"
+        return "down"
 
-    all_up = all(v == "up" for v in components.values())
-    any_down = any(v == "down" for v in components.values())
-    status = "ok" if all_up else ("down" if any_down else "degraded")
 
-    cid = getattr(request.state, "correlation_id", None)
+def _summarise(components: dict[str, str]) -> str:
+    if all(v == "up" for v in components.values()):
+        return "ok"
+    if any(v == "down" for v in components.values()):
+        return "down"
+    return "degraded"
+
+
+@app.get("/health")
+async def health(request: Request):
+    """Lightweight health check — Postgres, MinIO, Redis, n8n probed in parallel.
+
+    Intentionally excludes OpenRouter (paid API — see /health/deep).
+    This endpoint is safe to poll from Traefik/Docker healthchecks.
+    """
+    postgres, minio, redis, n8n = await asyncio.gather(
+        _check_postgres(),
+        _check_minio(),
+        _check_redis(),
+        _check_n8n(),
+    )
+    components = {"postgres": postgres, "minio": minio, "redis": redis, "n8n": n8n}
 
     return {
-        "status": status,
+        "status": _summarise(components),
         "service": "cmmc-api",
         "components": components,
-        "correlation_id": cid,
+        "correlation_id": getattr(request.state, "correlation_id", None),
+    }
+
+
+@app.get("/health/deep")
+async def health_deep(request: Request):
+    """Full health check including paid external APIs. Admin/ops use only — do NOT poll."""
+    postgres, minio, redis, n8n, openrouter = await asyncio.gather(
+        _check_postgres(),
+        _check_minio(),
+        _check_redis(),
+        _check_n8n(),
+        _check_openrouter(),
+    )
+    components = {
+        "postgres": postgres,
+        "minio": minio,
+        "redis": redis,
+        "n8n": n8n,
+        "openrouter": openrouter,
+    }
+
+    return {
+        "status": _summarise(components),
+        "service": "cmmc-api",
+        "components": components,
+        "correlation_id": getattr(request.state, "correlation_id", None),
     }

@@ -16,6 +16,7 @@ from app.logging_config import get_logger
 from app.models import ControlStatusUpdate
 from app.services import sprs_service
 from app.services import error_events_service
+from app.services.background import run_with_pool
 from app.services.copilot_service import build_context, stream_chat
 
 logger = get_logger(__name__)
@@ -487,19 +488,32 @@ async def generate_draft_policy(
         draft_id, pc_uid, uuid.UUID(user["user_id"]),
     )
 
-    async def _generate():
-        from app.services.policy_draft_service import generate_policy_draft
-        try:
-            await generate_policy_draft(pc_uid, uuid.UUID(user["user_id"]), conn, request.app.state.minio)
-            await conn.execute(
-                "UPDATE policy_drafts SET status = 'draft' WHERE id = $1", draft_id
-            )
-        except Exception:
-            await conn.execute(
-                "UPDATE policy_drafts SET status = 'error' WHERE id = $1", draft_id
-            )
+    pool = request.app.state.pool
+    minio = request.app.state.minio
+    actor_uid = uuid.UUID(user["user_id"])
+    correlation_id = getattr(request.state, "correlation_id", None)
+    org_id = str(pc["org_id"]) if pc["org_id"] else None
 
-    background_tasks.add_task(_generate)
+    async def _generate(conn: asyncpg.Connection) -> None:
+        from app.services.policy_draft_service import generate_policy_draft
+        await generate_policy_draft(pc_uid, actor_uid, conn, minio)
+        await conn.execute(
+            "UPDATE policy_drafts SET status = 'draft' WHERE id = $1", draft_id
+        )
+
+    async def _on_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE policy_drafts SET status = 'error', error_message=$1 WHERE id = $2",
+            str(exc)[:2000], draft_id,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, pool, _generate,
+        component="controls.policy_draft",
+        correlation_id=correlation_id,
+        org_id=org_id,
+        on_error=_on_error,
+    )
     return {"draft_id": str(draft_id), "status": "generating"}
 
 
@@ -613,6 +627,7 @@ async def get_draft_policy(
 async def trigger_gap_analysis(
     program_id: str,
     control_id: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -634,28 +649,29 @@ async def trigger_gap_analysis(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
-    async def _run():
-        import traceback as _tb
-        from app.services.gap_analysis_service import run_gap_analysis
-        try:
-            await run_gap_analysis(pc_uid, _uuid.UUID(user["user_id"]), conn)
-        except Exception as exc:
-            logger.exception("background_task_failed", task="gap_analysis", exc=str(exc))
-            await error_events_service.record(
-                conn,
-                source="fastapi",
-                component="controls.gap_analysis",
-                message=str(exc),
-                severity="error",
-                stack_trace=_tb.format_exc(),
-            )
-            await conn.execute(
-                "UPDATE control_gap_analyses SET status='failed', error_message=$1 WHERE program_control_id=$2 ORDER BY created_at DESC LIMIT 1",
-                str(exc)[:2000],
-                pc_uid,
-            )
+    gap_pool = request.app.state.pool
+    gap_actor = _uuid.UUID(user["user_id"])
+    gap_cid = getattr(request.state, "correlation_id", None)
+    gap_org = str(pc["org_id"]) if pc["org_id"] else None
 
-    background_tasks.add_task(_run)
+    async def _run(conn: asyncpg.Connection) -> None:
+        from app.services.gap_analysis_service import run_gap_analysis
+        await run_gap_analysis(pc_uid, gap_actor, conn)
+
+    async def _on_gap_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE control_gap_analyses SET status='failed', error_message=$1 "
+            "WHERE program_control_id=$2 ORDER BY created_at DESC LIMIT 1",
+            str(exc)[:2000], pc_uid,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, gap_pool, _run,
+        component="controls.gap_analysis",
+        correlation_id=gap_cid,
+        org_id=gap_org,
+        on_error=_on_gap_error,
+    )
     return {"status": "generating", "message": "Gap analysis started. Poll GET /gap-analysis for results."}
 
 

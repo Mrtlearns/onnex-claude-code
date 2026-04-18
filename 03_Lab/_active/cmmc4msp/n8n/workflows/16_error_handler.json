@@ -19,8 +19,10 @@
       "position": [220, 0],
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO error_events (source, component, message, stack_trace, context) VALUES ('n8n', '{{ $json.workflow.name }}', '{{ $json.error.message }}', '{{ $json.error.stack }}', '{{ JSON.stringify({execution_id: $json.execution.id, workflow_id: $json.workflow.id}) }}'::jsonb)",
-        "options": {}
+        "query": "INSERT INTO error_events (source, component, message, stack_trace, context) VALUES ('n8n', $1, $2, $3, $4::jsonb)",
+        "options": {
+          "queryReplacement": "={{ $json.workflow.name }},={{ $json.error.message }},={{ $json.error.stack }},={{ JSON.stringify({execution_id: $json.execution.id, workflow_id: $json.workflow.id}) }}"
+        }
       },
       "credentials": {
         "postgres": {

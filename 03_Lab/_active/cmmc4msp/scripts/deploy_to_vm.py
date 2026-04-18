@@ -3,9 +3,9 @@ import os
 import sys
 import paramiko
 
-HOST = '10.10.110.41'
-USER = 'mrt'
-PASSWORD = 'Poll0000'
+from _secrets import vm_ssh
+
+HOST, USER, PASSWORD = vm_ssh()
 REMOTE_BASE = '/opt/stacks/cmmc4msp'
 LOCAL_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

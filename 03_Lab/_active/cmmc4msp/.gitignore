@@ -11,6 +11,7 @@
 .env
 .env.*
 *.local
+scripts/.secrets
 
 # rclone config — contains OAuth tokens, never commit
 files/*.conf

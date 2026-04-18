@@ -12,15 +12,33 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
-_BEARER_RE = re.compile(r"Bearer [A-Za-z0-9._\-]+")
-_EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+# Ordered list of (pattern, replacement) pairs applied to any text before storage.
+# Patterns are intentionally broad to catch common credential leakage shapes.
+_SCRUB_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    # Bearer tokens (JWT, OpenAI, Anthropic, etc.) — must come first
+    (re.compile(r"Bearer\s+[A-Za-z0-9._\-]+"), "Bearer ***"),
+    # Hasura admin secret header — before the generic key=value pattern
+    (re.compile(r"(?i)X-Hasura-Admin-Secret:\s*\S+"), "X-Hasura-Admin-Secret: ***"),
+    # OpenRouter / OpenAI-style secret keys
+    (re.compile(r"sk-or-v1-[A-Za-z0-9._\-]+"), "sk-or-v1-***"),
+    (re.compile(r"sk-[A-Za-z0-9]{20,}"), "sk-***"),
+    # Raw JWTs (three base64url segments)
+    (re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]+"), "<jwt>"),
+    # Resend API keys
+    (re.compile(r"re_[A-Za-z0-9_\-]{10,}"), "re_***"),
+    # Generic key=value / key: value credentials.
+    # Uses \b so "X-Hasura-Admin-Secret" is not re-matched after specific patterns above.
+    (re.compile(r"(?i)\b(password|api[_\-]?key|secret|token|auth)\b[=:]\s*\S+"), r"\1=***"),
+    # Email addresses
+    (re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"), "***@***"),
+]
 
 
 def _scrub(text: str | None) -> str | None:
     if not text:
         return text
-    text = _BEARER_RE.sub("Bearer ***", text)
-    text = _EMAIL_RE.sub("***@***", text)
+    for pattern, replacement in _SCRUB_PATTERNS:
+        text = pattern.sub(replacement, text)
     return text
 
 
