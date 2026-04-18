@@ -3,16 +3,16 @@
     {
       "date": "2026-04-17",
       "tools": {
-        "Read": 63,
-        "Bash": 97,
+        "Read": 79,
+        "Bash": 107,
         "Write": 33,
-        "Edit": 47,
-        "Agent": 6,
+        "Edit": 66,
+        "Agent": 8,
         "Glob": 7,
         "Grep": 2
       },
-      "total_calls": 255,
-      "weight_total": 237
+      "total_calls": 302,
+      "weight_total": 286
     }
   ]
 }
