@@ -1,13 +1,15 @@
 """Programs router."""
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any, Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
 from app.database import get_db
+from app.services.sweep_service import run_program_sweep as _run_sweep
 from app.deps import get_current_user, require_same_org, require_msp_owns_org
 from app.models import ProgramCreate, ProgramUpdate
 
@@ -267,3 +269,195 @@ async def get_freshness_report(
             "no_evidence": sum(1 for r in rows if r["freshness_status"] == "no_evidence"),
         },
     }
+
+
+# ── AI Sweep ──────────────────────────────────────────────────────────────────
+
+
+@router.post("/{program_id}/ai-sweep", status_code=202)
+async def create_sweep(
+    program_id: str,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Trigger a bulk AI gap analysis sweep for all non-implemented controls."""
+    if user["role"] not in ("msp_admin", "client_admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    prog = await conn.fetchrow("SELECT id FROM programs WHERE id=$1", prog_uid)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    sweep_id = uuid.uuid4()
+    actor_uid = uuid.UUID(user["user_id"])
+    await conn.execute(
+        "INSERT INTO program_sweeps (id, program_id, requested_by) VALUES ($1,$2,$3)",
+        sweep_id, prog_uid, actor_uid,
+    )
+
+    pool = request.app.state.pool
+    background_tasks.add_task(_run_sweep, sweep_id, prog_uid, actor_uid, pool)
+
+    return {"sweep_id": str(sweep_id), "status": "pending"}
+
+
+@router.get("/{program_id}/ai-sweep")
+async def list_sweeps(
+    program_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> list:
+    """List recent sweeps for a program."""
+    if user["role"] not in ("msp_admin", "client_admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    rows = await conn.fetch(
+        """
+        SELECT id, status, control_count, created_at, completed_at, error_message
+        FROM program_sweeps WHERE program_id=$1 ORDER BY created_at DESC LIMIT 10
+        """,
+        prog_uid,
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "status": r["status"],
+            "control_count": r["control_count"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
+            "error_message": r["error_message"],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/{program_id}/ai-sweep/{sweep_id}")
+async def get_sweep(
+    program_id: str,
+    sweep_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get a specific sweep with its ranked actions."""
+    if user["role"] not in ("msp_admin", "client_admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+        sweep_uid = uuid.UUID(sweep_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    sweep = await conn.fetchrow(
+        "SELECT * FROM program_sweeps WHERE id=$1 AND program_id=$2",
+        sweep_uid, prog_uid,
+    )
+    if not sweep:
+        raise HTTPException(status_code=404, detail="Sweep not found")
+
+    actions = await conn.fetch(
+        "SELECT * FROM sweep_actions WHERE sweep_id=$1 ORDER BY priority_rank ASC",
+        sweep_uid,
+    )
+
+    def _serialize_action(a: asyncpg.Record) -> dict:
+        return {
+            "id": str(a["id"]),
+            "sweep_id": str(a["sweep_id"]),
+            "program_control_id": str(a["program_control_id"]),
+            "nist_id": a["nist_id"],
+            "current_status": a["current_status"],
+            "priority_rank": a["priority_rank"],
+            "recommended_action": a["recommended_action"],
+            "gap_summary": a["gap_summary"],
+            "confidence": a["confidence"],
+            "applied": a["applied"],
+            "applied_at": a["applied_at"].isoformat() if a["applied_at"] else None,
+        }
+
+    return {
+        "id": str(sweep["id"]),
+        "program_id": str(sweep["program_id"]),
+        "requested_by": str(sweep["requested_by"]),
+        "status": sweep["status"],
+        "control_count": sweep["control_count"],
+        "sweep_report": sweep["sweep_report"],
+        "error_message": sweep["error_message"],
+        "created_at": sweep["created_at"].isoformat() if sweep["created_at"] else None,
+        "completed_at": sweep["completed_at"].isoformat() if sweep["completed_at"] else None,
+        "actions": [_serialize_action(a) for a in actions],
+    }
+
+
+@router.post("/{program_id}/ai-sweep/{sweep_id}/apply")
+async def apply_sweep(
+    program_id: str,
+    sweep_id: str,
+    body: dict,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Apply selected sweep actions — bulk status updates.
+    body: { "action_ids": ["uuid", ...] }
+    """
+    if user["role"] not in ("msp_admin", "client_admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+        sweep_uid = uuid.UUID(sweep_id)
+        action_ids = [uuid.UUID(a) for a in body.get("action_ids", [])]
+    except (ValueError, KeyError):
+        raise HTTPException(status_code=422, detail="Invalid request body")
+
+    if not action_ids:
+        raise HTTPException(status_code=400, detail="No action_ids provided")
+
+    sweep = await conn.fetchrow(
+        "SELECT status FROM program_sweeps WHERE id=$1 AND program_id=$2",
+        sweep_uid, prog_uid,
+    )
+    if not sweep:
+        raise HTTPException(status_code=404, detail="Sweep not found")
+    if sweep["status"] != "ready":
+        raise HTTPException(status_code=409, detail="Sweep not ready")
+
+    actions = await conn.fetch(
+        "SELECT * FROM sweep_actions WHERE sweep_id=$1 AND id=ANY($2) AND applied=FALSE",
+        sweep_uid, action_ids,
+    )
+
+    actor_id = uuid.UUID(user["user_id"])
+    applied = 0
+    for action in actions:
+        await conn.execute(
+            "UPDATE program_controls SET status='planned', updated_at=now() WHERE id=$1",
+            action["program_control_id"],
+        )
+        await conn.execute(
+            "UPDATE sweep_actions SET applied=TRUE, applied_at=now() WHERE id=$1",
+            action["id"],
+        )
+        await conn.execute(
+            """INSERT INTO activity_log (org_id, actor_id, action, target_type, target_id, meta)
+               SELECT p.org_id, $1, 'sweep_applied', 'program_control', $2, $3
+               FROM programs p WHERE p.id=$4""",
+            actor_id, action["program_control_id"],
+            json.dumps({"sweep_id": str(sweep_uid), "nist_id": action["nist_id"]}),
+            prog_uid,
+        )
+        applied += 1
+
+    return {"applied": applied}
