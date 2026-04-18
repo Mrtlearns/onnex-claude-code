@@ -22,7 +22,13 @@ function getStatusBadgeVariant(
 
 export default async function PortalInvoicesPage() {
   const session = await auth()
-  const { invoices } = await apiGetPortalInvoices(session!.user.token)
+  let invoices: Awaited<ReturnType<typeof apiGetPortalInvoices>>["invoices"] = []
+  try {
+    const data = await apiGetPortalInvoices(session!.user.token)
+    invoices = data.invoices
+  } catch {
+    // No portal mapping — show empty state
+  }
 
   return (
     <div>

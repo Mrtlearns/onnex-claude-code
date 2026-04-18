@@ -21,6 +21,11 @@ export default async function PortalLayout({
     redirect("/login")
   }
 
+  // Portal is for client_viewer role only — internal staff go to dashboard
+  if (session.user.role !== "client_viewer") {
+    redirect("/dashboard")
+  }
+
   let portalMe: PortalMe | null = null
   try {
     portalMe = await apiGetPortalMe(session.user.token)
