@@ -20,14 +20,15 @@
       "date": "2026-04-18",
       "tools": {
         "Glob": 2,
-        "Read": 3,
-        "Bash": 13,
+        "Read": 6,
+        "Bash": 30,
         "Write": 1,
         "ToolSearch": 2,
-        "Monitor": 1
+        "Monitor": 1,
+        "Edit": 1
       },
-      "total_calls": 22,
-      "weight_total": 17
+      "total_calls": 43,
+      "weight_total": 35
     }
   ]
 }
