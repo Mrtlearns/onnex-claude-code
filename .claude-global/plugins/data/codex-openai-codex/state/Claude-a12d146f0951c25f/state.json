@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "config": {
+    "stopReviewGate": false
+  },
+  "jobs": [
+    {
+      "createdAt": "2026-04-18T20:06:54.069Z",
+      "updatedAt": "2026-04-18T20:13:14.472Z",
+      "id": "task-mo4rq0dx-5zwgfh",
+      "kind": "task",
+      "kindLabel": "rescue",
+      "title": "Codex Task",
+      "workspaceRoot": "D:/Code/Claude",
+      "jobClass": "task",
+      "summary": "Build the Prequal SaaS MVP in D:/Code/Claude/03_Lab/_active/ib_subcontractor. Full spec is in...",
+      "write": true,
+      "sessionId": "f6c8746f-0b0b-47c5-bb7e-88a1017afab8",
+      "status": "running",
+      "startedAt": "2026-04-18T20:06:54.229Z",
+      "phase": "editing",
+      "pid": 47836,
+      "logFile": "C:\\Users\\mrtma\\.claude\\plugins\\data\\codex-openai-codex\\state\\Claude-a12d146f0951c25f\\jobs\\task-mo4rq0dx-5zwgfh.log",
+      "threadId": "019da234-2930-72c2-a089-26f61ebc8e43",
+      "turnId": "019da234-2fc7-7d72-a81e-f50eaba2e867"
+    }
+  ]
+}
