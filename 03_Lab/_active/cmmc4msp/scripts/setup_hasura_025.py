@@ -81,6 +81,13 @@ def main():
     ]
 
     for role, columns, filter_clause in error_events_perms:
+        if role != "super_admin":
+            # Drop first so column changes take effect on re-run
+            call(
+                {"type": "pg_drop_select_permission",
+                 "args": {"source": "default", "table": {"schema": "public", "name": "error_events"}, "role": role}},
+                f"error_events drop perm [{role}]"
+            )
         call(
             {
                 "type": "pg_create_select_permission",
