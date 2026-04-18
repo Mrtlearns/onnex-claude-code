@@ -199,7 +199,6 @@ export async function ragRoutes(fastify: FastifyInstance) {
              FROM kg_relationships
              WHERE tenant_id = $1
                AND from_id = ANY($2::uuid[])
-               AND to_id   = ANY($2::uuid[])
              LIMIT 2000`,
             [tenantId, entityIds],
           )
