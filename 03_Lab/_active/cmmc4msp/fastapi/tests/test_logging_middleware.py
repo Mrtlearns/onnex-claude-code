@@ -180,3 +180,247 @@ def test_scrubber_removes_multiple_pii():
     assert "admin@company.org" not in result
     assert "Bearer ***" in result
     assert "***@***" in result
+
+
+# ---------------------------------------------------------------------------
+# 6. PII scrubber — string with no PII passes through unchanged
+# ---------------------------------------------------------------------------
+
+def test_scrubber_no_pii_unchanged():
+    """_scrub() returns the text unchanged when no PII patterns are present."""
+    from app.services.error_events_service import _scrub
+
+    text = "Database connection refused on port 5432"
+    assert _scrub(text) == text
+
+
+# ---------------------------------------------------------------------------
+# 7. PII scrubber — multiple Bearer tokens in one string
+# ---------------------------------------------------------------------------
+
+def test_scrubber_removes_multiple_bearer_tokens():
+    """_scrub() replaces every Bearer token when more than one appears in the string."""
+    from app.services.error_events_service import _scrub
+
+    text = "token1=Bearer abc.def.ghi retried with Bearer xyz.123.456"
+    result = _scrub(text)
+    assert "abc.def.ghi" not in result
+    assert "xyz.123.456" not in result
+    # Both occurrences replaced
+    assert result.count("Bearer ***") == 2
+
+
+# ---------------------------------------------------------------------------
+# 8. PII scrubber — email embedded in a stack trace
+# ---------------------------------------------------------------------------
+
+def test_scrubber_removes_email_in_stack_trace():
+    """_scrub() removes emails that appear inside multi-line stack-trace strings."""
+    from app.services.error_events_service import _scrub
+
+    trace = (
+        "Traceback (most recent call last):\n"
+        "  File 'auth.py', line 42, in verify\n"
+        "    raise AuthError('user bob@secret.io not found')\n"
+        "AuthError: user bob@secret.io not found"
+    )
+    result = _scrub(trace)
+    assert "bob@secret.io" not in result
+    assert result.count("***@***") == 2
+
+
+# ---------------------------------------------------------------------------
+# 9. error_events_service.record() — invalid UUID for msp_id hits fail-open
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_error_events_record_invalid_uuid_fail_open():
+    """record() returns a fallback UUID when msp_id is not a valid UUID string."""
+    from app.services import error_events_service
+
+    mock_conn = AsyncMock()
+    # fetchval raises because uuid.UUID("not-a-uuid") throws before even hitting DB
+    result = await error_events_service.record(
+        mock_conn,
+        source="test",
+        component="test.component",
+        message="Something broke",
+        msp_id="not-a-valid-uuid",
+    )
+
+    assert isinstance(result, uuid.UUID)
+
+
+# ---------------------------------------------------------------------------
+# 10. error_events_service.record() — pool path (Pool, not Connection)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_error_events_record_uses_pool_acquire():
+    """record() acquires a connection from the pool when a Pool is passed."""
+    from app.services import error_events_service
+    import asyncpg
+
+    event_id = uuid.uuid4()
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(return_value=event_id)
+    mock_conn.execute = AsyncMock(return_value="OK")
+
+    mock_pool = MagicMock(spec=asyncpg.Pool)
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    result = await error_events_service.record(
+        mock_pool,
+        source="test",
+        component="pool.path",
+        message="pool branch exercised",
+    )
+
+    assert isinstance(result, uuid.UUID)
+    assert result == event_id
+    mock_pool.acquire.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# 11. Exception handler — asyncpg PostgresError → 500 JSON response
+#
+# BaseHTTPMiddleware re-raises unhandled exceptions before FastAPI's app-level
+# handlers can intercept them, so we test the handler functions directly as
+# pure callables rather than via the HTTP stack.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_postgres_exception_handler_returns_500():
+    """postgres_exception_handler() returns a 500 JSONResponse."""
+    import asyncpg
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
+    from app.middleware.exception_handlers import register_exception_handlers
+
+    mini_app = FastAPI()
+    register_exception_handlers(mini_app)
+
+    @mini_app.get("/pg-boom")
+    async def _pg_boom():
+        raise asyncpg.exceptions.InternalClientError("simulated pg error")
+
+    # Use sync TestClient here — avoids the BaseHTTPMiddleware re-raise issue
+    # because mini_app has NO BaseHTTPMiddleware wrappers.
+    with patch("app.services.error_events_service.record", new=AsyncMock()):
+        with TestClient(mini_app, raise_server_exceptions=False) as c:
+            resp = c.get("/pg-boom")
+
+    assert resp.status_code == 500
+    assert "detail" in resp.json()
+
+
+# ---------------------------------------------------------------------------
+# 12. Exception handler — generic Exception → 500 JSON response
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_generic_exception_handler_returns_500():
+    """generic_exception_handler() returns a 500 JSONResponse for bare RuntimeError."""
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
+    from app.middleware.exception_handlers import register_exception_handlers
+
+    mini_app = FastAPI()
+    register_exception_handlers(mini_app)
+
+    @mini_app.get("/generic-boom")
+    async def _boom():
+        raise RuntimeError("something unexpected")
+
+    with patch("app.services.error_events_service.record", new=AsyncMock()):
+        with TestClient(mini_app, raise_server_exceptions=False) as c:
+            resp = c.get("/generic-boom")
+
+    assert resp.status_code == 500
+    assert "detail" in resp.json()
+
+
+# ---------------------------------------------------------------------------
+# 13. Exception handler — HTTP 404 passes through; record() not called
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_http_404_does_not_call_record():
+    """http_exception_handler() for a 404 returns 404 and does NOT call record()."""
+    from fastapi import FastAPI, HTTPException
+    from starlette.testclient import TestClient
+    from app.middleware.exception_handlers import register_exception_handlers
+
+    mini_app = FastAPI()
+    register_exception_handlers(mini_app)
+
+    @mini_app.get("/missing")
+    async def _missing():
+        raise HTTPException(status_code=404, detail="Not found")
+
+    mock_record = AsyncMock()
+    with patch("app.services.error_events_service.record", new=mock_record):
+        with TestClient(mini_app, raise_server_exceptions=False) as c:
+            resp = c.get("/missing")
+
+    assert resp.status_code == 404
+    mock_record.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# 14. /health degraded state — one component down → status='down'
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_health_one_component_down_reports_down(async_client):
+    """GET /health with postgres failing returns status='down'."""
+    client, conn = async_client
+    # Postgres check uses pool.acquire; simulate failure there
+    conn.fetchval = AsyncMock(side_effect=Exception("connection refused"))
+
+    def _failing_pool_acquire():
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(side_effect=Exception("connection refused"))
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    from main import app as fastapi_app
+    original_pool = fastapi_app.state.pool
+    failing_pool = MagicMock()
+    failing_pool.acquire = MagicMock(side_effect=_failing_pool_acquire)
+    fastapi_app.state.pool = failing_pool
+
+    try:
+        with patch("main.httpx.AsyncClient", return_value=_mock_httpx_client(200)), \
+             patch("main.aioredis.from_url", return_value=_mock_redis()):
+            resp = await client.get("/health")
+    finally:
+        fastapi_app.state.pool = original_pool
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "down"
+    assert body["components"]["postgres"] == "down"
+
+
+# ---------------------------------------------------------------------------
+# 15. /health degraded state — n8n degraded → status='degraded'
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_health_degraded_when_n8n_degraded(async_client):
+    """GET /health with n8n returning 500 reports status='degraded' (not 'down')."""
+    client, conn = async_client
+    conn.fetchval = AsyncMock(return_value=1)
+
+    with patch("main.httpx.AsyncClient", return_value=_mock_httpx_client(500)), \
+         patch("main.aioredis.from_url", return_value=_mock_redis()):
+        resp = await client.get("/health")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    # n8n returns 500 → "degraded"; openrouter also uses same mock → "degraded"
+    # No component is "down", so overall status must be "degraded"
+    assert body["status"] == "degraded"
+    assert body["components"]["n8n"] == "degraded"

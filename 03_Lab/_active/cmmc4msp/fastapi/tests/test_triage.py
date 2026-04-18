@@ -511,3 +511,57 @@ async def test_run_triage_no_auth_returns_401(async_client):
     resp = await client.post(f"{BASE}/run")
 
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# 17. POST /{id}/mark-triaged — idempotency: second call returns 0
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_mark_triaged_idempotent_second_call_returns_zero(async_client):
+    """POST /api/triage/{id}/mark-triaged called twice returns 0 on the second call."""
+    client, conn = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
+
+    # First call: 3 events updated
+    conn.fetchrow = AsyncMock(return_value=_make_row(id=uuid.UUID(REPORT_ID)))
+    conn.fetchval = AsyncMock(return_value=3)
+
+    resp1 = await client.post(
+        f"{BASE}/{REPORT_ID}/mark-triaged",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp1.status_code == 200
+    assert resp1.json()["marked_triaged"] == 3
+
+    # Second call: all events already triaged → 0 updated
+    conn.fetchval = AsyncMock(return_value=0)
+
+    resp2 = await client.post(
+        f"{BASE}/{REPORT_ID}/mark-triaged",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["marked_triaged"] == 0
+
+
+# ---------------------------------------------------------------------------
+# 18. POST /{id}/mark-triaged — 404 for unknown report
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_mark_triaged_404_unknown_report(async_client):
+    """POST /api/triage/{id}/mark-triaged returns 404 when the report does not exist."""
+    client, conn = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
+
+    conn.fetchrow = AsyncMock(return_value=None)
+
+    unknown_id = str(uuid.uuid4())
+    resp = await client.post(
+        f"{BASE}/{unknown_id}/mark-triaged",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Triage report not found"

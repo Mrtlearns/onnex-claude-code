@@ -107,3 +107,43 @@ async def test_client_error_rate_limit_11th_request_is_429(async_client):
             assert eleventh.status_code == 429
     finally:
         ce_module._rate_store = original_store
+
+
+# ---------------------------------------------------------------------------
+# unauthenticated request accepted — explicit no-401 assertion
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_client_error_no_auth_header_not_401(async_client):
+    """POST /api/client-errors with no Authorization header must NOT return 401."""
+    client, _ = async_client
+    with patch(
+        "app.routers.client_errors.error_events_service.record",
+        new=AsyncMock(return_value=None),
+    ):
+        resp = await client.post("/api/client-errors", json={"message": "login page crash"})
+
+    assert resp.status_code != 401
+    assert resp.status_code == 202
+
+
+# ---------------------------------------------------------------------------
+# very long message is truncated before record() is called
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_client_error_long_message_truncated(async_client):
+    """message > 2000 chars is sliced to 2000 before being passed to record()."""
+    client, _ = async_client
+
+    long_msg = "x" * 5000
+    mock_record = AsyncMock(return_value=None)
+
+    with patch("app.routers.client_errors.error_events_service.record", new=mock_record):
+        resp = await client.post("/api/client-errors", json={"message": long_msg})
+
+    assert resp.status_code == 202
+    mock_record.assert_called_once()
+    passed_message = mock_record.call_args.kwargs["message"]
+    assert len(passed_message) == 2000
+    assert passed_message == "x" * 2000

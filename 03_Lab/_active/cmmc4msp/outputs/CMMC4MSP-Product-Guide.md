@@ -1,8 +1,8 @@
 # CMMC Compliance OS — Product Guide
 
-**Version:** 1.1 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
+**Version:** 1.2 | **Date:** 2026-04-17 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
 **Stack:** Next.js 14 · FastAPI · PostgreSQL + pgvector · Hasura GraphQL · n8n · MinIO · Authentik  
-**Test Suite:** 353 passing, 0 failures
+**Test Suite:** 385 passing, 0 failures
 
 ---
 
@@ -17,8 +17,8 @@ Eighty thousand U.S. defense contractors must achieve CMMC Level 2 certification
 - Built specifically for CMMC Level 2 — not a generic GRC tool mapped to CMMC as an afterthought
 - MSP-native: one operator dashboard manages unlimited client organizations with full tenant isolation
 - Claude LLM assesses every artifact — not rule-based keyword matching, but actual comprehension of whether a policy document satisfies a control's assessment objectives
-- 12 AI-powered features: conversational copilot per control, policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, direct integrations with Entra ID/Okta/Defender/CrowdStrike/M365/Splunk, **program-level AI sweep** for the MSP controller, and **task-queue copilot** for individual contributors
-- 353 tests, 14 active n8n workflows, 36 test files — production-ready, not prototype-grade
+- 17 features: conversational copilot per control, policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, direct integrations with Entra ID/Okta/Defender/CrowdStrike/M365/Splunk, **program-level AI sweep**, **task-queue copilot**, and full **platform observability** (structured logging, AI error triage, complete audit trails, frontend error boundaries, and operational hardening)
+- 385 tests, 16 active n8n workflows, 39 test files — production-ready, not prototype-grade
 
 If your MSP manages five defense contractor clients, this platform saves 200+ hours of manual compliance work per engagement and produces a defensible, C3PAO-ready audit package on demand.
 
@@ -42,10 +42,16 @@ If your MSP manages five defense contractor clients, this platform saves 200+ ho
 14. [Feature 10: Evidence Source Integrations (6 Providers)](#feature-10-evidence-source-integrations-6-providers)
 15. [Feature 11: Program AI Sweep (MSP Controller Bulk Analysis)](#feature-11-program-ai-sweep-msp-controller-bulk-analysis)
 16. [Feature 12: Task Queue Inline Copilot (Task Member AI)](#feature-12-task-queue-inline-copilot-task-member-ai)
-17. [Test Coverage](#test-coverage)
-16. [Deployment & Operations](#deployment--operations)
-17. [Pricing & Packaging](#pricing--packaging)
-18. [Glossary](#glossary)
+17. [Feature 13: Structured Logging + Correlation IDs](#feature-13-structured-logging--correlation-ids)
+18. [Feature 14: AI Error Triage Collector](#feature-14-ai-error-triage-collector)
+19. [Feature 15: Complete Audit Trails](#feature-15-complete-audit-trails)
+20. [Feature 16: Frontend Error Boundaries + Client Reporting](#feature-16-frontend-error-boundaries--client-reporting)
+21. [Feature 17: Operational Hardening](#feature-17-operational-hardening)
+22. [Platform Observability Architecture](#platform-observability-architecture)
+23. [Test Coverage](#test-coverage)
+24. [Deployment & Operations](#deployment--operations)
+25. [Pricing & Packaging](#pricing--packaging)
+26. [Glossary](#glossary)
 
 ---
 
@@ -66,7 +72,7 @@ INTERNAL NETWORK (never internet-exposed)
         ├── PostgreSQL 16 + pgvector  :5432
         ├── Redis                     :6379  (n8n queue + session cache)
         ├── MinIO (S3-compatible)     :9000  (artifact + report storage)
-        └── n8n (queue mode)          :5678  (14 async workflows)
+        └── n8n (queue mode)          :5678  (16 async workflows)
 
 EXTERNAL APIs
         └── Anthropic API  ← LLM assessment, copilot, policy generation
@@ -105,7 +111,12 @@ EXTERNAL APIs
 | `artifacts` | Evidence files uploaded per control; tracks assessment status |
 | `assessments` | Claude's verdict per artifact: pass/partial/fail, confidence, rationale, gaps |
 | `milestones` | POA&M entries — auto-generated for unimplemented controls |
-| `activity_log` | Full audit trail of every action across the platform |
+| `activity_log` | Full audit trail of every action across the platform; includes 'error' entries for failures |
+| `error_events` | Every exception from FastAPI, background tasks, n8n workflows, and Next.js client; linked by correlation_id |
+| `triage_reports` | AI triage outputs from Feature 14; stored for historical reference |
+| `policy_drafts` | Generated policy documents with status and error_message column |
+| `control_gap_analyses` | Gap analysis results with error_message column |
+| `audit_packages` | Assembled C3PAO packages with error_message column |
 
 ---
 
@@ -987,9 +998,313 @@ Task queue loads → see 5 assigned controls
 
 ---
 
+## Feature 13: Structured Logging + Correlation IDs
+
+**What it solves:** When something breaks in a multi-service platform — FastAPI returns a 500, an n8n workflow aborts, a background task silently fails — there is no way to trace what actually happened without correlation between log lines. Production support becomes guesswork.
+
+**How it works:**
+
+Every inbound HTTP request is assigned a UUID correlation ID at the FastAPI middleware layer. The ID is injected into the `X-Correlation-ID` request header and echoed on the response. From that point it propagates across the full request lifecycle:
+
+- **FastAPI → n8n:** The correlation ID is included as a field in every webhook payload FastAPI sends to n8n. n8n workflow executions log it in their context.
+- **FastAPI → database:** Background task rows (`error_events`, `triage_reports`, etc.) carry the `correlation_id` from the originating request.
+- **Structured JSON logging:** Every log line is a JSON object emitted by `structlog`. Standard fields on every line: `method`, `path`, `status_code`, `duration_ms`, `correlation_id`. Exceptions add `exc_info`. All log output is parseable by any log aggregation tool (Loki, Datadog, CloudWatch, Splunk).
+
+The access log middleware fires on every request completion, writing a single structured log line with the full request context. Slow requests (> 1 second) are flagged automatically.
+
+**`/health` — 6-component check:**
+
+The health endpoint was expanded from a simple Postgres ping to a full dependency check:
+
+```
+GET /health
+
+Response:
+{
+  "status": "healthy" | "degraded" | "down",
+  "components": {
+    "postgres":    {"status": "healthy", "latency_ms": 2},
+    "redis":       {"status": "healthy", "latency_ms": 1},
+    "minio":       {"status": "healthy", "latency_ms": 8},
+    "hasura":      {"status": "healthy", "latency_ms": 12},
+    "n8n":         {"status": "healthy", "latency_ms": 15},
+    "openrouter":  {"status": "healthy", "latency_ms": 210}
+  }
+}
+```
+
+`status: degraded` means one or more non-critical components are down but core compliance workflows remain operational. `status: down` means Postgres or Redis is unavailable — the platform cannot function.
+
+**What MSP admins see:** The `/health` endpoint is polled by Traefik and any external uptime monitor. Per-component breakdown makes it immediately obvious which dependency is causing issues. Structured logs allow searching all activity for a correlation ID across FastAPI, n8n, and database records in one query.
+
+---
+
+## Feature 14: AI Error Triage Collector
+
+**What it solves:** Error logs accumulate. Without structured analysis, MSP admins face hundreds of raw exception lines with no guidance on what to fix first, what is causing what, or whether errors are related.
+
+**How it works:**
+
+A background AI analysis job processes all untriaged errors from the `error_events` table and returns a structured executive summary with root-cause hypotheses and proposed fixes.
+
+```
+POST /api/triage/run
+→ Kicks off Claude Sonnet 4.6 background analysis over all untriaged error_events
+→ Returns {triage_id, status: "running"} immediately
+
+GET /api/triage/reports
+→ Lists all triage reports (status, created_at, summary preview)
+
+GET /api/triage/reports/{triage_id}
+→ Full report JSON
+```
+
+**The triage prompt gives Claude deep platform knowledge:** known failure modes for each component, the full architecture map, component names, file paths, and expected error signatures. This is not generic exception analysis — Claude knows that a `connection refused` on port 5678 is n8n unavailable, and that this will cause artifact assessments to stall.
+
+**Output structure:**
+
+```json
+{
+  "summary": "14 untriaged errors over the past 6 hours. 11 are related to a single root cause: n8n webhook endpoint returned 503 between 02:14 and 02:47 UTC, causing artifact assessment submissions to fail. 3 separate errors are client-side React crashes on the /admin/analytics route.",
+  "themes": [
+    "n8n webhook unavailability causing assessment queue backup",
+    "React render crash in admin analytics component"
+  ],
+  "top_errors": [
+    {
+      "signature": "POST /api/webhooks/n8n/artifact-submitted → 503",
+      "component": "n8n",
+      "occurrences": 11,
+      "likely_root_cause": "n8n worker process restarted during high-load period; queue backed up during restart window",
+      "proposed_fix": "Check n8n worker logs around 02:14 UTC. If recurring, increase worker memory limit in docker-compose.yml. The hung-assessment guard (WF07) will auto-reset any stuck artifacts within 15 minutes.",
+      "confidence": 0.89
+    }
+  ],
+  "suggested_actions": [
+    "Check n8n worker container memory usage: docker stats n8n-worker",
+    "Verify hung-assessment guard ran: check WF07 execution history in n8n UI",
+    "Review admin/analytics component for null-safety on SPRS distribution data"
+  ]
+}
+```
+
+**WF15 — Nightly Error Triage (03:00 UTC):**
+
+n8n Workflow 15 runs automatically at 03:00 UTC:
+1. Counts untriaged errors from the past 24 hours
+2. If any exist → calls `POST /api/triage/run`
+3. Waits for the triage report to complete
+4. Emails the MSP admin a formatted summary with `suggested_actions` as a checklist
+
+**On-demand trigger:** MSP admins can also click **Run Error Triage** in the admin UI at any time to trigger analysis immediately — useful after a deployment or reported incident.
+
+**Model:** Claude Sonnet 4.6 via OpenRouter (same pipeline as artifact assessment and program sweep).
+
+**Business value:** Error triage turns raw exception noise into a prioritized fix list. The MSP admin gets an email each morning with exactly what broke overnight and what to do about it — with no log-parsing required.
+
+---
+
+## Feature 15: Complete Audit Trails
+
+**What it solves:** Five background tasks — gap analysis, policy drafting, audit package assembly, integration sync, and program sweep — previously failed silently. Exceptions were swallowed. There was no record of what failed, why, or when. The MSP had no visibility into whether background work completed successfully.
+
+**How it works:**
+
+**`error_events` table** is the central exception sink. Every unhandled exception across the platform now writes here:
+
+| Field | Description |
+|-------|-------------|
+| `source` | Where the error originated: `fastapi`, `background_task`, `n8n`, `nextjs` |
+| `component` | The specific component: `artifact_assessment`, `gap_analysis`, `policy_draft`, `audit_package`, `integration_sync`, `program_sweep` |
+| `severity` | `error`, `warning`, `critical` |
+| `message` | Exception message |
+| `stack_trace` | Full traceback |
+| `context` | JSON blob with request-specific metadata (program_id, artifact_id, org_id, etc.) |
+| `correlation_id` | Links to the originating HTTP request |
+| `triaged` | Boolean — set to `true` after AI triage processes the row |
+
+**`triage_reports` table** stores every AI triage output for historical reference. MSPs can review past reports to track whether recurring issues are being resolved.
+
+**Background task coverage:** All five previously-silent background tasks now wrap their execution in try/except blocks that write to `error_events` on failure. The `policy_drafts`, `control_gap_analyses`, and `audit_packages` tables each have an `error_message` column that records task-level failure detail directly on the job row — so the UI can show "Policy generation failed: OpenRouter timeout" on the draft entry rather than silently showing "pending" forever.
+
+**`activity_log` error entries:** Every failure also writes an `'error'` type entry to `activity_log`. This means errors appear in the same feed that MSPs and client admins already watch for compliance activity — no separate error dashboard required for basic visibility.
+
+**WF16 — n8n Error Handler Workflow:**
+
+n8n natively supports error workflows — a designated workflow that runs when any other workflow fails. WF16 is the platform's error handler:
+1. Receives the failed workflow's name, execution ID, error message, and context
+2. Inserts a row into `error_events` with `source='n8n'`
+3. Emails the MSP admin with: workflow name, error summary, and a link to the n8n execution log
+4. All 16 n8n workflows reference WF16 as their error workflow
+
+This closes the loop on n8n failures — previously, a failed n8n execution was visible only in the n8n UI execution history. Now failures surface in `error_events`, `activity_log`, and MSP admin email automatically.
+
+---
+
+## Feature 16: Frontend Error Boundaries + Client Reporting
+
+**What it solves:** React application crashes on the client side were invisible to the platform. A contributor's browser could throw an unhandled JavaScript error while uploading evidence, and the MSP would never know — they only heard about it from a support ticket days later.
+
+**How it works:**
+
+**Next.js error boundaries at three levels:**
+
+| File | Catches | Behavior |
+|------|---------|---------|
+| `app/global-error.tsx` | Root-level crashes — full app failure | Shows branded error page with correlation ID; reports to backend |
+| `app/[orgSlug]/error.tsx` | Org-scoped route crashes | Shows org-context error page; reports to backend |
+| `app/admin/error.tsx` | Admin route crashes | Shows admin error page; reports to backend |
+
+**`ErrorBoundary` class component** wraps client-side component trees throughout the application. It catches exceptions that slip past route-level boundaries and provides a fallback UI rather than a blank screen.
+
+**Client error reporting endpoint:**
+
+```
+POST /api/client-errors
+Auth: None required (unauthenticated)
+Rate limit: 10 requests/minute per IP
+
+Body:
+{
+  "message": "Cannot read properties of null (reading 'sprs_score')",
+  "stack": "TypeError: Cannot read...\n    at AnalyticsChart ...",
+  "component_stack": "at AnalyticsChart\n    at AdminDashboard ...",
+  "url": "/admin/analytics",
+  "user_agent": "Mozilla/5.0 ...",
+  "correlation_id": "a3f2bc91-..."
+}
+```
+
+The endpoint is intentionally unauthenticated — a JavaScript crash may have invalidated the user's session token, so requiring auth would prevent the error report from reaching the backend. Rate limiting (10/min per IP) prevents abuse.
+
+All client errors land in `error_events` with `source='nextjs'`, where they are processed by the nightly AI triage (Feature 14) alongside server-side errors.
+
+**Backend error detail preservation:** Previously, FastAPI background tasks threw generic errors that discarded the original exception context. The updated error handling preserves the original exception message and stack trace on every re-raise, ensuring `error_events` rows contain actionable detail rather than `"An unexpected error occurred"`.
+
+**What MSP admins see:** Client-side React crashes appear in the same `error_events` feed and nightly triage email as server-side errors. The error message, component stack, and URL identify exactly which page and component is broken, so developers can reproduce and fix without needing the user to describe what happened.
+
+---
+
+## Feature 17: Operational Hardening
+
+**What it solves:** Unbounded Docker log files could fill a VM disk over weeks of operation, causing all containers to stop writing and eventually crash. There was also no systematic way for n8n workflow failures to reach the MSP admin without manually checking the n8n UI.
+
+**Changes shipped:**
+
+**Docker log rotation — all 8 containers:**
+
+Every service in `docker-compose.yml` now has an explicit log driver configuration:
+
+```yaml
+logging:
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+```
+
+Maximum log storage per container: 100 MB (20 MB × 5 files). With 8 containers, maximum total Docker log footprint is 800 MB, regardless of how long the platform runs. Previously, containers used Docker's default (unbounded json-file), which could accumulate gigabytes over weeks of artifact assessment and workflow execution.
+
+**`/health` degraded/down status:**
+
+The expanded health endpoint (Feature 13) returns `status: degraded` or `status: down` — not just `healthy`. This enables external monitoring tools to distinguish between "everything is fine," "one dependency is slow," and "the platform is down." Health check scripts, uptime monitors, and Traefik health checks all benefit from machine-readable degradation states rather than a binary up/down.
+
+**Universal n8n error routing:**
+
+All 16 n8n workflows now have WF16 (Error Handler) configured as their `errorWorkflow`. This was applied systematically across all workflows, including the 5 workflows added in Features 13-15. Any workflow failure — regardless of which one — now triggers the same error capture and notification pipeline described in Feature 15.
+
+**Business value:** Operational hardening is invisible when everything works. It is the difference between "we noticed the disk was 95% full during the C3PAO assessment" and "the platform has been running for 8 months without a disk-related incident." These are the changes that keep an MSP's production deployment reliable month over month.
+
+---
+
+## Platform Observability Architecture
+
+Features 13-17 form a cohesive observability layer that sits beneath all compliance workflows. This section describes how the pieces connect.
+
+### Error Capture → Triage → Notification Pipeline
+
+```
+ANY exception anywhere in the platform
+        │
+        ├── FastAPI foreground request
+        │       → structlog JSON line (with correlation_id)
+        │       → error_events INSERT (source=fastapi)
+        │       → activity_log INSERT (type=error)
+        │
+        ├── FastAPI background task
+        │       → error_events INSERT (source=background_task, component=gap_analysis|etc.)
+        │       → job-table error_message column updated
+        │       → activity_log INSERT (type=error)
+        │
+        ├── n8n workflow failure
+        │       → WF16 fires automatically (error workflow)
+        │       → error_events INSERT (source=n8n)
+        │       → Email to MSP admin (workflow name + error + exec link)
+        │       → activity_log INSERT (type=error)
+        │
+        └── Next.js client crash
+                → POST /api/client-errors (unauthenticated, rate-limited)
+                → error_events INSERT (source=nextjs)
+                → activity_log INSERT (type=error)
+
+Nightly at 03:00 UTC — WF15 fires:
+        → counts untriaged error_events rows
+        → if any: POST /api/triage/run
+        → Claude Sonnet 4.6 analyzes all untriaged rows
+        → triage_reports INSERT with summary + themes + top_errors + suggested_actions
+        → error_events.triaged = true (batch update)
+        → Email to MSP admin with formatted triage summary
+
+MSP admin can also trigger on-demand:
+        POST /api/triage/run  →  immediate analysis
+```
+
+### Correlation ID Flow
+
+```
+Browser request arrives at FastAPI
+        │
+        ├── RequestLoggingMiddleware generates UUID: "a3f2bc91-4d1e-..."
+        ├── Stored as request.state.correlation_id
+        ├── Added to response header: X-Correlation-ID: a3f2bc91-4d1e-...
+        │
+        ├── structlog context bound: every log line in this request includes correlation_id
+        │
+        ├── n8n webhook call includes: {"correlation_id": "a3f2bc91-4d1e-...", ...payload}
+        │       → n8n logs the correlation_id in execution context
+        │
+        └── Any error_events row written during this request carries correlation_id
+
+Result: given a correlation_id from a user report or log alert,
+        you can find every log line, every error_event, and every n8n execution
+        that touched that request — across all services.
+```
+
+### 6-Component Health Check
+
+```
+GET /health
+        │
+        ├── postgres:    SELECT 1  (< 5ms expected)
+        ├── redis:       PING      (< 5ms expected)
+        ├── minio:       HEAD /health/live  (< 50ms expected)
+        ├── hasura:      GET /healthz  (< 100ms expected)
+        ├── n8n:         GET /healthz  (< 100ms expected)
+        └── openrouter:  GET /api/v1/models  (< 500ms expected)
+
+Aggregation rules:
+  - Any component "down" → overall status = "down" if postgres or redis
+  - Any component "down" → overall status = "degraded" if minio, hasura, n8n, or openrouter
+  - All "healthy" → status = "healthy"
+```
+
+This health endpoint is the recommended integration point for external uptime monitors (UptimeRobot, Better Stack, etc.). Configure alerts on `status != "healthy"` rather than just HTTP 200.
+
+---
+
 ## Test Coverage
 
-**353 tests · 0 failures · 22.44 seconds runtime · 36 test files**
+**385 tests · 0 failures · 36 test files (core) + 3 observability test files · 39 test files total**
 
 Every router, service, and workflow integration is covered. The test suite runs in CI on every commit and is a hard gate before deployment.
 
@@ -1026,7 +1341,10 @@ Every router, service, and workflow integration is covered. The test suite runs 
 | `test_extraction_service.py` | 7 | PDF, DOCX, image text extraction |
 | `test_n8n_service.py` | 10 | Webhook trigger construction, retry logic |
 | `test_authentik_service.py` | 8 | JWT validation, claim extraction, invite flow |
-| `test_health.py` | 2 | Health endpoint, DB connectivity check |
+| `test_health.py` | 10 | 6-component health check, degraded/down status, per-component latency, Postgres/Redis/MinIO/Hasura/n8n/OpenRouter probes |
+| `test_logging_middleware.py` | 10 | Correlation ID injection, X-Correlation-ID response header, structlog JSON fields (method, path, status, duration_ms), propagation to n8n payload |
+| `test_triage.py` | 17 | Triage run trigger, untriaged error selection, Claude Sonnet prompt construction, triage_reports INSERT, triaged flag update, WF15 nightly schedule, on-demand endpoint, report listing, report detail retrieval |
+| `test_client_errors.py` | 5 | Unauthenticated POST to /api/client-errors, error_events INSERT with source=nextjs, rate limiting enforcement (10/min per IP), activity_log error entry, correlation_id preservation |
 | `test_deps.py` | 10 | Auth dependency injection, role checking |
 | `test_invites_router.py` | 13 | Invite token creation, 72h expiry, role assignment |
 | `test_suggestions_router.py` | 7 | RAG cross-control suggestions, apply suggestion |
@@ -1140,7 +1458,7 @@ Migration 005 seeds the 1,331 NIST SP 800-171A assessment guide chunks used by t
 ### n8n Workflow Import
 
 ```bash
-# Import all 14 workflows after n8n is healthy:
+# Import all 16 workflows after n8n is healthy:
 for f in /opt/cmmc/n8n/workflows/*.json; do
   curl -X POST http://localhost:5678/rest/workflows \
     -H "Content-Type: application/json" \
@@ -1187,11 +1505,29 @@ curl http://localhost:5678/healthz                   # n8n     → HTTP 200
 2. Check `artifact_chunks` table has embeddings: `SELECT COUNT(*) FROM artifact_chunks WHERE embedding IS NOT NULL`
 3. Rerun extraction and embedding for specific artifacts via: `POST /api/artifacts/{id}/reembed`
 
+**Investigating a reported error?**
+1. Get the correlation ID from the user (shown on error pages, included in `X-Correlation-ID` response header)
+2. Query: `SELECT * FROM error_events WHERE correlation_id = '<id>'`
+3. Search structured logs: `docker logs fastapi 2>&1 | grep '"correlation_id": "<id>"'`
+4. Find the n8n execution: check n8n UI → filter by execution ID if n8n was involved
+
+**Error triage not running?**
+1. Check WF15 execution history in n8n UI — it runs at 03:00 UTC
+2. Verify `POST /api/triage/run` works manually: `curl -X POST -H "Authorization: Bearer {token}" https://api.yourdomain.com/api/triage/run`
+3. Check `SELECT COUNT(*) FROM error_events WHERE triaged = false` — if 0, WF15 correctly skipped (no errors to triage)
+
+**Disk filling from Docker logs?**
+1. Check current log usage: `docker system df`
+2. Verify log rotation config is applied: `docker inspect fastapi | grep -A5 LogConfig`
+3. All 8 containers should show `max-size: 20m, max-file: 5` — if not, redeploy with updated `docker-compose.yml`
+
 ---
 
 ## Pricing & Packaging
 
 The following tiers are suggested for an MSP going to market with this platform. Adjust based on your cost structure and target client size.
+
+> **Platform Baseline (all tiers):** Features 13-17 — Structured Logging, AI Error Triage, Complete Audit Trails, Frontend Error Boundaries, and Operational Hardening — are platform infrastructure. They are not tier-gated. Every client org on every tier runs on the same observability stack: correlation ID tracking, structured JSON logs, 6-component health checks, Docker log rotation, error capture to `error_events`, and nightly AI triage with MSP admin email. These features protect the MSP's operational reliability, not just individual client data.
 
 ### Recommended Tier Structure
 
@@ -1252,6 +1588,8 @@ Required for MSP to operate the platform. Includes:
 - Super admin access
 - Platform updates and bug fixes
 - Access to n8n workflow updates and new feature releases
+- Nightly AI Error Triage reports (`POST /api/triage/run`, WF15) — error pattern analysis and suggested fixes delivered by email each morning
+- Full `error_events` and `triage_reports` access — complete operational visibility across the platform
 
 ---
 
@@ -1264,6 +1602,7 @@ Required for MSP to operate the platform. Includes:
 | Anthropic API (policy draft) | ~$0.05-0.20 per policy |
 | Anthropic API (gap synthesis, per control) | ~$0.01-0.05 per analysis |
 | Anthropic API (program AI sweep, 30 controls) | ~$0.05-0.15 per sweep |
+| Anthropic API (error triage, nightly batch) | ~$0.02-0.08 per nightly run |
 | Resend (email) | ~$0.001 per email |
 | VM hosting (32 GB RAM) | ~$200-400/month total |
 | MinIO storage | ~$0.02/GB/month |
@@ -1298,6 +1637,12 @@ At 10 client orgs on Professional tier, monthly Anthropic costs are typically $5
 | RAG | Retrieval-Augmented Generation — querying a vector database for relevant context before sending to the LLM |
 | Drift | When an artifact's content has changed materially since it was assessed — detected via cosine distance between embeddings |
 | Freshness | Whether evidence is still current based on family-specific expiry thresholds |
+| Correlation ID | UUID assigned to every HTTP request at the FastAPI middleware layer; propagated to n8n webhook calls and database rows so all activity from a single request can be traced across services |
+| error_events | Central exception table capturing every unhandled error from FastAPI, background tasks, n8n workflows, and the Next.js client |
+| triage_reports | AI-generated error analysis outputs stored per-run; each report covers all untriaged error_events at the time of analysis |
+| structlog | Structured JSON logging library used by FastAPI; every log line is a machine-parseable JSON object with standard fields including correlation_id |
+| WF15 | Nightly Error Triage workflow — runs at 03:00 UTC, triggers AI triage if untriaged errors exist, emails MSP admin |
+| WF16 | Error Handler workflow — configured as the error workflow for all 16 n8n workflows; captures failures into error_events and notifies MSP admin |
 
 ---
 
