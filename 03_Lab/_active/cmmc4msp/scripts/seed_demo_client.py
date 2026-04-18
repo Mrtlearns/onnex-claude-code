@@ -63,7 +63,7 @@ STATUS_SEQUENCE = (
 DEMO_ARTIFACTS = [
     {
         "name": "Access Control Policy v2.1",
-        "verdict": "met", "confidence": 0.91,
+        "verdict": "pass", "confidence": 0.91,
         "rationale": "Document fully covers access control requirements for CMMC AC domain.",
         "gaps": [],
     },
@@ -81,19 +81,19 @@ DEMO_ARTIFACTS = [
     },
     {
         "name": "MFA Configuration Export",
-        "verdict": "met", "confidence": 0.88,
+        "verdict": "pass", "confidence": 0.88,
         "rationale": "MFA enforced on all privileged accounts per IA.3.083 requirement.",
         "gaps": [],
     },
     {
         "name": "Vulnerability Scan Report Q1 2026",
-        "verdict": "not_met", "confidence": 0.95,
+        "verdict": "fail", "confidence": 0.95,
         "rationale": "Scan reveals 3 critical CVEs unpatched beyond 30-day remediation SLA.",
         "gaps": ["CVE-2024-1234 unpatched", "CVE-2024-5678 unpatched", "CVE-2024-9012 unpatched"],
     },
     {
         "name": "Network Diagram v1.2",
-        "verdict": "met", "confidence": 0.82,
+        "verdict": "pass", "confidence": 0.82,
         "rationale": "Network diagram accurately depicts CUI boundary and segmentation.",
         "gaps": [],
     },
@@ -209,7 +209,7 @@ async def seed(dry_run: bool = False) -> None:
             print(f"  Users:   {len(DEMO_USERS)}")
             print(f"  Artifacts: {len(DEMO_ARTIFACTS)}")
             print(f"  Milestones: {len(DEMO_MILESTONES)}")
-            await pool.close()
+            pool.terminate()
             return
 
         async with conn.transaction():
@@ -304,7 +304,7 @@ async def seed(dry_run: bool = False) -> None:
                 PROGRAM_ID,
             )
             assignees = [USER_ENGINEER, USER_AUDITOR]
-            assignment_statuses = ["open"] * 15 + ["completed"] * 7 + ["overdue"] * 3
+            assignment_statuses = ["assigned"] * 10 + ["in_progress"] * 5 + ["accepted"] * 7 + ["in_review"] * 3
             for j, row in enumerate(pc_rows):
                 a_id = _uid("assign", str(row["id"]))
                 due = NOW + timedelta(days=[-14, 7, 14, 30, 45][j % 5])
@@ -342,26 +342,26 @@ async def seed(dry_run: bool = False) -> None:
                 await conn.execute(
                     """
                     INSERT INTO artifacts
-                        (id, program_control_id, org_id, file_name, file_path,
-                         mime_type, file_size, assessment_status, created_at)
-                    VALUES ($1, $2, $3, $4, $5, 'application/pdf', 204800, 'assessed', NOW())
+                        (id, program_control_id, uploaded_by, file_name,
+                         mime_type, minio_bucket, minio_key, assessment_status, created_at)
+                    VALUES ($1, $2, $3, $4, 'application/pdf', 'cmmc-artifacts', $5, 'assessed', NOW())
                     ON CONFLICT (id) DO NOTHING
                     """,
-                    art_id, pc_row["id"], ORG_ID,
+                    art_id, pc_row["id"], USER_ADMIN,
                     art_def["name"] + ".pdf",
-                    f"cmmc-artifacts/{ORG_ID}/demo/{art_id}.pdf",
+                    f"{ORG_ID}/demo/{art_id}.pdf",
                 )
                 await conn.execute(
                     """
                     INSERT INTO assessments
-                        (id, artifact_id, org_id, verdict, confidence, rationale,
+                        (id, artifact_id, program_control_id, verdict, confidence, rationale,
                          gaps, model_used, reviewer_override, created_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, 'openrouter/auto', FALSE, NOW())
                     ON CONFLICT (id) DO NOTHING
                     """,
-                    assess_id, art_id, ORG_ID,
+                    assess_id, art_id, pc_row["id"],
                     art_def["verdict"], art_def["confidence"],
-                    art_def["rationale"], art_def["gaps"],
+                    art_def["rationale"], json.dumps(art_def["gaps"]),
                 )
             print(f"  Artifacts + assessments: {len(DEMO_ARTIFACTS)} pairs inserted")
 
@@ -377,14 +377,14 @@ async def seed(dry_run: bool = False) -> None:
                 await conn.execute(
                     """
                     INSERT INTO milestones
-                        (id, program_control_id, responsible_org, resource_estimate,
+                        (id, program_control_id, program_id, responsible_org, resource_estimate,
                          remediation_plan, current_milestone_date, is_complete, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
                     ON CONFLICT (id) DO NOTHING
                     """,
-                    ms_id, pc_id,
+                    ms_id, pc_id, PROGRAM_ID,
                     "Meridian Defense Systems LLC",
-                    "2 engineer-weeks",
+                    "funded",
                     ms["label"],
                     target,
                     ms["complete"],
@@ -406,7 +406,7 @@ async def seed(dry_run: bool = False) -> None:
                 await conn.execute(
                     """
                     INSERT INTO activity_log
-                        (id, org_id, program_id, action, actor_id, metadata, created_at)
+                        (id, org_id, program_id, event_type, user_id, metadata, created_at)
                     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
                     ON CONFLICT (id) DO NOTHING
                     """,
@@ -417,7 +417,7 @@ async def seed(dry_run: bool = False) -> None:
                 )
             print(f"  Activity log: 40 entries inserted")
 
-    await pool.close()
+    pool.terminate()
     print("\n[DB] Done.")
 
 
@@ -429,7 +429,7 @@ async def teardown(dry_run: bool = False) -> None:
 
     if dry_run:
         print("[dry-run] Would DELETE org cascade for Meridian Defense + AirGap Cyber MSP")
-        await pool.close()
+        pool.terminate()
         return
 
     async with pool.acquire() as conn:
@@ -449,7 +449,7 @@ async def teardown(dry_run: bool = False) -> None:
                 await conn.execute("DELETE FROM users WHERE id = $1", uid)
                 print(f"  User deleted: {email}")
 
-    await pool.close()
+    pool.terminate()
     print("[DB] Teardown done.")
 
 
