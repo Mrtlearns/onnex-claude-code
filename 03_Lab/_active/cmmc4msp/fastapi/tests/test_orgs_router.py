@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -111,12 +111,11 @@ async def test_create_org_auto_generates_slug(async_client):
     conn.fetchval = AsyncMock(return_value=None)  # slug not taken
     conn.fetchrow = AsyncMock(return_value=mock_record)
 
-    with patch("app.routers.orgs.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            "/api/orgs/",
-            json={"name": "Acme Defense LLC"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        "/api/orgs/",
+        json={"name": "Acme Defense LLC"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 201
     assert "slug" in resp.json()
 
@@ -131,12 +130,11 @@ async def test_create_org_accepts_custom_slug(async_client):
     conn.fetchval = AsyncMock(return_value=None)
     conn.fetchrow = AsyncMock(return_value=mock_record)
 
-    with patch("app.routers.orgs.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            "/api/orgs/",
-            json={"name": "My Org", "slug": "my-custom-slug"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        "/api/orgs/",
+        json={"name": "My Org", "slug": "my-custom-slug"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 201
 
 

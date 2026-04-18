@@ -21,7 +21,7 @@ async def _resolve_user(
 ) -> dict:
     """Authenticate via webhook secret (n8n internal) or JWT (user-facing)."""
     if x_webhook_secret and x_webhook_secret == settings.webhook_secret:
-        return {"role": "super_admin", "org_id": "", "msp_id": ""}
+        return {"role": "msp_admin", "org_id": "", "msp_id": "", "user_id": "00000000-0000-0000-0000-000000000000"}
     # Fall back to JWT
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -54,8 +54,7 @@ async def generate_ssp(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
 
-    if user.get("role") not in ("super_admin",):
-        await _check_program_access(prog_uid, user, conn)
+    await _check_program_access(prog_uid, user, conn)
 
     download_url = await generate_ssp_pdf(
         str(prog_uid),
@@ -78,8 +77,7 @@ async def generate_poam(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
 
-    if user.get("role") not in ("super_admin",):
-        await _check_program_access(prog_uid, user, conn)
+    await _check_program_access(prog_uid, user, conn)
 
     download_url = await generate_poam_pdf(
         str(prog_uid),

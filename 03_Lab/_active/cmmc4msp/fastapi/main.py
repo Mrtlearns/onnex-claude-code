@@ -25,6 +25,10 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ---- Startup -----------------------------------------------------------
+    if not settings.webhook_secret or settings.webhook_secret == "changeme":
+        raise RuntimeError(
+            "WEBHOOK_SECRET env var must be set to a strong random value (not 'changeme' or empty)"
+        )
     app.state.pool = await create_pool()
 
     app.state.minio = Minio(

@@ -8,7 +8,7 @@ from typing import Any, Optional
 import asyncpg
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
@@ -274,7 +274,7 @@ async def update_program_control(
 
 
 class ChatMessageRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=4000)
 
 
 @router.post("/program/{program_id}/{control_id}/chat")
@@ -331,12 +331,13 @@ async def send_chat_message(
     )
 
     full_response: list[str] = []
+    pool = request.app.state.pool
 
     async def _stream():
         async for chunk in stream_chat(system_prompt, history, body.message):
             full_response.append(chunk)
             yield chunk
-        # Save assistant response after streaming completes
+        # Save assistant response after streaming completes using a fresh connection
         content = "".join(
             json.loads(c[6:])["content"]
             for c in full_response
@@ -346,14 +347,15 @@ async def send_chat_message(
             and "{" in c
         )
         if content:
-            await conn.execute(
-                """
-                INSERT INTO control_chat_messages
-                    (program_control_id, user_id, role, content, model_used)
-                VALUES ($1, $2, 'assistant', $3, $4)
-                """,
-                pc_uid, uuid.UUID(user["user_id"]), content, "anthropic/claude-sonnet-4-6",
-            )
+            async with pool.acquire() as write_conn:
+                await write_conn.execute(
+                    """
+                    INSERT INTO control_chat_messages
+                        (program_control_id, user_id, role, content, model_used)
+                    VALUES ($1, $2, 'assistant', $3, $4)
+                    """,
+                    pc_uid, uuid.UUID(user["user_id"]), content, "anthropic/claude-sonnet-4-6",
+                )
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 

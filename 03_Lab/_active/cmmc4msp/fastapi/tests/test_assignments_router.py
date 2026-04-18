@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -109,16 +109,15 @@ async def test_bulk_assign_happy_path(async_client):
     ])
     conn.execute = AsyncMock(return_value="INSERT 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            "/api/assignments/bulk",
-            json={
-                "program_id": PROGRAM_ID,
-                "control_ids": [PROGRAM_CONTROL_ID],
-                "assignee_id": ASSIGNEE_ID,
-            },
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        "/api/assignments/bulk",
+        json={
+            "program_id": PROGRAM_ID,
+            "control_ids": [PROGRAM_CONTROL_ID],
+            "assignee_id": ASSIGNEE_ID,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 201
     body = resp.json()
@@ -206,16 +205,15 @@ async def test_bulk_assign_updates_existing(async_client):
     ])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            "/api/assignments/bulk",
-            json={
-                "program_id": PROGRAM_ID,
-                "control_ids": [PROGRAM_CONTROL_ID],
-                "assignee_id": ASSIGNEE_ID,
-            },
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        "/api/assignments/bulk",
+        json={
+            "program_id": PROGRAM_ID,
+            "control_ids": [PROGRAM_CONTROL_ID],
+            "assignee_id": ASSIGNEE_ID,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 201
     assert resp.json()["created"] == 1
@@ -237,12 +235,11 @@ async def test_transition_assigned_to_in_progress(async_client):
     conn.fetchrow = AsyncMock(side_effect=[row, assignee_email_row])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            f"/api/assignments/{ASSIGNMENT_ID}/transition",
-            json={"to_status": "in_progress"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        f"/api/assignments/{ASSIGNMENT_ID}/transition",
+        json={"to_status": "in_progress"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 200
     body = resp.json()
@@ -298,12 +295,11 @@ async def test_transition_submitted_to_in_review_by_admin(async_client):
     conn.fetchrow = AsyncMock(side_effect=[row, assignee_email_row])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            f"/api/assignments/{ASSIGNMENT_ID}/transition",
-            json={"to_status": "in_review"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        f"/api/assignments/{ASSIGNMENT_ID}/transition",
+        json={"to_status": "in_review"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 200
     body = resp.json()
@@ -322,12 +318,11 @@ async def test_transition_in_review_to_accepted_sets_reviewer(async_client):
     conn.fetchrow = AsyncMock(side_effect=[row, assignee_email_row])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            f"/api/assignments/{ASSIGNMENT_ID}/transition",
-            json={"to_status": "accepted", "note": "Looks good"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        f"/api/assignments/{ASSIGNMENT_ID}/transition",
+        json={"to_status": "accepted", "note": "Looks good"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 200
     assert resp.json()["to"] == "accepted"
@@ -347,12 +342,11 @@ async def test_transition_in_review_to_rejected(async_client):
     conn.fetchrow = AsyncMock(side_effect=[row, assignee_email_row])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            f"/api/assignments/{ASSIGNMENT_ID}/transition",
-            json={"to_status": "rejected", "note": "Missing evidence"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        f"/api/assignments/{ASSIGNMENT_ID}/transition",
+        json={"to_status": "rejected", "note": "Missing evidence"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 200
     assert resp.json()["to"] == "rejected"
@@ -463,12 +457,11 @@ async def test_valid_transitions(async_client, from_status, to_status):
     conn.fetchrow = AsyncMock(side_effect=[row, assignee_email_row])
     conn.execute = AsyncMock(return_value="UPDATE 1")
 
-    with patch("app.routers.assignments.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            f"/api/assignments/{ASSIGNMENT_ID}/transition",
-            json={"to_status": to_status},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        f"/api/assignments/{ASSIGNMENT_ID}/transition",
+        json={"to_status": to_status},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 200
     assert resp.json()["to"] == to_status

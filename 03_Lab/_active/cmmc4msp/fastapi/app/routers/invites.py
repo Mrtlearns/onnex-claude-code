@@ -12,7 +12,6 @@ Tokens are single-use, 72-hour TTL. Only sha256 hash is stored in DB.
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import os
 import uuid
@@ -20,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
 from app.database import get_db
@@ -62,6 +61,7 @@ class AcceptInviteRequest(BaseModel):
 @router.post("", status_code=201)
 async def create_invite(
     body: CreateInviteRequest,
+    background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(require_client_admin_or_above),
 ) -> dict:
@@ -125,14 +125,13 @@ async def create_invite(
         "SELECT full_name, email FROM users WHERE id = $1", uuid.UUID(user["user_id"])
     )
 
-    asyncio.create_task(
-        n8n_service.trigger_invite(
-            email=body.email.lower(),
-            invite_token=raw_token,
-            org_name=org["name"],
-            invited_by_name=inviter["full_name"] if inviter else user.get("email", ""),
-            role=body.role,
-        )
+    background_tasks.add_task(
+        n8n_service.trigger_invite,
+        email=body.email.lower(),
+        invite_token=raw_token,
+        org_name=org["name"],
+        invited_by_name=inviter["full_name"] if inviter else user.get("email", ""),
+        role=body.role,
     )
 
     return {

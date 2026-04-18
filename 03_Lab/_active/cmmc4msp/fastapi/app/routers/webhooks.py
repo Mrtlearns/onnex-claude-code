@@ -44,89 +44,88 @@ async def assessment_complete(
     Updates artifact status, inserts assessment record, updates control status,
     triggers SPRS recalculation, and writes an activity log entry.
     """
-    provided_secret = x_webhook_secret or body.secret
-    if provided_secret != settings.webhook_secret:
-        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+    _validate_secret(x_webhook_secret)
 
     artifact_id = body.artifact_id
     program_control_id = body.program_control_id
 
-    # 1. Update artifact assessment status (n8n Postgres node may already have done this)
-    artifact = await conn.fetchrow(
-        """
-        UPDATE artifacts
-        SET assessment_status = 'assessed',
-            updated_at = NOW()
-        WHERE id = $1
-        RETURNING *
-        """,
-        artifact_id,
-    )
-    if not artifact:
-        raise HTTPException(status_code=404, detail="Artifact not found")
-
-    # 2. Insert assessment record only if not already inserted by n8n Postgres node
-    existing = await conn.fetchrow(
-        "SELECT id FROM assessments WHERE artifact_id = $1 ORDER BY created_at DESC LIMIT 1",
-        artifact_id,
-    )
-    if existing:
-        assessment_id = existing["id"]
-    else:
-        assessment_id = uuid.uuid4()
-        await conn.execute(
+    async with conn.transaction():
+        # 1. Update artifact assessment status (n8n Postgres node may already have done this)
+        artifact = await conn.fetchrow(
             """
-            INSERT INTO assessments (
-                id, artifact_id, verdict, confidence, rationale, gaps,
-                model_used, reviewer_override
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+            UPDATE artifacts
+            SET assessment_status = 'assessed',
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
             """,
-            assessment_id,
             artifact_id,
-            body.verdict,
-            body.confidence,
-            body.rationale or "",
-            body.gaps,
-            body.model_used or "openrouter/auto",
         )
+        if not artifact:
+            raise HTTPException(status_code=404, detail="Artifact not found")
 
-    # 3. Update program_control status based on verdict
-    new_status = _VERDICT_TO_STATUS.get(body.verdict)
-    if new_status:
-        await conn.execute(
-            """
-            UPDATE program_controls
-            SET status = $1, updated_at = NOW()
-            WHERE id = $2
-            """,
-            new_status,
+        # 2. Insert assessment record only if not already inserted by n8n Postgres node
+        existing = await conn.fetchrow(
+            "SELECT id FROM assessments WHERE artifact_id = $1 ORDER BY created_at DESC LIMIT 1",
+            artifact_id,
+        )
+        if existing:
+            assessment_id = existing["id"]
+        else:
+            assessment_id = uuid.uuid4()
+            await conn.execute(
+                """
+                INSERT INTO assessments (
+                    id, artifact_id, verdict, confidence, rationale, gaps,
+                    model_used, reviewer_override
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+                """,
+                assessment_id,
+                artifact_id,
+                body.verdict,
+                body.confidence,
+                body.rationale or "",
+                body.gaps,
+                body.model_used or "openrouter/auto",
+            )
+
+        # 3. Update program_control status based on verdict
+        new_status = _VERDICT_TO_STATUS.get(body.verdict)
+        if new_status:
+            await conn.execute(
+                """
+                UPDATE program_controls
+                SET status = $1, updated_at = NOW()
+                WHERE id = $2
+                """,
+                new_status,
+                program_control_id,
+            )
+
+        # 4. Resolve program_id and recalculate SPRS
+        pc_row = await conn.fetchrow(
+            "SELECT program_id FROM program_controls WHERE id = $1",
             program_control_id,
         )
+        if pc_row:
+            await sprs_service.calculate_and_save_sprs(str(pc_row["program_id"]), conn)
 
-    # 4. Resolve program_id and recalculate SPRS
-    pc_row = await conn.fetchrow(
-        "SELECT program_id FROM program_controls WHERE id = $1",
-        program_control_id,
-    )
-    if pc_row:
-        await sprs_service.calculate_and_save_sprs(str(pc_row["program_id"]), conn)
-
-    # 5. Log to activity_log
-    await conn.execute(
-        """
-        INSERT INTO activity_log (id, entity_type, entity_id, event_type, metadata)
-        VALUES ($1, 'artifact', $2, 'assessment_complete', $3)
-        """,
-        uuid.uuid4(),
-        artifact_id,
-        json.dumps({
-            "assessment_id": str(assessment_id),
-            "verdict": body.verdict,
-            "confidence": body.confidence,
-            "model_used": body.model_used,
-        }),
-    )
+        # 5. Log to activity_log
+        await conn.execute(
+            """
+            INSERT INTO activity_log (id, entity_type, entity_id, event_type, metadata)
+            VALUES ($1, 'artifact', $2, 'assessment_complete', $3)
+            """,
+            uuid.uuid4(),
+            artifact_id,
+            json.dumps({
+                "assessment_id": str(assessment_id),
+                "verdict": body.verdict,
+                "confidence": body.confidence,
+                "model_used": body.model_used,
+            }),
+        )
 
     return {"ok": True, "assessment_id": str(assessment_id)}
 
@@ -188,21 +187,25 @@ async def mark_stale(
     if x_webhook_secret != settings.webhook_secret:
         raise HTTPException(status_code=403, detail="Invalid webhook secret")
 
-    marked = 0
+    valid_ids = []
     for pc_id_str in body.program_control_ids:
         try:
-            pc_uid = uuid.UUID(pc_id_str)
+            valid_ids.append(uuid.UUID(pc_id_str))
         except ValueError:
             continue
-        await conn.execute(
-            """
-            UPDATE program_controls
-            SET status = 'stale', stale_since = NOW()
-            WHERE id = $1 AND status = 'fully_implemented'
-            """,
-            pc_uid,
-        )
-        marked += 1
+
+    if not valid_ids:
+        return {"marked_stale": 0}
+
+    result = await conn.execute(
+        """
+        UPDATE program_controls
+        SET status = 'stale', stale_since = NOW()
+        WHERE id = ANY($1::uuid[]) AND status = 'fully_implemented'
+        """,
+        valid_ids,
+    )
+    marked = int(result.split()[-1]) if result else 0
     return {"marked_stale": marked}
 
 

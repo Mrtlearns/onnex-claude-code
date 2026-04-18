@@ -204,7 +204,7 @@ async def test_mark_stale_returns_count(async_client):
     """Returns correct marked_stale count when multiple valid IDs provided."""
     client, conn = async_client
     ids = [str(uuid.uuid4()) for _ in range(3)]
-    conn.execute = AsyncMock(return_value="UPDATE 1")
+    conn.execute = AsyncMock(return_value="UPDATE 3")
 
     resp = await client.post(
         "/api/webhooks/n8n/mark-stale",

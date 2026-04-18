@@ -1,12 +1,11 @@
 """Artifacts router — presigned upload, status, and text extraction."""
 from __future__ import annotations
 
-import asyncio
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.config import settings
@@ -88,6 +87,7 @@ async def extract_artifact_text_n8n(
 async def initiate_upload(
     program_control_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -116,7 +116,12 @@ async def initiate_upload(
     artifact_id = uuid.uuid4()
     minio_key = f"{pc['program_id']}/{pc_uid}/{artifact_id}/{file_name}"
 
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+    if file.size and file.size > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
 
     await conn.execute(
         """
@@ -134,15 +139,13 @@ async def initiate_upload(
     upload_bytes(minio_client, ARTIFACTS_BUCKET, minio_key, file_bytes, mime_type)
 
     download_presigned = get_presigned_download_url(minio_client, ARTIFACTS_BUCKET, minio_key)
-    asyncio.create_task(
-        n8n_service.trigger_assessment(
-            str(artifact_id),
-            str(pc_uid),
-            download_presigned,
-        )
+    background_tasks.add_task(
+        n8n_service.trigger_assessment,
+        str(artifact_id), str(pc_uid), download_presigned,
     )
-    asyncio.create_task(
-        _chunk_and_embed(request.app.state.pool, artifact_id, minio_client, minio_key, file_name, mime_type)
+    background_tasks.add_task(
+        _chunk_and_embed,
+        request.app.state.pool, artifact_id, minio_client, minio_key, file_name, mime_type,
     )
 
     return {

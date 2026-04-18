@@ -77,9 +77,26 @@ async def list_assessments(
             pc_uid,
         )
     else:
-        if user["role"] != "msp_admin":
+        if user["role"] == "super_admin":
+            rows = await conn.fetch("SELECT * FROM assessments ORDER BY created_at DESC")
+        elif user["role"] == "msp_admin":
+            msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+            if not msp_uid:
+                raise HTTPException(status_code=403, detail="MSP context required")
+            rows = await conn.fetch(
+                """
+                SELECT a.* FROM assessments a
+                JOIN artifacts ar ON a.artifact_id = ar.id
+                JOIN program_controls pc ON ar.program_control_id = pc.id
+                JOIN programs p ON pc.program_id = p.id
+                JOIN orgs o ON p.org_id = o.id
+                WHERE o.msp_id = $1
+                ORDER BY a.created_at DESC
+                """,
+                msp_uid,
+            )
+        else:
             raise HTTPException(status_code=403, detail="MSP admin required for unfiltered listing")
-        rows = await conn.fetch("SELECT * FROM assessments ORDER BY created_at DESC")
 
     return [_row_to_assessment(r) for r in rows]
 
@@ -135,6 +152,23 @@ async def override_assessment(
     )
     if not row:
         raise HTTPException(status_code=404, detail="Assessment not found")
+
+    if user["role"] == "msp_admin":
+        msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+        if msp_uid:
+            owner = await conn.fetchrow(
+                """
+                SELECT o.msp_id FROM assessments a
+                JOIN artifacts ar ON a.artifact_id = ar.id
+                JOIN program_controls pc ON ar.program_control_id = pc.id
+                JOIN programs p ON pc.program_id = p.id
+                JOIN orgs o ON p.org_id = o.id
+                WHERE a.id = $1
+                """,
+                assess_uid,
+            )
+            if not owner or str(owner["msp_id"]) != str(msp_uid):
+                raise HTTPException(status_code=403, detail="Access denied")
 
     # Update assessment
     updated = await conn.fetchrow(

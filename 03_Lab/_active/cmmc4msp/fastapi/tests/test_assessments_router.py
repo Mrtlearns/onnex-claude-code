@@ -49,6 +49,15 @@ def _make_artifact_record() -> MagicMock:
     return rec
 
 
+def _make_owner_record() -> MagicMock:
+    """MSP scope check result — returns msp_id matching MSP_ID constant."""
+    data = {"msp_id": uuid.UUID(MSP_ID)}
+    rec = MagicMock()
+    rec.__getitem__ = lambda self, k: data[k]
+    rec.get = lambda k, d=None: data.get(k, d)
+    return rec
+
+
 # ---------------------------------------------------------------------------
 # GET /api/assessments/
 # ---------------------------------------------------------------------------
@@ -234,6 +243,7 @@ async def test_override_assessment_happy_path(async_client):
     })
     conn.fetchrow = AsyncMock(side_effect=[
         _make_assessment_record(),  # SELECT assessment
+        _make_owner_record(),        # MSP scope check
         updated,                     # UPDATE assessment RETURNING
         _make_artifact_record(),     # SELECT artifact for program_control_id
     ])
@@ -273,6 +283,7 @@ async def test_override_assessment_verdict_to_status_mapping(async_client):
         updated = _make_assessment_record({"verdict": verdict, "reviewer_override": True})
         conn.fetchrow = AsyncMock(side_effect=[
             _make_assessment_record(),
+            _make_owner_record(),
             updated,
             _make_artifact_record(),
         ])

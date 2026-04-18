@@ -1,14 +1,13 @@
 """Organizations router."""
 from __future__ import annotations
 
-import asyncio
 import os
 import re
 import uuid
 from typing import Any, List, Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -102,6 +101,7 @@ async def get_org(
 async def onboard_org(
     body: OnboardRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
 ) -> dict:
     """Single-call client onboard: creates org + program + seeds 110 controls.
@@ -185,8 +185,8 @@ async def onboard_org(
         )
 
     # Trigger n8n onboard workflow (fire-and-forget)
-    asyncio.create_task(
-        n8n_service.trigger_onboard(str(org_id), str(program_id), scoping_config)
+    background_tasks.add_task(
+        n8n_service.trigger_onboard, str(org_id), str(program_id), scoping_config
     )
 
     return {"org_id": str(org_id), "org_slug": slug, "program_id": str(program_id)}
@@ -196,6 +196,7 @@ async def onboard_org(
 async def create_org(
     body: OrgCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(require_msp_admin),
 ) -> dict:
@@ -237,12 +238,11 @@ async def create_org(
 
     # Fire-and-forget — create a placeholder program_id for the onboard trigger
     placeholder_program_id = str(uuid.uuid4())
-    asyncio.create_task(
-        n8n_service.trigger_onboard(
-            str(org_id),
-            placeholder_program_id,
-            body.scoping_config or {},
-        )
+    background_tasks.add_task(
+        n8n_service.trigger_onboard,
+        str(org_id),
+        placeholder_program_id,
+        body.scoping_config or {},
     )
 
     return _row_to_org(row)

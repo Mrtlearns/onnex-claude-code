@@ -12,12 +12,11 @@ state machine is enforced and every transition is logged to assignment_events.
 """
 from __future__ import annotations
 
-import asyncio
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -85,6 +84,7 @@ class TransitionRequest(BaseModel):
 @router.post("/bulk", status_code=201)
 async def bulk_assign_controls(
     body: BulkAssignRequest,
+    background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(require_client_admin_or_above),
 ) -> dict:
@@ -171,13 +171,12 @@ async def bulk_assign_controls(
             assignment_ids.append(str(new_id))
 
     for aid in assignment_ids:
-        asyncio.create_task(
-            n8n_service.trigger_assignment_notification(
-                assignment_id=aid,
-                to_status="assigned",
-                assignee_email=assignee["email"],
-                context={"assignee_name": assignee["full_name"]},
-            )
+        background_tasks.add_task(
+            n8n_service.trigger_assignment_notification,
+            assignment_id=aid,
+            to_status="assigned",
+            assignee_email=assignee["email"],
+            context={"assignee_name": assignee["full_name"]},
         )
 
     return {"created": len(assignment_ids), "assignment_ids": assignment_ids}
@@ -187,6 +186,7 @@ async def bulk_assign_controls(
 async def transition_assignment(
     assignment_id: str,
     body: TransitionRequest,
+    background_tasks: BackgroundTasks,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
 ) -> dict:
@@ -257,12 +257,11 @@ async def transition_assignment(
             "SELECT email FROM users WHERE id = $1", row["assigned_to"]
         )
 
-    asyncio.create_task(
-        n8n_service.trigger_assignment_notification(
-            assignment_id=assignment_id,
-            to_status=to_status,
-            assignee_email=assignee_row["email"] if assignee_row else None,
-        )
+    background_tasks.add_task(
+        n8n_service.trigger_assignment_notification,
+        assignment_id=assignment_id,
+        to_status=to_status,
+        assignee_email=assignee_row["email"] if assignee_row else None,
     )
 
     return {"assignment_id": assignment_id, "from": from_status, "to": to_status}

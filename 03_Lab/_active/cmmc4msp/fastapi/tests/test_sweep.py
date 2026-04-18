@@ -92,6 +92,7 @@ async def test_create_sweep_happy_path(async_client):
     token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
 
     conn.fetchrow = AsyncMock(return_value=_make_program_row())
+    conn.fetchval = AsyncMock(return_value=uuid.UUID(MSP_ID))
     conn.execute = AsyncMock(return_value="INSERT 1")
 
     with patch("app.routers.programs._run_sweep", new=AsyncMock()):
@@ -174,6 +175,8 @@ async def test_list_sweeps_happy_path(async_client):
     client, conn = async_client
     token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
 
+    conn.fetchrow = AsyncMock(return_value=_make_program_row())
+    conn.fetchval = AsyncMock(return_value=uuid.UUID(MSP_ID))
     conn.fetch = AsyncMock(return_value=[_make_sweep_row()])
 
     resp = await client.get(
@@ -201,6 +204,7 @@ async def test_list_sweeps_empty(async_client):
     client, conn = async_client
     token = make_token(role="client_admin", org_id=ORG_ID, sub=USER_ID)
 
+    conn.fetchrow = AsyncMock(return_value=_make_program_row())
     conn.fetch = AsyncMock(return_value=[])
 
     resp = await client.get(
@@ -265,12 +269,20 @@ async def test_get_sweep_404_not_found(async_client):
 # 9. test_apply_sweep_happy_path
 # ---------------------------------------------------------------------------
 
+def _make_transaction_ctx():
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=None)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return ctx
+
+
 @pytest.mark.asyncio
 async def test_apply_sweep_happy_path(async_client):
     """POST /ai-sweep/{sweep_id}/apply applies selected actions and returns count."""
     client, conn = async_client
     token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
 
+    conn.transaction = MagicMock(return_value=_make_transaction_ctx())
     conn.fetchrow = AsyncMock(return_value=_make_sweep_row(status="ready"))
     conn.fetch = AsyncMock(return_value=[_make_action_row()])
     conn.execute = AsyncMock(return_value="UPDATE 1")

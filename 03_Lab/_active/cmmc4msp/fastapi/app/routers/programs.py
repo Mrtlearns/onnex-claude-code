@@ -291,9 +291,19 @@ async def create_sweep(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
 
-    prog = await conn.fetchrow("SELECT id FROM programs WHERE id=$1", prog_uid)
+    prog = await conn.fetchrow("SELECT id, org_id FROM programs WHERE id=$1", prog_uid)
     if not prog:
         raise HTTPException(status_code=404, detail="Program not found")
+
+    if user["role"] not in ("msp_admin", "super_admin"):
+        if not prog["org_id"] or str(prog["org_id"]) != user.get("org_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user["role"] == "msp_admin":
+        msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+        if msp_uid:
+            org_msp = await conn.fetchval("SELECT msp_id FROM orgs WHERE id=$1", prog["org_id"])
+            if not org_msp or str(org_msp) != str(msp_uid):
+                raise HTTPException(status_code=403, detail="Access denied")
 
     sweep_id = uuid.uuid4()
     actor_uid = uuid.UUID(user["user_id"])
@@ -322,6 +332,19 @@ async def list_sweeps(
         prog_uid = uuid.UUID(program_id)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    prog = await conn.fetchrow("SELECT id, org_id FROM programs WHERE id=$1", prog_uid)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if user["role"] not in ("msp_admin", "super_admin"):
+        if not prog["org_id"] or str(prog["org_id"]) != user.get("org_id"):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif user["role"] == "msp_admin":
+        msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+        if msp_uid:
+            org_msp = await conn.fetchval("SELECT msp_id FROM orgs WHERE id=$1", prog["org_id"])
+            if not org_msp or str(org_msp) != str(msp_uid):
+                raise HTTPException(status_code=403, detail="Access denied")
 
     rows = await conn.fetch(
         """
@@ -441,23 +464,24 @@ async def apply_sweep(
 
     actor_id = uuid.UUID(user["user_id"])
     applied = 0
-    for action in actions:
-        await conn.execute(
-            "UPDATE program_controls SET status='planned', updated_at=now() WHERE id=$1",
-            action["program_control_id"],
-        )
-        await conn.execute(
-            "UPDATE sweep_actions SET applied=TRUE, applied_at=now() WHERE id=$1",
-            action["id"],
-        )
-        await conn.execute(
-            """INSERT INTO activity_log (org_id, actor_id, action, target_type, target_id, meta)
-               SELECT p.org_id, $1, 'sweep_applied', 'program_control', $2, $3
-               FROM programs p WHERE p.id=$4""",
-            actor_id, action["program_control_id"],
-            json.dumps({"sweep_id": str(sweep_uid), "nist_id": action["nist_id"]}),
-            prog_uid,
-        )
-        applied += 1
+    async with conn.transaction():
+        for action in actions:
+            await conn.execute(
+                "UPDATE program_controls SET status='planned', updated_at=now() WHERE id=$1",
+                action["program_control_id"],
+            )
+            await conn.execute(
+                "UPDATE sweep_actions SET applied=TRUE, applied_at=now() WHERE id=$1",
+                action["id"],
+            )
+            await conn.execute(
+                """INSERT INTO activity_log (org_id, actor_id, action, target_type, target_id, meta)
+                   SELECT p.org_id, $1, 'sweep_applied', 'program_control', $2, $3
+                   FROM programs p WHERE p.id=$4""",
+                actor_id, action["program_control_id"],
+                json.dumps({"sweep_id": str(sweep_uid), "nist_id": action["nist_id"]}),
+                prog_uid,
+            )
+            applied += 1
 
     return {"applied": applied}

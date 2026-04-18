@@ -76,11 +76,19 @@ async def test_assessment_complete_wrong_secret(async_client):
     assert resp.status_code == 401
 
 
+def _make_transaction_ctx():
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=None)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return ctx
+
+
 @pytest.mark.asyncio
 async def test_assessment_complete_success(async_client):
     """POST /api/webhooks/n8n/assessment-complete with valid secret and payload → 200."""
     client, conn = async_client
 
+    conn.transaction = MagicMock(return_value=_make_transaction_ctx())
     conn.fetchrow = AsyncMock(side_effect=[
         _build_artifact_record(),              # UPDATE artifacts RETURNING
         _build_existing_assessment_record(),   # SELECT id FROM assessments (existing)

@@ -78,8 +78,7 @@ async def test_upload_happy_path(async_client):
     conn.execute = AsyncMock(return_value="INSERT 1")
 
     with patch("app.routers.artifacts.upload_bytes"), \
-         patch("app.routers.artifacts.get_presigned_download_url", return_value="https://minio/download-url"), \
-         patch("app.routers.artifacts.asyncio.create_task", new=MagicMock()):
+         patch("app.routers.artifacts.get_presigned_download_url", return_value="https://minio/download-url"):
 
         resp = await client.post(
             f"/api/artifacts/{PROGRAM_CONTROL_ID}/upload",

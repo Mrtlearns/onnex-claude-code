@@ -43,6 +43,13 @@ async def create_audit_package(
     if not program:
         raise HTTPException(404, "Program not found")
 
+    if user["role"] == "msp_admin":
+        msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+        if msp_uid:
+            org_msp = await conn.fetchval("SELECT msp_id FROM orgs WHERE id=$1", program["org_id"])
+            if not org_msp or str(org_msp) != str(msp_uid):
+                raise HTTPException(403, "Access denied")
+
     package_id = uuid.uuid4()
     await conn.execute(
         """
@@ -93,8 +100,17 @@ async def list_audit_packages(
     program = await conn.fetchrow("SELECT id, org_id FROM programs WHERE id = $1", prog_uid)
     if not program:
         raise HTTPException(404, "Program not found")
-    if user["role"] not in ("msp_admin", "super_admin") and str(program["org_id"]) != user.get("org_id"):
-        raise HTTPException(403, "Access denied")
+    if user["role"] == "super_admin":
+        pass
+    elif user["role"] == "msp_admin":
+        msp_uid = uuid.UUID(user["msp_id"]) if user.get("msp_id") else None
+        if msp_uid:
+            org_msp = await conn.fetchval("SELECT msp_id FROM orgs WHERE id=$1", program["org_id"])
+            if not org_msp or str(org_msp) != str(msp_uid):
+                raise HTTPException(403, "Access denied")
+    else:
+        if str(program["org_id"]) != user.get("org_id"):
+            raise HTTPException(403, "Access denied")
 
     rows = await conn.fetch(
         """

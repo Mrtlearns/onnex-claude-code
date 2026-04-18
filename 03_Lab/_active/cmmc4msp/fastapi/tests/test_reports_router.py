@@ -30,6 +30,7 @@ PRESIGNED_URL = "https://minio.example.com/cmmc-reports/prog/ssp_20260101.pdf?X-
 async def test_generate_ssp_webhook_secret_auth(async_client):
     """n8n internal call via X-Webhook-Secret bypasses JWT and triggers generation."""
     client, conn = async_client
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
 
     with patch(
         "app.routers.reports.generate_ssp_pdf",
@@ -144,7 +145,8 @@ async def test_generate_ssp_program_not_found(async_client):
 @pytest.mark.asyncio
 async def test_generate_poam_webhook_secret_auth(async_client):
     """n8n call via webhook secret triggers POA&M generation."""
-    client, _ = async_client
+    client, conn = async_client
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
 
     with patch(
         "app.routers.reports.generate_poam_pdf",

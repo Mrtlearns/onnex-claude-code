@@ -64,6 +64,7 @@ async def test_create_audit_package_happy_path(async_client):
     token = make_token(role="msp_admin", msp_id=MSP_ID, sub=USER_ID)
 
     conn.fetchrow = AsyncMock(return_value=_make_program_row())
+    conn.fetchval = AsyncMock(return_value=uuid.UUID(MSP_ID))
     conn.execute = AsyncMock(return_value="INSERT 1")
 
     with patch("app.routers.audit._generate_audit_package", new=AsyncMock()):
@@ -119,6 +120,7 @@ async def test_list_audit_packages_empty(async_client):
     token = make_token(role="msp_admin", msp_id=MSP_ID)
 
     conn.fetchrow = AsyncMock(return_value=_make_program_row())
+    conn.fetchval = AsyncMock(return_value=uuid.UUID(MSP_ID))
     conn.fetch = AsyncMock(return_value=[])
 
     resp = await client.get(
@@ -137,6 +139,7 @@ async def test_list_audit_packages_with_data(async_client):
     token = make_token(role="msp_admin", msp_id=MSP_ID)
 
     conn.fetchrow = AsyncMock(return_value=_make_program_row())
+    conn.fetchval = AsyncMock(return_value=uuid.UUID(MSP_ID))
     conn.fetch = AsyncMock(return_value=[_make_package_row()])
 
     resp = await client.get(

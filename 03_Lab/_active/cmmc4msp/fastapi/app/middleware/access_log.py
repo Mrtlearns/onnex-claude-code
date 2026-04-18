@@ -19,6 +19,8 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         log_fn = logger.warning if response.status_code >= 500 else logger.info
         log_fn(
             "request",
+            method=request.method,
+            path=request.url.path,
             status=response.status_code,
             duration_ms=round(duration_ms, 2),
         )

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:3000"
 
     # Webhook auth (n8n callbacks)
-    webhook_secret: str = "changeme"
+    webhook_secret: str = ""
 
     # Authentik (user provisioning for invites)
     authentik_url: str = ""
