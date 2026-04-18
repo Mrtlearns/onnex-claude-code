@@ -887,6 +887,21 @@
       "homepage": "https://www.mintlify.com/"
     },
     {
+      "name": "miro",
+      "description": "Secure access to Miro boards. Enables AI to read board context, create diagrams, and generate code with enterprise-grade security.",
+      "author": {
+        "name": "Miro"
+      },
+      "category": "design",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/miroapp/miro-ai.git",
+        "path": "claude-plugins/miro",
+        "ref": "main"
+      },
+      "homepage": "https://miro.com"
+    },
+    {
       "name": "mongodb",
       "description": "Official Claude plugin for MongoDB (MCP Server + Skills). Connect to databases, explore data, manage collections, optimize queries, generate reliable code, implement best practices, develop advanced features, and more.",
       "category": "database",
@@ -919,6 +934,28 @@
         "url": "https://github.com/netlify/context-and-tools.git"
       },
       "homepage": "https://github.com/netlify/context-and-tools"
+    },
+    {
+      "name": "netsuite-suitecloud",
+      "description": "NetSuite agent skills from Oracle — authoring guidance for SuiteCloud Development Framework (SDF) objects and UIF single-page-app components, plus runtime guidance for the NetSuite AI Service Connector.",
+      "author": {
+        "name": "Oracle NetSuite"
+      },
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/oracle/netsuite-suitecloud-sdk.git",
+        "path": "packages/agent-skills",
+        "ref": "master",
+        "sha": "43bacf43763e1eedd0892b4652be3d45df94f0e7"
+      },
+      "strict": false,
+      "skills": [
+        "./netsuite-ai-connector-instructions",
+        "./netsuite-sdf-roles-and-permissions",
+        "./netsuite-uif-spa-reference"
+      ],
+      "homepage": "https://github.com/oracle/netsuite-suitecloud-sdk"
     },
     {
       "name": "nightvision",
