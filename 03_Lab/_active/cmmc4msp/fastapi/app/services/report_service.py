@@ -19,7 +19,8 @@ from reportlab.platypus import (
     PageBreak,
 )
 
-from app.services.minio_service import upload_bytes, get_presigned_download_url, ensure_bucket
+from app.config import settings as _settings
+from app.services.minio_service import upload_bytes, get_proxy_download_url, ensure_bucket
 
 REPORTS_BUCKET = "cmmc-reports"
 
@@ -207,7 +208,7 @@ async def generate_ssp_pdf(
     ensure_bucket(minio_client, REPORTS_BUCKET)
     key = f"{program_id}/ssp_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
     upload_bytes(minio_client, REPORTS_BUCKET, key, pdf_bytes, "application/pdf")
-    return get_presigned_download_url(minio_public or minio_client, REPORTS_BUCKET, key)
+    return get_proxy_download_url(REPORTS_BUCKET, key, _settings.api_url, _settings.webhook_secret)
 
 
 # ---------------------------------------------------------------------------
@@ -326,4 +327,4 @@ async def generate_poam_pdf(
     ensure_bucket(minio_client, REPORTS_BUCKET)
     key = f"{program_id}/poam_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
     upload_bytes(minio_client, REPORTS_BUCKET, key, pdf_bytes, "application/pdf")
-    return get_presigned_download_url(minio_public or minio_client, REPORTS_BUCKET, key)
+    return get_proxy_download_url(REPORTS_BUCKET, key, _settings.api_url, _settings.webhook_secret)

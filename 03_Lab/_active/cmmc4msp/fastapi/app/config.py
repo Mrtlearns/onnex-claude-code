@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     # App
     app_url: str = "http://localhost:3000"
+    api_url: str = "https://api.cmmc4msp.on-nex.us"
 
     # Webhook auth (n8n callbacks)
     webhook_secret: str = ""

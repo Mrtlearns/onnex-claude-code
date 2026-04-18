@@ -1,11 +1,15 @@
 """Reports router — SSP, POA&M PDF generation and download listing."""
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac
+import time
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.database import get_db
@@ -40,6 +44,44 @@ async def _check_program_access(program_id: uuid.UUID, user: dict, conn: asyncpg
     if user.get("role") not in ("super_admin", "msp_admin"):
         require_same_org(str(prog["org_id"]), user)
     return prog
+
+
+_ALLOWED_BUCKETS = frozenset({"cmmc-reports", "cmmc-artifacts", "cmmc-exports"})
+
+
+@router.get("/download")
+async def proxy_download(
+    request: Request,
+    bucket: str = Query(...),
+    key: str = Query(...),
+    exp: int = Query(...),
+    sig: str = Query(...),
+) -> StreamingResponse:
+    """Proxy-download a MinIO object. URL must be signed by get_proxy_download_url()."""
+    if int(time.time()) > exp:
+        raise HTTPException(status_code=403, detail="Download link expired")
+
+    payload = f"{bucket}:{key}:{exp}"
+    expected = _hmac.new(
+        settings.webhook_secret.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+    if not _hmac.compare_digest(sig, expected):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    if bucket not in _ALLOWED_BUCKETS:
+        raise HTTPException(status_code=400, detail="Invalid bucket")
+
+    try:
+        minio_client = request.app.state.minio
+        obj = minio_client.get_object(bucket, key)
+        filename = key.split("/")[-1]
+        return StreamingResponse(
+            obj,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not retrieve file: {exc}")
 
 
 @router.post("/{program_id}/ssp")
