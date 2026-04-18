@@ -322,7 +322,8 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "timezone": "UTC"
+    "timezone": "UTC",
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
   },
   "staticData": null,
   "tags": [],

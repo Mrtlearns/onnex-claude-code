@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import dynamic from 'next/dynamic'
 import './globals.css'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Load client-only providers without SSR to prevent Apollo/React context conflict.
 // Navbar is rendered inside Providers because it uses useSession and Apollo.
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gray-50 text-gray-900 min-h-screen">
         <Providers>
           {/* Navbar lives inside Providers — needs session + Apollo context */}
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </Providers>
       </body>
     </html>

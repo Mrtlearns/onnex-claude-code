@@ -363,3 +363,36 @@ export const GET_ADMIN_MSPS = gql`
     }
   }
 `
+
+export const GET_RECENT_ERRORS = gql`
+  query GetRecentErrors($limit: Int!) {
+    error_events(
+      where: { triaged: { _eq: false } }
+      order_by: { created_at: desc }
+      limit: $limit
+    ) {
+      id
+      source
+      component
+      severity
+      message
+      created_at
+      correlation_id
+      org_id
+    }
+  }
+`
+
+export const GET_LATEST_TRIAGE_REPORT = gql`
+  query GetLatestTriageReport {
+    triage_reports(order_by: { created_at: desc }, limit: 1) {
+      id
+      status
+      event_count
+      report
+      error_message
+      created_at
+      completed_at
+    }
+  }
+`

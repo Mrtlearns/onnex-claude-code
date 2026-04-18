@@ -1,17 +1,25 @@
 """CMMC Compliance OS — FastAPI entry point."""
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import httpx
+import redis.asyncio as aioredis
+
+from app.logging_config import configure_logging, get_logger
+
+configure_logging()
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from minio import Minio
 
 from app.config import settings
 from app.database import create_pool
-from app.routers import analytics, artifacts, assessments, assignments, audit, controls, integrations, invites, msps, notifications, orgs, programs, reports, suggestions, webhooks, ssp_interview
+from app.routers import analytics, artifacts, assessments, assignments, audit, client_errors, controls, integrations, invites, msps, notifications, orgs, programs, reports, suggestions, triage, webhooks, ssp_interview
 from app.services.minio_service import ensure_bucket
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -61,6 +69,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.middleware.correlation import CorrelationIdMiddleware
+from app.middleware.access_log import AccessLogMiddleware
+from app.middleware.exception_handlers import register_exception_handlers
+
 # CORS — allow frontend origin + local dev
 _origins = [settings.app_url, "http://localhost:3000"]
 
@@ -71,6 +83,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Middleware order: CorrelationId runs first (outermost), AccessLog wraps inside it
+app.add_middleware(AccessLogMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
+
+register_exception_handlers(app)
 
 app.include_router(msps.router, prefix="/api/msps", tags=["msps"])
 app.include_router(orgs.router, prefix="/api/orgs", tags=["orgs"])
@@ -88,21 +106,73 @@ app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ssp_interview.router, prefix="/api/programs/{program_id}/ssp-interview", tags=["ssp_interview"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
+app.include_router(triage.router, prefix="/api/triage", tags=["triage"])
+app.include_router(client_errors.router, prefix="/api/client-errors", tags=["client-errors"])
 
 
 @app.get("/health")
-async def health():
-    """Health check — verifies DB connectivity."""
-    db_ok = False
+async def health(request: Request):
+    """Health check — verifies DB, MinIO, Redis, n8n, and OpenRouter connectivity."""
+    components: dict[str, str] = {}
+
+    # --- Postgres ---
     try:
         async with app.state.pool.acquire() as conn:
-            await conn.fetchval("SELECT 1")
-        db_ok = True
+            await asyncio.wait_for(conn.fetchval("SELECT 1"), timeout=4)
+        components["postgres"] = "up"
     except Exception:
-        pass
+        components["postgres"] = "down"
+
+    # --- MinIO ---
+    try:
+        minio = app.state.minio
+
+        def _minio_check():
+            minio.list_buckets()
+
+        loop = asyncio.get_event_loop()
+        await asyncio.wait_for(loop.run_in_executor(None, _minio_check), timeout=4)
+        components["minio"] = "up"
+    except Exception:
+        components["minio"] = "down"
+
+    # --- Redis ---
+    try:
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=3)
+        await asyncio.wait_for(r.ping(), timeout=4)
+        await r.aclose()
+        components["redis"] = "up"
+    except Exception:
+        components["redis"] = "down"
+
+    # --- n8n ---
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(f"{settings.n8n_internal_url}/healthz")
+            components["n8n"] = "up" if resp.status_code < 500 else "degraded"
+    except Exception:
+        components["n8n"] = "down"
+
+    # --- OpenRouter ---
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            resp = await client.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
+            )
+            components["openrouter"] = "up" if resp.status_code < 500 else "degraded"
+    except Exception:
+        components["openrouter"] = "down"
+
+    all_up = all(v == "up" for v in components.values())
+    any_down = any(v == "down" for v in components.values())
+    status = "ok" if all_up else ("down" if any_down else "degraded")
+
+    cid = getattr(request.state, "correlation_id", None)
 
     return {
-        "status": "ok" if db_ok else "degraded",
+        "status": status,
         "service": "cmmc-api",
-        "db": "up" if db_ok else "down",
+        "components": components,
+        "correlation_id": cid,
     }

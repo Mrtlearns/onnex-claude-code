@@ -1,1 +1,214 @@
-{"updatedAt":"2026-04-16T00:36:43.872Z","createdAt":"2026-04-16T00:36:43.872Z","id":"7ee20685-8a0a-533d-bff1-20d108c93a63","name":"08 â€” Report Generator","description":null,"active":true,"isArchived":false,"nodes":[{"id":"a1b2c3d4-0008-0008-0008-000000000001","name":"Webhook","type":"n8n-nodes-base.webhook","typeVersion":1,"position":[250,300],"parameters":{"httpMethod":"POST","path":"report-generator","responseMode":"responseNode"}},{"id":"a1b2c3d4-0008-0008-0008-000000000002","name":"Generate Report via FastAPI","type":"n8n-nodes-base.httpRequest","typeVersion":1,"position":[450,300],"parameters":{"url":"http://fastapi:8000/api/reports/{{ $json.body.program_id }}/{{ $json.body.report_type }}","sendHeaders":true,"sendBody":true,"bodyParametersJson":"={{ JSON.stringify({ program_id: $json.body.program_id, report_type: $json.body.report_type }) }}","jsonParameters":true,"options":{"timeout":120000},"requestMethod":"POST","headerParametersJson":"={\"X-Webhook-Secret\": \"cmmc4msp-webhook-2026\"}"}},{"id":"a1b2c3d4-0008-0008-0008-000000000003","name":"Respond with Download URL","type":"n8n-nodes-base.respondToWebhook","typeVersion":1,"position":[650,300],"parameters":{"respondWith":"json","responseBody":"={{ JSON.stringify({ download_url: $json.download_url, program_id: $('Webhook').first().json.program_id, report_type: $('Webhook').first().json.report_type }) }}"}}],"connections":{"Webhook":{"main":[[{"node":"Generate Report via FastAPI","type":"main","index":0}]]},"Generate Report via FastAPI":{"main":[[{"node":"Respond with Download URL","type":"main","index":0}]]}},"settings":{"executionOrder":"v1"},"staticData":null,"meta":null,"pinData":null,"versionId":"3b834696-fa75-40fc-bf48-6202804a8ce8","activeVersionId":"3b834696-fa75-40fc-bf48-6202804a8ce8","versionCounter":31,"triggerCount":1,"shared":[{"updatedAt":"2026-04-16T00:36:43.872Z","createdAt":"2026-04-16T00:36:43.872Z","role":"workflow:owner","workflowId":"7ee20685-8a0a-533d-bff1-20d108c93a63","projectId":"U0PYrpX3edrSBUHJ","project":{"updatedAt":"2026-04-15T20:48:33.017Z","createdAt":"2026-04-15T20:48:33.017Z","id":"U0PYrpX3edrSBUHJ","name":"Unnamed Project","type":"personal","icon":null,"description":null,"creatorId":"0f300145-c953-45ee-8a7d-2de97cf205c7"}}],"tags":[],"activeVersion":{"updatedAt":"2026-04-16T00:36:43.872Z","createdAt":"2026-04-16T00:36:43.872Z","versionId":"3b834696-fa75-40fc-bf48-6202804a8ce8","workflowId":"7ee20685-8a0a-533d-bff1-20d108c93a63","nodes":[{"id":"a1b2c3d4-0008-0008-0008-000000000001","name":"Webhook","type":"n8n-nodes-base.webhook","typeVersion":1,"position":[250,300],"parameters":{"httpMethod":"POST","path":"report-generator","responseMode":"responseNode"}},{"id":"a1b2c3d4-0008-0008-0008-000000000002","name":"Generate Report via FastAPI","type":"n8n-nodes-base.httpRequest","typeVersion":1,"position":[450,300],"parameters":{"url":"http://fastapi:8000/api/reports/{{ $json.body.program_id }}/{{ $json.body.report_type }}","sendHeaders":true,"sendBody":true,"bodyParametersJson":"={{ JSON.stringify({ program_id: $json.body.program_id, report_type: $json.body.report_type }) }}","jsonParameters":true,"options":{"timeout":120000},"requestMethod":"POST","headerParametersJson":"={\"X-Webhook-Secret\": \"cmmc4msp-webhook-2026\"}"}},{"id":"a1b2c3d4-0008-0008-0008-000000000003","name":"Respond with Download URL","type":"n8n-nodes-base.respondToWebhook","typeVersion":1,"position":[650,300],"parameters":{"respondWith":"json","responseBody":"={{ JSON.stringify({ download_url: $json.download_url, program_id: $('Webhook').first().json.program_id, report_type: $('Webhook').first().json.report_type }) }}"}}],"connections":{"Webhook":{"main":[[{"node":"Generate Report via FastAPI","type":"main","index":0}]]},"Generate Report via FastAPI":{"main":[[{"node":"Respond with Download URL","type":"main","index":0}]]}},"authors":"import","name":null,"description":null,"autosaved":false,"workflowPublishHistory":[{"createdAt":"2026-04-16T09:34:30.740Z","id":6,"workflowId":"7ee20685-8a0a-533d-bff1-20d108c93a63","versionId":"3b834696-fa75-40fc-bf48-6202804a8ce8","event":"activated","userId":"0f300145-c953-45ee-8a7d-2de97cf205c7"}]}}
+{
+  "updatedAt": "2026-04-16T00:36:43.872Z",
+  "createdAt": "2026-04-16T00:36:43.872Z",
+  "id": "7ee20685-8a0a-533d-bff1-20d108c93a63",
+  "name": "08 \u00e2\u20ac\u201d Report Generator",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0008-0008-0008-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "report-generator",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0008-0008-0008-000000000002",
+      "name": "Generate Report via FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "url": "http://fastapi:8000/api/reports/{{ $json.body.program_id }}/{{ $json.body.report_type }}",
+        "sendHeaders": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ program_id: $json.body.program_id, report_type: $json.body.report_type }) }}",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 120000
+        },
+        "requestMethod": "POST",
+        "headerParametersJson": "={\"X-Webhook-Secret\": \"cmmc4msp-webhook-2026\"}"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0008-0008-0008-000000000003",
+      "name": "Respond with Download URL",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ download_url: $json.download_url, program_id: $('Webhook').first().json.program_id, report_type: $('Webhook').first().json.report_type }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Report via FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report via FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Respond with Download URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "3b834696-fa75-40fc-bf48-6202804a8ce8",
+  "activeVersionId": "3b834696-fa75-40fc-bf48-6202804a8ce8",
+  "versionCounter": 31,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-04-16T00:36:43.872Z",
+      "createdAt": "2026-04-16T00:36:43.872Z",
+      "role": "workflow:owner",
+      "workflowId": "7ee20685-8a0a-533d-bff1-20d108c93a63",
+      "projectId": "U0PYrpX3edrSBUHJ",
+      "project": {
+        "updatedAt": "2026-04-15T20:48:33.017Z",
+        "createdAt": "2026-04-15T20:48:33.017Z",
+        "id": "U0PYrpX3edrSBUHJ",
+        "name": "Unnamed Project",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-04-16T00:36:43.872Z",
+    "createdAt": "2026-04-16T00:36:43.872Z",
+    "versionId": "3b834696-fa75-40fc-bf48-6202804a8ce8",
+    "workflowId": "7ee20685-8a0a-533d-bff1-20d108c93a63",
+    "nodes": [
+      {
+        "id": "a1b2c3d4-0008-0008-0008-000000000001",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [
+          250,
+          300
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "report-generator",
+          "responseMode": "responseNode"
+        }
+      },
+      {
+        "id": "a1b2c3d4-0008-0008-0008-000000000002",
+        "name": "Generate Report via FastAPI",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 1,
+        "position": [
+          450,
+          300
+        ],
+        "parameters": {
+          "url": "http://fastapi:8000/api/reports/{{ $json.body.program_id }}/{{ $json.body.report_type }}",
+          "sendHeaders": true,
+          "sendBody": true,
+          "bodyParametersJson": "={{ JSON.stringify({ program_id: $json.body.program_id, report_type: $json.body.report_type }) }}",
+          "jsonParameters": true,
+          "options": {
+            "timeout": 120000
+          },
+          "requestMethod": "POST",
+          "headerParametersJson": "={\"X-Webhook-Secret\": \"cmmc4msp-webhook-2026\"}"
+        }
+      },
+      {
+        "id": "a1b2c3d4-0008-0008-0008-000000000003",
+        "name": "Respond with Download URL",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [
+          650,
+          300
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ download_url: $json.download_url, program_id: $('Webhook').first().json.program_id, report_type: $('Webhook').first().json.report_type }) }}"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Generate Report via FastAPI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Report via FastAPI": {
+        "main": [
+          [
+            {
+              "node": "Respond with Download URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "import",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-04-16T09:34:30.740Z",
+        "id": 6,
+        "workflowId": "7ee20685-8a0a-533d-bff1-20d108c93a63",
+        "versionId": "3b834696-fa75-40fc-bf48-6202804a8ce8",
+        "event": "activated",
+        "userId": "0f300145-c953-45ee-8a7d-2de97cf205c7"
+      }
+    ]
+  }
+}

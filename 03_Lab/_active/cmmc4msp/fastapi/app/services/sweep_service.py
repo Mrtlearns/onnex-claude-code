@@ -6,6 +6,9 @@ import asyncio
 import httpx
 import asyncpg
 from app.config import settings
+from app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 SWEEP_MODEL = "anthropic/claude-sonnet-4-6"
@@ -147,9 +150,20 @@ Return ONLY valid JSON."""
             )
 
         except Exception as exc:
+            import traceback as _tb
+            from app.services import error_events_service
+            logger.exception("background_task_failed", task="program_sweep", exc=str(exc))
             await conn.execute(
                 "UPDATE program_sweeps SET status='failed', error_message=$1, completed_at=now() WHERE id=$2",
                 str(exc)[:500],
                 sweep_id,
+            )
+            await error_events_service.record(
+                conn,
+                source="fastapi",
+                component="sweep_service.run_program_sweep",
+                message=str(exc),
+                severity="error",
+                stack_trace=_tb.format_exc(),
             )
             raise

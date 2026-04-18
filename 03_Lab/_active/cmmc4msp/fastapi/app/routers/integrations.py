@@ -9,6 +9,10 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.logging_config import get_logger
+from app.services import error_events_service
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -139,11 +143,26 @@ async def trigger_sync(
         raise HTTPException(403, "Access denied")
 
     async def _sync():
+        import traceback as _tb
         from app.services.integration_service import sync_integration
         try:
             await sync_integration(int_uid, conn)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.exception("background_task_failed", task="integration_sync", exc=str(exc))
+            await error_events_service.record(
+                conn,
+                source="fastapi",
+                component="integrations.sync",
+                message=str(exc),
+                severity="error",
+                stack_trace=_tb.format_exc(),
+                org_id=str(integration["org_id"]) if integration["org_id"] else None,
+            )
+            await conn.execute(
+                "UPDATE integrations SET status='error', error_message=$1 WHERE id=$2",
+                str(exc)[:2000],
+                int_uid,
+            )
 
     background_tasks.add_task(_sync)
     return {"status": "syncing", "integration_id": integration_id}

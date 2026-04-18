@@ -221,7 +221,7 @@
   "settings": {
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
   },
   "id": "d8d8217b-0b82-4828-baa0-08853b873497"
 }

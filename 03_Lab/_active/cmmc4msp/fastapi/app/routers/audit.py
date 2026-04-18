@@ -12,7 +12,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.database import get_db
 from app.deps import get_current_user, require_msp_admin
+from app.logging_config import get_logger
+from app.services import error_events_service
 from app.services.minio_service import download_bytes, get_presigned_download_url, upload_bytes
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -201,7 +205,19 @@ async def _generate_audit_package(
             artifact_count,
             package_id,
         )
-    except Exception:
+    except Exception as exc:
+        import traceback as _tb
+        logger.exception("background_task_failed", task="audit_package_generation", exc=str(exc))
+        await error_events_service.record(
+            conn,
+            source="fastapi",
+            component="audit._generate_audit_package",
+            message=str(exc),
+            severity="error",
+            stack_trace=_tb.format_exc(),
+        )
         await conn.execute(
-            "UPDATE audit_packages SET status = 'error' WHERE id = $1", package_id
+            "UPDATE audit_packages SET status = 'error', error_message=$1 WHERE id = $2",
+            str(exc)[:2000],
+            package_id,
         )

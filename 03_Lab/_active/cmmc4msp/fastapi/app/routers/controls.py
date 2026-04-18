@@ -12,9 +12,13 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
+from app.logging_config import get_logger
 from app.models import ControlStatusUpdate
 from app.services import sprs_service
+from app.services import error_events_service
 from app.services.copilot_service import build_context, stream_chat
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -631,11 +635,25 @@ async def trigger_gap_analysis(
         raise HTTPException(403, "Access denied")
 
     async def _run():
+        import traceback as _tb
         from app.services.gap_analysis_service import run_gap_analysis
         try:
             await run_gap_analysis(pc_uid, _uuid.UUID(user["user_id"]), conn)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.exception("background_task_failed", task="gap_analysis", exc=str(exc))
+            await error_events_service.record(
+                conn,
+                source="fastapi",
+                component="controls.gap_analysis",
+                message=str(exc),
+                severity="error",
+                stack_trace=_tb.format_exc(),
+            )
+            await conn.execute(
+                "UPDATE control_gap_analyses SET status='failed', error_message=$1 WHERE program_control_id=$2 ORDER BY created_at DESC LIMIT 1",
+                str(exc)[:2000],
+                pc_uid,
+            )
 
     background_tasks.add_task(_run)
     return {"status": "generating", "message": "Gap analysis started. Poll GET /gap-analysis for results."}

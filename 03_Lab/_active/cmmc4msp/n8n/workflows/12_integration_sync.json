@@ -141,7 +141,8 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
   },
   "id": "26b6bcda-bd41-48d6-8592-e326b1adfbc7"
 }

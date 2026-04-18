@@ -4,6 +4,13 @@ version: '3.8'
 # External MinIO on TrueNAS (10.10.20.30:9000) — no local MinIO container
 # TLS terminated at traefik-a (10.10.30.35) — services run plain HTTP
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+    labels: "container_name"
+
 networks:
   cmmc-internal:
     driver: bridge
@@ -25,6 +32,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: cmmc-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -45,6 +53,7 @@ services:
     image: redis:7-alpine
     container_name: cmmc-redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - redis_data:/data
@@ -61,6 +70,7 @@ services:
     image: ghcr.io/goauthentik/server:2024.12.3
     container_name: cmmc-authentik-server
     restart: unless-stopped
+    logging: *default-logging
     command: server
     environment:
       AUTHENTIK_REDIS__HOST: redis
@@ -99,6 +109,7 @@ services:
     image: ghcr.io/goauthentik/server:2024.12.3
     container_name: cmmc-authentik-worker
     restart: unless-stopped
+    logging: *default-logging
     command: worker
     environment:
       AUTHENTIK_REDIS__HOST: redis
@@ -125,6 +136,7 @@ services:
     image: n8nio/n8n:latest
     container_name: cmmc-n8n
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
@@ -171,6 +183,7 @@ services:
       dockerfile: Dockerfile
     container_name: cmmc-fastapi
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -215,6 +228,7 @@ services:
     image: hasura/graphql-engine:v2.42.0
     container_name: cmmc-hasura
     restart: unless-stopped
+    logging: *default-logging
     environment:
       HASURA_GRAPHQL_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/cmmc_main
       HASURA_GRAPHQL_METADATA_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/hasura_meta
@@ -249,6 +263,7 @@ services:
         NEXT_PUBLIC_API_URL: https://api.cmmc4msp.on-nex.us
     container_name: cmmc-nextjs
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NEXT_PUBLIC_HASURA_URL: https://gql.${BASE_DOMAIN}
       NEXT_PUBLIC_HASURA_WS_URL: wss://gql.${BASE_DOMAIN}
