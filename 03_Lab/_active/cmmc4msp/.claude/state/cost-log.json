@@ -19,16 +19,17 @@
     {
       "date": "2026-04-18",
       "tools": {
-        "Glob": 2,
-        "Read": 6,
-        "Bash": 45,
+        "Glob": 4,
+        "Read": 24,
+        "Bash": 51,
         "Write": 1,
         "ToolSearch": 2,
         "Monitor": 1,
-        "Edit": 1
+        "Edit": 1,
+        "Agent": 3
       },
-      "total_calls": 58,
-      "weight_total": 50
+      "total_calls": 87,
+      "weight_total": 86
     }
   ]
 }
