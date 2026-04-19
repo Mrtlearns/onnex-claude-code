@@ -374,7 +374,7 @@ export async function apiCreateStaff(token: string, body: CreateStaffInput): Pro
   })
 }
 
-export async function apiPatchStaff(token: string, userId: string, body: Partial<Pick<UserProfile, "timezone" | "job_title" | "phone"> & { status: string }>): Promise<void> {
+export async function apiPatchStaff(token: string, userId: string, body: Partial<Pick<UserProfile, "display_name" | "timezone" | "job_title" | "phone" | "avatar_url"> & { status: string }>): Promise<void> {
   await apiFetch<void>(`/api/v1/admin/staff/${userId}`, token, {
     method: "PATCH",
     body: JSON.stringify(body),

@@ -1,6 +1,7 @@
 "use client"
 // Staff directory tab — shows all user_profiles with role/status management
 
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/table"
 import type { StaffMember } from "@/types/api"
 import { OnboardStaffDialog } from "./onboard-staff-dialog"
+import { EditStaffDialog } from "./edit-staff-dialog"
 
 function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -22,6 +24,7 @@ function initials(name: string) {
 
 export function StaffTab() {
   const qc = useQueryClient()
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null)
 
   const { data: staff = [], isLoading } = useQuery<StaffMember[]>({
     queryKey: ["staff"],
@@ -109,19 +112,36 @@ export function StaffTab() {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={member.status === "archived" || archiveMutation.isPending}
-                    onClick={() => handleArchive(member)}
-                  >
-                    Archive
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingMember(member)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={member.status === "archived" || archiveMutation.isPending}
+                      onClick={() => handleArchive(member)}
+                    >
+                      Archive
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      )}
+
+      {editingMember && (
+        <EditStaffDialog
+          member={editingMember}
+          open={!!editingMember}
+          onOpenChange={(v) => { if (!v) setEditingMember(null) }}
+        />
       )}
     </div>
   )

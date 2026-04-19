@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react"
 import {
   LayoutDashboard, Users, FolderKanban, CheckSquare, Handshake,
   FileText, Clock, File, BarChart2, Shield, Bell, Bot, Settings2,
-  ExternalLink, Menu, BrainCircuit, Brain, Zap,
+  ExternalLink, Menu, BrainCircuit, Brain, Zap, SlidersHorizontal,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -31,9 +31,10 @@ export const NAV_ITEMS = [
   { label: "SOPs",          href: "/ai-brain",      icon: Brain,           permission: "read:all",        phase: 12 },
   // DEV NOTE: brain-cognitive is an optional feature module — remove this line + the brain-cognitive dirs to disable
   { label: "BRAIN",         href: "/brain-cognitive", icon: BrainCircuit,  permission: "read:all",        phase: 12 },
-  { label: "Tools",         href: "/tools",         icon: Zap,             permission: "manage:all",      phase: 12 },
-  { label: "Admin",         href: "/admin",         icon: Shield,          permission: "manage:all",      phase: 11 },
-  { label: "Settings",      href: "/settings",      icon: Settings2,       permission: "read:all",        phase: 12 },
+  { label: "Tools",           href: "/tools",                   icon: Zap,               permission: "manage:all", phase: 12 },
+  { label: "System Settings", href: "/admin/system-settings",   icon: SlidersHorizontal, permission: "manage:all", phase: 12 },
+  { label: "Admin",           href: "/admin",                   icon: Shield,            permission: "manage:all", phase: 11 },
+  { label: "Settings",        href: "/settings",                icon: Settings2,         permission: "read:all",   phase: 12 },
   { label: "Client Portal", href: "/portal",        icon: ExternalLink,    permission: "read:own_portal", phase: 12 },
 ] as const
 

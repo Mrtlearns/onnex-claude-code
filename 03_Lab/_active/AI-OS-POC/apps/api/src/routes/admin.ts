@@ -292,17 +292,19 @@ export async function adminRoutes(fastify: FastifyInstance) {
     ],
     handler: async (request: any, reply: any) => {
       const { id } = request.params as any
-      const { timezone, job_title, phone, status } = request.body as any
+      const { timezone, job_title, phone, status, display_name, avatar_url } = request.body as any
       const actor = request.user
       const tenantId = actor?.tenant_id ?? 'default'
 
       const setClauses: string[] = []
       const values: unknown[] = []
       let i = 1
-      if (timezone !== undefined)  { setClauses.push(`timezone = $${i++}`);  values.push(timezone) }
-      if (job_title !== undefined) { setClauses.push(`job_title = $${i++}`); values.push(job_title) }
-      if (phone !== undefined)     { setClauses.push(`phone = $${i++}`);     values.push(phone) }
-      if (status !== undefined)    { setClauses.push(`status = $${i++}`);    values.push(status) }
+      if (display_name !== undefined) { setClauses.push(`display_name = $${i++}`); values.push(display_name) }
+      if (timezone !== undefined)     { setClauses.push(`timezone = $${i++}`);     values.push(timezone) }
+      if (job_title !== undefined)    { setClauses.push(`job_title = $${i++}`);    values.push(job_title) }
+      if (phone !== undefined)        { setClauses.push(`phone = $${i++}`);        values.push(phone) }
+      if (status !== undefined)       { setClauses.push(`status = $${i++}`);       values.push(status) }
+      if (avatar_url !== undefined)   { setClauses.push(`avatar_url = $${i++}`);   values.push(avatar_url) }
       setClauses.push('updated_at = now()')
 
       if (setClauses.length > 1) {
@@ -316,6 +318,38 @@ export async function adminRoutes(fastify: FastifyInstance) {
         'staff_updated', 'user', id, null, { timezone, job_title, phone, status })
 
       return reply.code(200).send({ updated: true })
+    },
+  })
+
+  // POST /api/v1/admin/staff/:id/set-password — admin resets any user's Authentik password
+  fastify.post('/api/v1/admin/staff/:id/set-password', {
+    preHandler: [
+      (fastify as any).authenticate,
+      requireRole(['admin', 'super_admin']),
+    ],
+    handler: async (request: any, reply: any) => {
+      const { id } = request.params as any
+      const { password } = request.body as { password: string }
+      if (!password || password.length < 8) {
+        return reply.code(400).send({ error: 'Password must be at least 8 characters' })
+      }
+      // Look up Authentik PK from UID stored in user_profiles
+      const akResp = await authentikFetch(
+        `/api/v3/core/users/?search=${encodeURIComponent(id)}&page_size=5`,
+      )
+      const akData = await akResp.json() as { results: any[] }
+      const akUser = akData.results.find((u: any) => u.uid === id)
+      if (!akUser) return reply.code(404).send({ error: 'Authentik user not found' })
+
+      await authentikFetch(`/api/v3/core/users/${akUser.pk}/set_password/`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      })
+
+      await insertAuditLog(pool, fastify, request.user?.sub ?? null, request.user?.name ?? null,
+        'staff_password_reset', 'user', id, null, {})
+
+      return reply.code(200).send({ ok: true })
     },
   })
 
