@@ -236,7 +236,10 @@ export const GET_MY_ASSIGNMENTS = gql`
   query GetMyAssignments($userId: uuid!) {
     assignments(
       where: { assigned_to: { _eq: $userId } }
-      order_by: { due_date: asc_nulls_last }
+      order_by: [
+        { program_control: { control_definition: { dod_score_value: desc_nulls_last } } }
+        { due_date: asc_nulls_last }
+      ]
     ) {
       id
       status
@@ -254,6 +257,7 @@ export const GET_MY_ASSIGNMENTS = gql`
           family_abbrev
           requirement_text
           far_above_phase
+          dod_score_value
         }
       }
     }

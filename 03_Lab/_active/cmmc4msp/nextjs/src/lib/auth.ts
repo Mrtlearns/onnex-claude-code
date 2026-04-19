@@ -108,8 +108,9 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   callbacks: {
     async jwt({ token, account, profile }: any) {
-      // Initial sign-in — store all tokens and expiry
+      // Initial sign-in — store all tokens, expiry, and resolved DB user id
       if (account && profile) {
+        const dbUserId = await resolveDbUserId(profile.email)
         return {
           ...token,
           idToken: account.id_token || account.access_token,
@@ -122,7 +123,15 @@ export const authOptions: NextAuthOptions = {
           org_id: profile.org_id || '',
           msp_id: profile.msp_id || '',
           role: profile.role || 'client_user',
+          dbUserId,
+          email: profile.email,
         }
+      }
+
+      // Late-resolve: if dbUserId missing (e.g. user was provisioned after sign-in),
+      // try once per token refresh. Cheap — single Hasura query.
+      if (!token.dbUserId && token.email) {
+        token.dbUserId = await resolveDbUserId(token.email)
       }
 
       // Token still valid — return as-is
@@ -138,7 +147,10 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).org_id = token.org_id
         ;(session.user as any).msp_id = token.msp_id
         ;(session.user as any).role = token.role
-        ;(session.user as any).id = token.sub
+        // Prefer resolved DB UUID for queries against users.id / assigned_to.
+        // Fall back to JWT sub for brand-new Authentik users without a DB row yet.
+        ;(session.user as any).id = token.dbUserId || token.sub
+        ;(session.user as any).sub = token.sub
         ;(session.user as any).tokenError = token.error
       }
       return session

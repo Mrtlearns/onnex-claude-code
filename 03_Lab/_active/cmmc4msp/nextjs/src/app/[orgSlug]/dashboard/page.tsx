@@ -9,6 +9,8 @@ import { PhaseProgress } from '@/components/PhaseProgress'
 import { DomainHeatmap } from '@/components/DomainHeatmap'
 import { ActivityFeed } from '@/components/ActivityFeed'
 import { AlsoSatisfiedPanel } from '@/components/AlsoSatisfiedPanel'
+import { PersonalWelcomePanel } from '@/components/PersonalWelcomePanel'
+import { TeamProgressPanel } from '@/components/TeamProgressPanel'
 import { ShieldCheckIcon, ClipboardDocumentListIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 
 interface DashboardProps {
@@ -96,15 +98,26 @@ function MyTasksWidget({ userId, orgSlug }: { userId: string; orgSlug: string })
   )
 }
 
-function ClientUserView({ userId, orgSlug, program }: { userId: string; orgSlug: string; program: any }) {
+function ClientUserView({ userId, orgSlug, program, programId }: {
+  userId: string
+  orgSlug: string
+  program: any
+  programId: string
+}) {
+  const currentPhase = program?.current_phase ?? '1'
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-gray-900">My Dashboard</h1>
         <p className="text-sm text-gray-500">
-          {program?.name ?? 'CMMC Level 2'} — Phase {program?.current_phase ?? 1} of 5
+          {program?.name ?? 'CMMC Level 2'} — Phase {currentPhase} of 5
         </p>
       </div>
+
+      {/* Personal context panel */}
+      {programId && (
+        <PersonalWelcomePanel programId={programId} currentPhase={currentPhase} orgSlug={orgSlug} />
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <MyTasksWidget userId={userId} orgSlug={orgSlug} />
@@ -195,7 +208,7 @@ export default function DashboardPage({ params }: DashboardProps) {
 
   // client_user gets a simplified view
   if (role === 'client_user') {
-    return <ClientUserView userId={user?.id} orgSlug={orgSlug} program={liveProgram} />
+    return <ClientUserView userId={user?.id} orgSlug={orgSlug} program={liveProgram} programId={programId ?? ''} />
   }
 
   const sprsScore = liveProgram?.sprs_score ?? 0
@@ -224,6 +237,11 @@ export default function DashboardPage({ params }: DashboardProps) {
       {/* MSP/super_admin action panel */}
       {(role === 'msp_admin' || role === 'super_admin') && (
         <MspActionsPanel orgSlug={orgSlug} />
+      )}
+
+      {/* Personal welcome panel — shown to client_admin, msp_admin, super_admin */}
+      {programId && (
+        <PersonalWelcomePanel programId={programId} currentPhase={currentPhase} orgSlug={orgSlug} />
       )}
 
       {/* Summary row */}
@@ -284,6 +302,16 @@ export default function DashboardPage({ params }: DashboardProps) {
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Domain Coverage Heatmap</h2>
         <DomainHeatmap programControls={programControls} orgSlug={orgSlug} />
       </div>
+
+      {/* Team progress — owners only */}
+      {programId && org?.id && (
+        <TeamProgressPanel
+          orgId={org.id}
+          programId={programId}
+          currentPhase={currentPhase}
+          userRole={role}
+        />
+      )}
     </div>
   )
 }
