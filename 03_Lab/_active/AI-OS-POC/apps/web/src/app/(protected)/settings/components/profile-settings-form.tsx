@@ -134,7 +134,7 @@ export function ProfileSettingsForm() {
               <Upload className="h-4 w-4 mr-2" />
               {uploading ? "Uploading..." : "Upload Photo"}
             </Button>
-            <p className="text-xs text-muted-foreground">JPEG or PNG, max 512 KB</p>
+            <p className="text-xs text-muted-foreground">JPEG or PNG — auto-resized to 256×256</p>
           </div>
           <input
             ref={fileRef}

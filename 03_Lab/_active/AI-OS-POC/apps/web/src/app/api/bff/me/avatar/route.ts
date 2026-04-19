@@ -1,11 +1,14 @@
-// BFF: POST /api/bff/me/avatar — multipart avatar upload → MinIO → update profile
+// BFF: POST /api/bff/me/avatar — multipart avatar upload → resize → MinIO → update profile
 import { auth } from "@/auth"
 import { NextRequest, NextResponse } from "next/server"
+import sharp from "sharp"
 import { s3PutObject, avatarKey } from "@/lib/s3-upload"
 import { apiPatchMyProfile } from "@/lib/api-client"
 
-const MINIO_PUBLIC = process.env.NEXT_PUBLIC_MINIO_URL ?? "http://10.10.110.31:9000"
+const MINIO_PUBLIC = process.env.NEXT_PUBLIC_MINIO_URL ?? "http://10.10.110.31:9002"
 const BUCKET = process.env.S3_BUCKET_UPLOADS ?? "uploads"
+const MAX_DIM = 256   // px — sufficient for avatars
+const MAX_BYTES = 512 * 1024
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -19,20 +22,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 })
   }
 
-  const maxBytes = 512 * 1024 // 512 KB
-  if (file.size > maxBytes) {
-    return NextResponse.json({ error: "File too large (max 512 KB)" }, { status: 413 })
+  const raw = Buffer.from(await file.arrayBuffer())
+
+  // Auto-resize: cap at 256×256, re-encode as JPEG quality 85, then lower quality until ≤512 KB
+  let processed = await sharp(raw).resize(MAX_DIM, MAX_DIM, { fit: "cover", position: "centre" }).jpeg({ quality: 85 }).toBuffer()
+  if (processed.length > MAX_BYTES) {
+    processed = await sharp(raw).resize(MAX_DIM, MAX_DIM, { fit: "cover", position: "centre" }).jpeg({ quality: 60 }).toBuffer()
   }
 
-  const ext = file.type === "image/png" ? "png" : "jpg"
-  // session.user.id is set by next-auth from the JWT sub claim
+  // Always store as JPEG after resize
   const userId = (session.user as { id?: string }).id ?? session.user.email?.replace(/[^a-zA-Z0-9_-]/g, "_") ?? "unknown"
-  const key = avatarKey(userId, ext)
+  const key = avatarKey(userId, "jpg")
 
-  const buffer = Buffer.from(await file.arrayBuffer())
-  await s3PutObject(key, buffer, file.type || "image/jpeg")
+  await s3PutObject(key, processed, "image/jpeg")
 
-  const avatarUrl = `${MINIO_PUBLIC}/${BUCKET}/${key}`
+  const avatarUrl = `${MINIO_PUBLIC}/${BUCKET}/${key}?t=${Date.now()}`
   await apiPatchMyProfile(session.user.token, { avatar_url: avatarUrl })
 
   return NextResponse.json({ avatar_url: avatarUrl })
