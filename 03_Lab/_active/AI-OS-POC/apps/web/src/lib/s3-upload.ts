@@ -47,7 +47,7 @@ export async function s3PutObject(
       "x-amz-content-sha256": payloadHash,
       "x-amz-date": amzDate,
     },
-    body,
+    body: body as unknown as BodyInit,
   })
 
   if (!res.ok) {
