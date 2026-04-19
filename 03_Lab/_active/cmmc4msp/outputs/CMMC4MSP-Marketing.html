@@ -30,13 +30,129 @@
     font-size: 15px;
   }
 
-  /* ── PRINT ───────────────────────────────────────── */
+  /* ── PRINT — FORCE LIGHT THEME (dark sections print badly) ─── */
   @media print {
-    body { background: white; font-size: 12px; }
-    .no-print { display: none !important; }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+    @page { margin: 16mm 14mm; size: letter; }
+
+    html, body { background: white !important; font-size: 11.5px !important; color: #0f172a !important; }
+    .no-print, .site-nav, .print-bar { display: none !important; }
     .page-break { page-break-before: always; }
-    .hero { background: var(--navy) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     section { break-inside: avoid; }
+
+    /* ── HERO → white bg, dark text ─────────────────────── */
+    .hero {
+      background: white !important;
+      color: #0f172a !important;
+      padding: 24px 0 28px !important;
+      border-bottom: 2px solid #e2e8f0 !important;
+    }
+    .hero h1 { color: #0f172a !important; font-size: 28px !important; }
+    .hero h1 span { color: #1e40af !important; }
+    .hero-sub { color: #475569 !important; font-size: 14px !important; }
+    .hero-badge {
+      background: #dbeafe !important;
+      border-color: #93c5fd !important;
+      color: #1e40af !important;
+    }
+    .stat-num { color: #0f172a !important; font-size: 22px !important; }
+    .stat-label { color: #64748b !important; }
+
+    /* ── BUTTONS → light outline, dark text ─────────────── */
+    .btn-primary, .btn-secondary {
+      background: white !important;
+      color: #1e40af !important;
+      border: 1.5px solid #1e40af !important;
+    }
+    .hero-url { color: #64748b !important; }
+    .hero-cta { display: none !important; }  /* CTAs not useful in PDF */
+
+    /* ── SECTION BACKGROUND → white ─────────────────────── */
+    section { background: white !important; padding: 28px 0 !important; }
+    .section-title { font-size: 20px !important; }
+    .section-sub  { font-size: 13px !important; }
+    .section-label { color: #1e40af !important; }
+
+    /* ── CARDS → light background + printable borders ───── */
+    .card, .feature-item, .role-row, .proof-card, .pricing-card, .timeline-content, .data-table {
+      background: white !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+      break-inside: avoid;
+    }
+    .card h3, .feature-item h3, .role-content h3, .timeline-content h3,
+    .pricing-card .pricing-tier, .pricing-card .pricing-price {
+      color: #0f172a !important;
+    }
+    .card p, .feature-item p, .role-content p, .timeline-content p,
+    .pricing-desc, .pricing-features li {
+      color: #334155 !important;
+    }
+
+    /* Problem strip */
+    .problem-strip {
+      background: #fef3c7 !important;
+      border-left: 3px solid #d97706 !important;
+      color: #78350f !important;
+    }
+
+    /* Icons */
+    .card-icon.blue  { background: #dbeafe !important; color: #1e40af !important; }
+    .card-icon.green { background: #d1fae5 !important; color: #059669 !important; }
+    .card-icon.amber { background: #fef3c7 !important; color: #d97706 !important; }
+
+    /* Numbered features */
+    .feature-num { background: #dbeafe !important; color: #1e40af !important; }
+
+    /* Timeline */
+    .timeline::before { background: #cbd5e1 !important; }
+    .timeline-dot { background: white !important; border-color: #1e40af !important; color: #1e40af !important; }
+    .timeline-dot.done { background: #059669 !important; border-color: #059669 !important; color: white !important; }
+
+    /* Role badges */
+    .role-badge.p0   { background: #fde68a !important; color: #78350f !important; }
+    .role-badge.p01  { background: #ede9fe !important; color: #4c1d95 !important; }
+    .role-badge.p10  { background: #dbeafe !important; color: #1e3a8a !important; }
+    .role-badge.p11  { background: #d1fae5 !important; color: #065f46 !important; }
+    .role-badge.p12  { background: #f3f4f6 !important; color: #374151 !important; }
+
+    /* Proof numbers */
+    .proof-num { color: #1e40af !important; font-size: 24px !important; }
+
+    /* Pricing */
+    .pricing-card.featured {
+      border: 2px solid #1e40af !important;
+    }
+    .pricing-card.featured::before {
+      background: #1e40af !important;
+      color: white !important;
+    }
+
+    /* Table */
+    .data-table { border: 1px solid #cbd5e1 !important; }
+    .data-table th { background: #f1f5f9 !important; color: #475569 !important; }
+    .data-table td { color: #334155 !important; border-top-color: #e2e8f0 !important; }
+
+    /* Tags */
+    .tag-green  { background: #d1fae5 !important; color: #065f46 !important; }
+    .tag-blue   { background: #dbeafe !important; color: #1e40af !important; }
+    .tag-amber  { background: #fef3c7 !important; color: #92400e !important; }
+
+    /* ── FOOTER → white bg, dark text ──────────────────── */
+    .footer {
+      background: white !important;
+      color: #475569 !important;
+      border-top: 2px solid #e2e8f0 !important;
+      padding: 20px 0 !important;
+    }
+    .footer h3 { color: #0f172a !important; }
+    .footer a  { color: #1e40af !important; }
+    .footer-contact { color: #64748b !important; }
+
+    /* Page break hints */
+    section + section { break-before: auto; }
+    .pricing-grid, .card-grid, .proof-grid { break-inside: avoid; }
   }
 
   /* ── LAYOUT ─────────────────────────────────────── */
