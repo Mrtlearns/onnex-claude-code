@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = file.type === "image/png" ? "png" : "jpg"
-  // Use JWT sub as user ID for the key
-  const userId = (session.user as { sub?: string }).sub ?? session.user.email ?? "unknown"
+  // session.user.id is set by next-auth from the JWT sub claim
+  const userId = (session.user as { id?: string }).id ?? session.user.email?.replace(/[^a-zA-Z0-9_-]/g, "_") ?? "unknown"
   const key = avatarKey(userId, ext)
 
   const buffer = Buffer.from(await file.arrayBuffer())

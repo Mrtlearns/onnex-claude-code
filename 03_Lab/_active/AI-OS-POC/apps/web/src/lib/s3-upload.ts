@@ -25,9 +25,11 @@ export async function s3PutObject(
   const host = new URL(S3_URL).host
   const payloadHash = hexHash(body)
 
+  // URI-encode each path segment (not the separators) per SigV4 spec
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/")
   const canonHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`
   const signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date"
-  const canonReq = `PUT\n/${BUCKET}/${key}\n\n${canonHeaders}${signedHeaders}\n${payloadHash}`
+  const canonReq = `PUT\n/${BUCKET}/${encodedKey}\n\n${canonHeaders}${signedHeaders}\n${payloadHash}`
 
   const scope = `${dateStamp}/${REGION}/s3/aws4_request`
   const sts = `AWS4-HMAC-SHA256\n${amzDate}\n${scope}\n${hexHash(canonReq)}`
@@ -39,7 +41,7 @@ export async function s3PutObject(
   const sig = createHmac("sha256", sigKey).update(sts).digest("hex")
   const auth = `AWS4-HMAC-SHA256 Credential=${ACCESS_KEY}/${scope}, SignedHeaders=${signedHeaders}, Signature=${sig}`
 
-  const res = await fetch(`${S3_URL}/${BUCKET}/${key}`, {
+  const res = await fetch(`${S3_URL}/${BUCKET}/${encodedKey}`, {
     method: "PUT",
     headers: {
       Authorization: auth,
