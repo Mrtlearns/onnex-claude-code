@@ -274,6 +274,7 @@ services:
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CMMC_CLIENT_SECRET:-placeholder}
       AUTHENTIK_ISSUER: https://auth.${BASE_DOMAIN}/application/o/cmmc4msp/
       HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_INTERNAL_URL: http://hasura:8080/v1/graphql
       HOSTNAME: "0.0.0.0"
     ports:
       - "3000:3000"

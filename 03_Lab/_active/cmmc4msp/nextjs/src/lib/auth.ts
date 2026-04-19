@@ -17,9 +17,12 @@ async function resolveDbUserId(email: string): Promise<string | null> {
   if (!base) return null
   const endpoint = base.endsWith('/v1/graphql') ? base : `${base}/v1/graphql`
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3000)
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'x-hasura-admin-secret': adminSecret,
@@ -38,6 +41,8 @@ async function resolveDbUserId(email: string): Promise<string | null> {
   } catch (err) {
     console.error('[auth] resolveDbUserId error:', err)
     return null
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -128,10 +133,11 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Late-resolve: if dbUserId missing (e.g. user was provisioned after sign-in),
-      // try once per token refresh. Cheap — single Hasura query.
-      if (!token.dbUserId && token.email) {
+      // Late-resolve: if dbUserId missing and we haven't tried yet, attempt once.
+      // dbUserIdResolved flag prevents repeated Hasura calls on every jwt refresh.
+      if (!token.dbUserId && !token.dbUserIdResolved && token.email) {
         token.dbUserId = await resolveDbUserId(token.email)
+        token.dbUserIdResolved = true
       }
 
       // Token still valid — return as-is
