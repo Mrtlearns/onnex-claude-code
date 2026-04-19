@@ -5,6 +5,26 @@
   },
   "jobs": [
     {
+      "createdAt": "2026-04-19T00:58:23.460Z",
+      "updatedAt": "2026-04-19T01:05:25.536Z",
+      "id": "task-mo524vac-ugtfc7",
+      "kind": "task",
+      "kindLabel": "rescue",
+      "title": "Codex Task",
+      "workspaceRoot": "D:/Code/Claude",
+      "jobClass": "task",
+      "summary": "Write all missing frontend and root files for the Prequal MVP in D:/Code/Claude/03_Lab/_activ...",
+      "write": true,
+      "sessionId": "f6c8746f-0b0b-47c5-bb7e-88a1017afab8",
+      "status": "running",
+      "startedAt": "2026-04-19T00:58:23.632Z",
+      "phase": "editing",
+      "pid": 47368,
+      "logFile": "C:\\Users\\mrtma\\.claude\\plugins\\data\\codex-openai-codex\\state\\Claude-a12d146f0951c25f\\jobs\\task-mo524vac-ugtfc7.log",
+      "threadId": "019da33f-0c3c-7673-8a26-e62bc1445487",
+      "turnId": "019da33f-0ffd-77d1-9615-fe373bf82253"
+    },
+    {
       "createdAt": "2026-04-18T20:06:54.069Z",
       "updatedAt": "2026-04-18T20:13:14.472Z",
       "id": "task-mo4rq0dx-5zwgfh",
