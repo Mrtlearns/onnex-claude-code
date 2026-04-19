@@ -106,6 +106,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         org_id: str = payload.get("org_id", "")
         role: str = payload.get("role", "client_user")
         msp_id: str = payload.get("msp_id", "")
+        email: str = payload.get("email", "") or payload.get("preferred_username", "")
+        full_name: str = payload.get("name", "") or payload.get("given_name", "")
 
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -115,6 +117,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
             "org_id": org_id,
             "role": role,
             "msp_id": msp_id,
+            "email": email,
+            "full_name": full_name,
         }
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")

@@ -24,6 +24,55 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+async def _resolve_db_user_id(conn: asyncpg.Connection, user: dict) -> uuid.UUID:
+    """Map a JWT-authenticated user to a row in the public.users table.
+
+    Lookup order:
+      1. Existing DB user by email (SSO users created by seeders / onboarding flow)
+      2. Existing DB user by raw JWT sub (if sub happens to be a valid UUID matching a row)
+      3. Create a new row keyed on deterministic uuid5(email) and return that id
+
+    Guarantees the returned UUID exists in users so FK inserts succeed.
+    """
+    email = (user.get("email") or "").strip().lower()
+    raw_sub = user.get("user_id") or ""
+
+    if email:
+        row = await conn.fetchrow("SELECT id FROM users WHERE lower(email) = $1", email)
+        if row:
+            return row["id"]
+
+    try:
+        sub_uid = uuid.UUID(raw_sub)
+        row = await conn.fetchrow("SELECT id FROM users WHERE id = $1", sub_uid)
+        if row:
+            return row["id"]
+    except (ValueError, TypeError):
+        pass
+
+    seed = email or raw_sub or "anonymous"
+    new_uid = uuid.uuid5(uuid.NAMESPACE_URL, seed)
+    org_uid = None
+    try:
+        org_uid = uuid.UUID(user["org_id"]) if user.get("org_id") else None
+    except (ValueError, TypeError):
+        org_uid = None
+
+    await conn.execute(
+        """
+        INSERT INTO users (id, email, full_name, role, org_id, is_active)
+        VALUES ($1, $2, $3, $4, $5, true)
+        ON CONFLICT (id) DO NOTHING
+        """,
+        new_uid,
+        email or f"unknown-{str(new_uid)[:8]}",
+        user.get("full_name") or email or "Unknown",
+        user.get("role") or "client_user",
+        org_uid,
+    )
+    return new_uid
+
+
 def _row_to_definition(row: asyncpg.Record) -> dict:
     return {
         "id": str(row["id"]),
@@ -308,10 +357,7 @@ async def send_chat_message(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
-    try:
-        user_uid = uuid.UUID(user["user_id"])
-    except (ValueError, KeyError):
-        user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+    user_uid = await _resolve_db_user_id(conn, user)
 
     # Get prior history (last 10 pairs = 20 messages)
     history_rows = await conn.fetch(
@@ -393,10 +439,7 @@ async def get_chat_history(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
-    try:
-        get_user_uid = uuid.UUID(user["user_id"])
-    except (ValueError, KeyError):
-        get_user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+    get_user_uid = await _resolve_db_user_id(conn, user)
 
     rows = await conn.fetch(
         """
@@ -449,10 +492,7 @@ async def clear_chat_history(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
-    try:
-        del_user_uid = uuid.UUID(user["user_id"])
-    except (ValueError, KeyError):
-        del_user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+    del_user_uid = await _resolve_db_user_id(conn, user)
 
     await conn.execute(
         "DELETE FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2",
