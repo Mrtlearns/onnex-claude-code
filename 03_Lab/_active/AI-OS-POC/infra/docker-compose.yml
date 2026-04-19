@@ -343,6 +343,9 @@ services:
       AUTH_AUTHENTIK_ID: ${AUTH_AUTHENTIK_ID}
       AUTH_AUTHENTIK_SECRET: ${AUTH_AUTHENTIK_SECRET}
       AIOS_API_INTERNAL_URL: ${AIOS_API_INTERNAL_URL:-http://aios-api:3001}
+      NEXTCLOUD_INTERNAL_URL: ${NEXTCLOUD_BASE_URL:-http://nextcloud-app:80}
+      NEXTCLOUD_USER: ${NEXTCLOUD_ADMIN_USER:-ncadmin}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-ncadmin_dev_2024}
       TZ: America/Los_Angeles
     networks:
     - edge_net
