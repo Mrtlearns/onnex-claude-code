@@ -169,7 +169,7 @@ async def reuse_summary(
         JOIN artifacts ar ON acs.artifact_id = ar.id
         JOIN program_controls ar_pc ON ar.program_control_id = ar_pc.id AND ar_pc.program_id = $1
         WHERE acs.similarity_score >= 0.78
-          AND pc.status NOT IN ('implemented', 'fully_implemented', 'not_applicable')
+          AND pc.status NOT IN ('fully_implemented', 'not_applicable')
           AND acs.artifact_id != ar_pc.id
         """,
         uid,

@@ -49,7 +49,7 @@ async def get_msp_summary(
         JOIN control_definitions cd ON pc.control_definition_id = cd.id
         JOIN programs p ON pc.program_id = p.id
         JOIN orgs o ON p.org_id = o.id
-        WHERE o.msp_id = $1 AND pc.status IN ('not_implemented', 'partially_implemented')
+        WHERE o.msp_id = $1 AND pc.status IN ('not_yet_addressed', 'implementation_begun', 'implementation_planned')
         GROUP BY cd.nist_id, cd.requirement_text
         ORDER BY fail_count DESC
         LIMIT 10

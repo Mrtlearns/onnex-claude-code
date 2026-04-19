@@ -87,10 +87,9 @@ async def record(
         )
         await conn.execute(
             """
-            INSERT INTO activity_log (msp_id, org_id, event_type, description, metadata)
-            VALUES ($1,$2,'error',$3,$4::jsonb)
+            INSERT INTO activity_log (org_id, event_type, description, metadata)
+            VALUES ($1,'error',$2,$3::jsonb)
             """,
-            uuid.UUID(msp_id) if msp_id else None,
             uuid.UUID(org_id) if org_id else None,
             f"[{severity.upper()}] {component}: {(message or '')[:200]}",
             json.dumps({"correlation_id": correlation_id, "event_id": str(event_id)}),

@@ -21,7 +21,8 @@ export function CopilotChat({ programId, controlId, accessToken }: CopilotChatPr
   const [streaming, setStreaming] = useState(false)
   const [loading, setLoading] = useState(true)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const apiBase = `/api/controls/program/${programId}/${controlId}/chat`
+  const API = process.env.NEXT_PUBLIC_API_URL || ''
+  const apiBase = `${API}/api/controls/program/${programId}/${controlId}/chat`
 
   useEffect(() => {
     loadHistory()
