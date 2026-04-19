@@ -1,6 +1,6 @@
 # CMMC Compliance OS — Product Guide
 
-**Version:** 1.2 | **Date:** 2026-04-17 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
+**Version:** 1.3 | **Date:** 2026-04-19 | **Live Platform:** https://app.cmmc4msp.on-nex.us  
 **Stack:** Next.js 14 · FastAPI · PostgreSQL + pgvector · Hasura GraphQL · n8n · MinIO · Authentik  
 **Test Suite:** 385 passing, 0 failures
 
@@ -15,12 +15,12 @@ Eighty thousand U.S. defense contractors must achieve CMMC Level 2 certification
 **What makes it different from Drata, Vanta, or RegScale:**
 
 - Built specifically for CMMC Level 2 — not a generic GRC tool mapped to CMMC as an afterthought
-- MSP-native: one operator dashboard manages unlimited client organizations with full tenant isolation
+- MSP-native: one operator dashboard manages unlimited client organizations with full tenant isolation, with a clear role hierarchy: Platform Owner → MSP admin → Client admin → Team members
 - Claude LLM assesses every artifact — not rule-based keyword matching, but actual comprehension of whether a policy document satisfies a control's assessment objectives
-- 17 features: conversational copilot per control, policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, direct integrations with Entra ID/Okta/Defender/CrowdStrike/M365/Splunk, **program-level AI sweep**, **task-queue copilot**, and full **platform observability** (structured logging, AI error triage, complete audit trails, frontend error boundaries, and operational hardening)
+- 21 features: conversational copilot per control (with save-as-evidence), policy draft generation, gap synthesis, SSP narrative interview, evidence freshness monitoring, drift detection, direct integrations with Entra ID/Okta/Defender/CrowdStrike/M365/Splunk, **Evidence Automation hub** (harvester scripts, bulk ZIP upload, interview-to-artifact), **bulk evidence request with email dispatch**, **program-level AI sweep**, **task-queue copilot**, and full **platform observability** (structured logging, AI error triage, complete audit trails, frontend error boundaries, and operational hardening)
 - 385 tests, 16 active n8n workflows, 39 test files — production-ready, not prototype-grade
 
-If your MSP manages five defense contractor clients, this platform saves 200+ hours of manual compliance work per engagement and produces a defensible, C3PAO-ready audit package on demand.
+If your MSP manages five defense contractor clients, this platform cuts a typical 8-week engagement to **~3 weeks** by automating evidence gathering, and produces a defensible, C3PAO-ready audit package on demand.
 
 ---
 
@@ -47,11 +47,16 @@ If your MSP manages five defense contractor clients, this platform saves 200+ ho
 19. [Feature 15: Complete Audit Trails](#feature-15-complete-audit-trails)
 20. [Feature 16: Frontend Error Boundaries + Client Reporting](#feature-16-frontend-error-boundaries--client-reporting)
 21. [Feature 17: Operational Hardening](#feature-17-operational-hardening)
-22. [Platform Observability Architecture](#platform-observability-architecture)
-23. [Test Coverage](#test-coverage)
-24. [Deployment & Operations](#deployment--operations)
-25. [Pricing & Packaging](#pricing--packaging)
-26. [Glossary](#glossary)
+22. [Feature 18: Evidence Automation Hub (Quick Wins)](#feature-18-evidence-automation-hub-quick-wins)
+23. [Feature 19: Harvester Scripts (Windows + Linux)](#feature-19-harvester-scripts-windows--linux)
+24. [Feature 20: Bulk Evidence Request with Email Dispatch](#feature-20-bulk-evidence-request-with-email-dispatch)
+25. [Feature 21: Dashboard Drilldown Navigation](#feature-21-dashboard-drilldown-navigation)
+26. [Engagement Role Hierarchy & Onboarding Flow](#engagement-role-hierarchy--onboarding-flow)
+27. [Platform Observability Architecture](#platform-observability-architecture)
+28. [Test Coverage](#test-coverage)
+29. [Deployment & Operations](#deployment--operations)
+30. [Pricing & Packaging](#pricing--packaging)
+31. [Glossary](#glossary)
 
 ---
 
@@ -442,6 +447,17 @@ DELETE /api/controls/program/{program_id}/{control_id}/chat
 - "Our assessor said our MFA policy is incomplete — what's missing?"
 - "Can the CrowdStrike report we uploaded satisfy this?"
 - "What does NIST say about acceptable implementations for this requirement?"
+
+### Save as Evidence
+
+After a conversation reaches a useful depth (2+ messages), a **Save as Evidence** button appears. Clicking it:
+
+1. Packages the full conversation transcript as a Markdown artifact
+2. Uploads it to MinIO (`cmmc-artifacts/interviews/{id}.md`) with `source_type='interview'`
+3. Fires the standard assessment pipeline — Claude evaluates whether the transcript demonstrates control implementation
+4. The resulting artifact appears in the control's evidence list with verdict and confidence
+
+This is particularly useful for controls that are satisfied by organizational practice rather than a document — the interview transcript becomes the evidence.
 
 ---
 
@@ -1217,6 +1233,232 @@ All 16 n8n workflows now have WF16 (Error Handler) configured as their `errorWor
 
 ---
 
+## Feature 18: Evidence Automation Hub (Quick Wins)
+
+**What it does:** A single landing page (`/{orgSlug}/evidence-automation`) that surfaces every automated and semi-automated evidence-gathering tool the platform offers — organized as actionable cards with guided workflows.
+
+**Why it matters:** The hardest part of CMMC for most clients is not understanding the controls — it is collecting the evidence. Without a single entry point, these automation tools get lost in the UI. The Quick Wins hub puts every time-saving pathway front and center for the client admin and MSP at exactly the moment they need it.
+
+### Four Feature Cards
+
+| Card | For | What happens |
+|------|-----|-------------|
+| **Connect Integrations** | Client admin / MSP admin | Navigate to `/integrations` — connect Entra ID, Okta, Defender, CrowdStrike, M365, or Splunk; nightly sync creates assessed artifacts automatically |
+| **Request Evidence from Team** | Client admin / MSP admin | Navigate to `/controls` — select controls, assign to team member, send email blast with due dates |
+| **AI Interview → Evidence** | Any role | See all controls with saved chat history (≥2 messages) — finalize as artifact with one click |
+| **Harvester Scripts** | IT admin (client_user) | Download Windows PS1 or Linux SH; run locally; ZIP auto-uploaded; 12+ evidence collectors fire in parallel |
+
+### ZIP Upload Endpoint
+
+Harvester scripts and the manual ZIP upload panel both call:
+
+```
+POST /api/artifacts/bulk-upload-zip
+Content-Type: multipart/form-data
+file=<zip file>
+
+ZIP must contain manifest.json at root:
+{
+  "files": [
+    {"filename": "firewall_rules.json", "nist_ids": ["3.13.1", "3.13.5"]},
+    {"filename": "patch_report.txt",    "nist_ids": ["3.14.1"]}
+  ]
+}
+```
+
+For each file × matched `program_control`, the platform uploads to MinIO and inserts an artifact row. The standard assessment pipeline fires automatically — no additional steps required.
+
+### Visibility
+
+The **Quick Wins** nav item appears in the sidebar for `client_admin`, `msp_admin`, and `super_admin` roles only. `client_user` (team members) access the individual upload workflow directly from their `/tasks` page — they don't need this hub.
+
+---
+
+## Feature 19: Harvester Scripts (Windows + Linux)
+
+**What it does:** Downloadable scripts that run on the client's endpoints and automatically collect evidence for ~25 controls — without the client exporting anything manually.
+
+**Why it matters:** The most time-consuming part of evidence collection is the "screenshot and export" work. An IT admin who understands the environment can run one script and satisfy a quarter of their required controls in 20-30 minutes. This is the single biggest time compression in the platform.
+
+### Windows Harvester (`harvest_windows.ps1`)
+
+12 evidence collectors, each targeting specific NIST control families:
+
+| Collector | Evidence | NIST IDs |
+|-----------|---------|----------|
+| Firewall rules | `netsh advfirewall` export | 3.13.1, 3.13.5 |
+| Local admins | Local administrator group members | 3.1.6 |
+| MFA registry | HKLM registry MFA enforcement keys | 3.5.3 |
+| Patch status | `Get-HotFix` + pending updates | 3.14.1 |
+| Antivirus | Defender / 3rd-party AV status | 3.14.2 |
+| BitLocker | Drive encryption status all volumes | 3.13.10 |
+| TLS config | Schannel registry entries | 3.13.8 |
+| Audit policy | `auditpol /get /category:*` | 3.3.1, 3.3.2 |
+| Running services | Filtered service list | 3.4.6, 3.4.7 |
+| Scheduled tasks | Non-Microsoft scheduled tasks | 3.4.6 |
+| GPO report | `gpresult /X` applied policies | 3.4.1, 3.4.2 |
+| System info | `systeminfo` OS/patch level | 3.14.1 |
+
+All collectors run in parallel with try/catch. Output written to temp directory, packaged into a timestamped ZIP with `manifest.json`, uploaded to `/api/artifacts/bulk-upload-zip`.
+
+### Linux Harvester (`harvest_linux.sh`)
+
+11 collectors with auto-detection of apt/dnf/yum package managers:
+
+`iptables`, `sshd_config`, `auditd`, `passwd/shadow/sudoers`, patch status, running services, disk encryption (LUKS), TLS/OpenSSL, cron jobs, sysctl security params, system info.
+
+### Download URLs
+
+```
+GET https://api.cmmc4msp.on-nex.us/harvester/harvest_windows.ps1
+GET https://api.cmmc4msp.on-nex.us/harvester/harvest_linux.sh
+```
+
+Served as static files — no authentication required for download (the upload step uses the user's access token).
+
+### Running the Harvester
+
+**Windows (PowerShell, run as Administrator):**
+```powershell
+$env:API_URL="https://api.cmmc4msp.on-nex.us"
+$env:ACCESS_TOKEN="<paste token from platform>"
+$env:PROGRAM_ID="<program UUID from platform>"
+.\harvest_windows.ps1
+```
+
+**Linux (root or sudo):**
+```bash
+API_URL="https://api.cmmc4msp.on-nex.us" \
+ACCESS_TOKEN="<token>" \
+PROGRAM_ID="<uuid>" \
+sudo bash harvest_linux.sh
+```
+
+Full reference: `scripts/README_HARVESTER.md`
+
+---
+
+## Feature 20: Bulk Evidence Request with Email Dispatch
+
+**What it does:** From the Controls page, select any number of controls via checkbox, choose a team member, set a due date and optional instructions, and send one email that lists every assigned control with deep links.
+
+**Why it matters:** The alternative is opening each control one by one, clicking "Assign," and filling the form — 78 times for the typical remaining controls after Phase 1. This feature compresses that into one operation. Combined with the AI Interview and harvester features, it's the third pillar of the evidence automation stack.
+
+### How It Works
+
+1. Navigate to `/{orgSlug}/controls`
+2. Filter by phase, status, domain, or search — then select via checkboxes
+3. Floating action bar appears at the bottom of the screen with the count selected
+4. Click **Request Evidence** → modal opens with:
+   - Team member dropdown (only `client_user` and `client_admin` shown)
+   - Optional due date
+   - Optional instructions textarea
+5. Click **Send Requests**
+
+**What happens behind the scenes:**
+- `POST /api/assignments/bulk` receives `{program_id, assignee_id, control_ids[], due_date?, instructions?}`
+- Individual `assignments` rows created per control
+- One consolidated email dispatched via Resend listing all assigned controls with NIST ID, requirement text snippet, and deep link per control
+- Activity log entry created
+
+### Role Gate
+
+Only `client_admin`, `msp_admin`, and `super_admin` see the checkboxes and action bar. `client_user` sees the controls table read-only.
+
+### API
+
+```
+POST /api/assignments/bulk
+Body: {
+  "program_id": "uuid",
+  "assignee_id": "uuid",
+  "control_ids": ["uuid1", "uuid2", ...],
+  "due_date": "2026-05-15",          // optional
+  "instructions": "Screenshot the..."  // optional
+}
+Response: {"created": 12, "assignment_ids": [...]}
+```
+
+---
+
+## Feature 21: Dashboard Drilldown Navigation
+
+**What it does:** Every KPI card, phase progress row, and domain heatmap cell on the dashboard links directly to the filtered Controls page — so users can click from "17 controls fully implemented" directly to the list of those controls.
+
+**Why it matters:** Previously the dashboard was read-only — a summary with no path forward. Now it is the navigation hub for the entire engagement. A client admin can see "Access Control: 8 of 22 done" and click it to immediately see those 22 AC controls filtered by domain.
+
+### Drilldown Targets
+
+| Dashboard Element | Clicking navigates to |
+|------------------|----------------------|
+| SPRS score card | `/{orgSlug}/controls` (all controls) |
+| "Controls complete" KPI | `/{orgSlug}/controls?status=fully_implemented` |
+| "Open assignments" KPI | `/{orgSlug}/tasks` |
+| "Status" KPI | `/{orgSlug}/reports` |
+| Phase row (Phase 1, Phase 2…) | `/{orgSlug}/controls?phase=1` |
+| Domain heatmap cell (AC, AU, CM…) | `/{orgSlug}/controls?domain=AC` |
+
+The Controls page reads `phase`, `status`, and `domain` from URL search params on load and pre-applies those filters — so the drilldown lands the user in exactly the right filtered view.
+
+### Assessment Objectives Display
+
+On the control detail page (`/{orgSlug}/controls/{id}`), the full set of assessment objectives is now displayed as a structured list. NIST stores objectives as sibling records — e.g., `3.1.6[a]`, `3.1.6[b]`, `3.1.6[c]` — separate from the parent control's "Determine if:" summary.
+
+The platform fetches both via `GET_CONTROL_OBJECTIVES` and renders:
+
+```
+Assessment Objectives
+  Determine if:
+  [a] system access is limited to authorized users
+  [b] system access is limited to the types of transactions authorized users are permitted to execute
+  [c] system access is limited to functions authorized users are permitted to execute
+```
+
+This gives contributors and MSP reviewers the precise auditor checklist for each control, which is exactly what a C3PAO assessor will verify during assessment.
+
+---
+
+## Engagement Role Hierarchy & Onboarding Flow
+
+The platform has four distinct user roles organized in a creation hierarchy. Each role has a specific UI entry point, a defined set of capabilities, and is created by the role above it.
+
+### Creation Hierarchy
+
+| ID | Entity | Role | Created by | Primary UI |
+|----|--------|------|-----------|------------|
+| **0** | Platform Owner (Onnex) | `super_admin` | Bootstrap seeder | `/platform` |
+| **0.1** | MSP admin — e.g. AirGap Cyber | `msp_admin` | **0** at `/platform/msps` | `/msp` |
+| **1.0** | Client Org — e.g. Meridian Defense | (org, no login) | **0.1** at `/msp/clients` | — |
+| **1.1** | Client admin — e.g. John @ Meridian | `client_admin` | **0.1** via Authentik invite | `/[orgSlug]/*` |
+| **1.2** | Team members — Jane, Bob, Alice | `client_user` | **1.1** at `/[orgSlug]/team` | `/[orgSlug]/tasks` |
+
+### Typical Timeline with Automation
+
+| Week | Milestone |
+|------|-----------|
+| Day 1 | MSP onboards client org; 110 controls auto-seeded; client admin invited |
+| Day 2-3 | Client admin completes SSP Interview (~45 min); connects integrations |
+| Day 3 | Integrations auto-satisfy ~25 controls; harvester run satisfies ~15 more |
+| Day 3-4 | Client admin bulk-assigns remaining 78 controls to team members |
+| Week 2-3 | Team members gather evidence via task queue + copilot guidance (1-2 hrs/control) |
+| Week 3 | MSP reviews assessments, runs AI Sweep, generates audit package |
+| Week 3-4 | C3PAO assessment scheduled |
+
+**Traditional manual approach:** 8-10 weeks. **With platform automation:** ~3 weeks.
+
+### Sustained Workload per Role
+
+| Role | Ongoing effort |
+|------|----------------|
+| **0** Platform Owner | ~30 min/week (platform health, MSP account creation) |
+| **0.1** MSP admin | Active during onboarding + weekly review of assessments |
+| **1.1** Client admin | Heavy first 4 weeks; lighter after audit package generated |
+| **1.2** Team member | Spikes when assigned — typically 1-2 hrs per control |
+
+Full flow with Mermaid diagram: `context/engagement-roles-and-flow.md`
+
+---
+
 ## Platform Observability Architecture
 
 Features 13-17 form a cohesive observability layer that sits beneath all compliance workflows. This section describes how the pieces connect.
@@ -1543,7 +1785,7 @@ Best for: Small DIB contractors, < 50 employees, single CUI system
 - Up to 5 user seats
 - MSP managed service: monthly check-in, assessment reviews
 
-**Not included:** Copilot, policy generation, integrations, portfolio analytics (MSP-side features), gap synthesis, Program AI Sweep, task queue Copilot
+**Not included:** Copilot, policy generation, integrations, portfolio analytics, gap synthesis, Program AI Sweep, task queue Copilot, Evidence Automation hub, harvester scripts
 
 ---
 
@@ -1551,13 +1793,16 @@ Best for: Small DIB contractors, < 50 employees, single CUI system
 Best for: Mid-size DIB contractors, 50-500 employees, 1-3 CUI systems
 
 **Includes everything in Starter, plus:**
-- Per-control AI Copilot (conversational RAG)
+- Per-control AI Copilot (conversational RAG) with Save as Evidence
 - **Task Queue Inline Copilot** — AI guidance inside each contributor's work list
 - AI Policy Draft Generation (up to 30 policies)
 - Gap Synthesis analysis
 - Evidence Freshness Monitoring
 - Evidence Drift Detection
 - C3PAO Audit Package Export
+- **Evidence Automation Hub** (Quick Wins) — harvester scripts, bulk ZIP upload, interview-to-artifact
+- **Bulk Evidence Request** — select controls, assign team member, send email blast
+- **Dashboard drilldown navigation** — click any KPI/phase/domain to filtered controls
 - Up to 3 programs (systems/SSPs)
 - Up to 25 user seats
 - Quarterly MSP compliance review call
@@ -1570,7 +1815,8 @@ Best for: Large DIB contractors, 500+ employees, complex multi-system environmen
 **Includes everything in Professional, plus:**
 - SSP Narrative Generation (interview-driven)
 - **Program AI Sweep** — one-click portfolio triage, ranked action plan, bulk status apply
-- All 6 Evidence Source Integrations (Entra ID, Okta, Defender, CrowdStrike, M365, Splunk)
+- All 6 Evidence Source Integrations (Entra ID, Okta, Defender, CrowdStrike, M365, Splunk) with nightly sync
+- **Windows + Linux Harvester scripts** — 12/11 collectors, auto-upload, assessment pipeline
 - Unlimited programs
 - Unlimited user seats
 - White-glove onboarding (MSP conducts scoping session, configures integrations)
@@ -1643,9 +1889,17 @@ At 10 client orgs on Professional tier, monthly Anthropic costs are typically $5
 | structlog | Structured JSON logging library used by FastAPI; every log line is a machine-parseable JSON object with standard fields including correlation_id |
 | WF15 | Nightly Error Triage workflow — runs at 03:00 UTC, triggers AI triage if untriaged errors exist, emails MSP admin |
 | WF16 | Error Handler workflow — configured as the error workflow for all 16 n8n workflows; captures failures into error_events and notifies MSP admin |
+| Evidence Automation Hub | The Quick Wins page (`/evidence-automation`) that surfaces every automated evidence-gathering tool in one place |
+| Harvester | A downloadable PowerShell (Windows) or Bash (Linux) script that collects evidence from the local endpoint and uploads it as a bulk ZIP |
+| Bulk ZIP Upload | `POST /api/artifacts/bulk-upload-zip` — accepts a ZIP with `manifest.json` mapping filenames to NIST IDs; creates one artifact per file × matched control |
+| Interview Artifact | A copilot conversation transcript saved as evidence via `POST .../finalize-interview`; assessed by Claude as a policy/practice demonstration |
+| Bulk Evidence Request | `POST /api/assignments/bulk` — creates multiple assignment records in one call and sends a single consolidated email to the assignee listing all controls |
+| Drilldown Navigation | Dashboard KPI cards, phase rows, and domain heatmap cells link to the Controls page with appropriate URL filters pre-applied |
+| Assessment Objectives | The `[a]`, `[b]`, `[c]`… sub-objectives per NIST control, stored as sibling `is_objective=true` records; displayed on the control detail page as the auditor's checklist |
 
 ---
 
 *CMMC Compliance OS — Built by Onnex AI Agency*  
+*Version 1.3 — Updated 2026-04-19*  
 *Platform: https://app.cmmc4msp.on-nex.us*  
 *Contact: mrtmaharaj@gmail.com*
