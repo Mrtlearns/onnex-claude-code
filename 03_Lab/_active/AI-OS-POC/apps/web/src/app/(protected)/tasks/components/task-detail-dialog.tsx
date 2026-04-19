@@ -24,6 +24,7 @@ import { CommentsPanel } from "./comments-panel"
 import { CmsSection } from "../../documents/components/cms-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Bot } from "lucide-react"
+import { UserSelect } from "@/components/ui/user-select"
 
 const STATUS_OPTIONS: TaskStatus[] = ["Backlog", "In Progress", "Review", "Done"]
 const TASK_TYPES = [
@@ -167,20 +168,20 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Assignee</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  value={isAiTask ? "" : (task.assignee_id ?? "")}
-                  readOnly={isAiTask}
-                  className="h-8 text-sm text-muted-foreground flex-1"
-                  placeholder={isAiTask ? "" : "Unassigned"}
+              {isAiTask ? (
+                <div className="h-8 px-2 flex items-center gap-1.5 border rounded text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800 w-fit">
+                  <Bot className="h-3.5 w-3.5" />
+                  AI Agent
+                </div>
+              ) : (
+                <UserSelect
+                  value={task.assignee_id ?? undefined}
+                  onChange={(v) => patchTask({ assignee_id: v ?? undefined })}
+                  placeholder="Unassigned"
+                  includeNone
+                  className="h-8 text-sm"
                 />
-                {isAiTask && (
-                  <div className="h-8 px-2 flex items-center gap-1.5 border rounded text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800">
-                    <Bot className="h-3.5 w-3.5" />
-                    AI
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
