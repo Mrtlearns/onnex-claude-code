@@ -26,13 +26,13 @@ export const NAV_ITEMS = [
   { label: "Time Tracking", href: "/time-tracking",          icon: Clock,           permission: "write:tasks",     phase: 9  },
   { label: "Documents",     href: "/documents",     icon: File,            permission: "read:documents",  phase: 10 },
   { label: "Reports",       href: "/reports",       icon: BarChart2,       permission: "read:reports",    phase: 11 },
-  { label: "Admin",         href: "/admin",         icon: Shield,          permission: "manage:all",      phase: 11 },
   { label: "Notifications", href: "/notifications", icon: Bell,            permission: "read:all",        phase: 10 },
   { label: "AI Assistant",  href: "/ai",            icon: Bot,             permission: "read:all",        phase: 12 },
   { label: "SOPs",          href: "/ai-brain",      icon: Brain,           permission: "read:all",        phase: 12 },
   // DEV NOTE: brain-cognitive is an optional feature module — remove this line + the brain-cognitive dirs to disable
   { label: "BRAIN",         href: "/brain-cognitive", icon: BrainCircuit,  permission: "read:all",        phase: 12 },
-  { label: "Skills",        href: "/tools",         icon: Zap,             permission: "manage:all",      phase: 12 },
+  { label: "Tools",         href: "/tools",         icon: Zap,             permission: "manage:all",      phase: 12 },
+  { label: "Admin",         href: "/admin",         icon: Shield,          permission: "manage:all",      phase: 11 },
   { label: "Settings",      href: "/settings",      icon: Settings2,       permission: "read:all",        phase: 12 },
   { label: "Client Portal", href: "/portal",        icon: ExternalLink,    permission: "read:own_portal", phase: 12 },
 ] as const
