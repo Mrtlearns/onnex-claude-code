@@ -261,6 +261,7 @@ services:
         NEXT_PUBLIC_HASURA_URL: https://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_HASURA_WS_URL: wss://gql.cmmc4msp.on-nex.us
         NEXT_PUBLIC_API_URL: https://api.cmmc4msp.on-nex.us
+        NEXT_PUBLIC_AUTHENTIK_ISSUER: https://auth.cmmc4msp.on-nex.us/application/o/cmmc4msp/
     container_name: cmmc-nextjs
     restart: unless-stopped
     logging: *default-logging
@@ -273,6 +274,7 @@ services:
       AUTHENTIK_CLIENT_ID: ${AUTHENTIK_CMMC_CLIENT_ID:-placeholder}
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CMMC_CLIENT_SECRET:-placeholder}
       AUTHENTIK_ISSUER: https://auth.${BASE_DOMAIN}/application/o/cmmc4msp/
+      NEXT_PUBLIC_AUTHENTIK_ISSUER: https://auth.${BASE_DOMAIN}/application/o/cmmc4msp/
       HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
       HASURA_INTERNAL_URL: http://hasura:8080/v1/graphql
       HOSTNAME: "0.0.0.0"

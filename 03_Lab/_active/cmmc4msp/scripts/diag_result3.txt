@@ -1,0 +1,35 @@
+SSH connected
+
+============================================================
+Docker containers
+============================================================
+NAMES                   STATUS                      PORTS
+cmmc-nextjs             Up 14 minutes (unhealthy)   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+cmmc-fastapi            Up 6 hours (healthy)        0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+cmmc-n8n                Up 20 hours (healthy)       0.0.0.0:5678->5678/tcp, [::]:5678->5678/tcp
+cmmc-authentik-worker   Up 45 hours (healthy)       
+cmmc-authentik-server   Up 45 hours (healthy)       0.0.0.0:9000->9000/tcp, [::]:9000->9000/tcp
+cmmc-hasura             Up 45 hours (healthy)       0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp
+cmmc-postgres           Up 45 hours (healthy)       5432/tcp
+cmmc-redis              Up 45 hours (healthy)       6379/tcp
+
+
+============================================================
+Postgres container name
+============================================================
+cmmc-postgres
+
+
+============================================================
+Postgres roles
+============================================================
+(no output)
+STDERR: psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+
+============================================================
+Databases
+============================================================
+(no output)
+STDERR: psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+
+Done.

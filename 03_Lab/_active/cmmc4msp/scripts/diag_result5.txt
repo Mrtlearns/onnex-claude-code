@@ -1,0 +1,49 @@
+SSH connected
+
+============================================================
+Query 1 — Find meridian-defense org
+============================================================
+                  id                  |             name             |       slug       
+--------------------------------------+------------------------------+------------------
+ a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | Meridian Defense Systems LLC | meridian-defense
+(1 row)
+
+
+
+============================================================
+Query 2 — All meridian/airgap users
+============================================================
+                  id                  |             email              |     role     |                org_id                | is_active 
+--------------------------------------+--------------------------------+--------------+--------------------------------------+-----------
+ 5b4e20ba-9e22-5199-aad2-e2e86118eb9f | admin@meridian-defense.demo    | client_admin | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t
+ 1accbc5d-2ca2-5626-b4c3-bf52420ffed7 | auditor@meridian-defense.demo  | client_user  | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t
+ b2a0439c-d3f0-50ff-a09b-15d8e8ed8040 | engineer@meridian-defense.demo | client_user  | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t
+(3 rows)
+
+
+
+============================================================
+Query 3 — Users with org join
+============================================================
+             email              |     role     |                org_id                | is_active |     org_slug     
+--------------------------------+--------------+--------------------------------------+-----------+------------------
+ admin@meridian-defense.demo    | client_admin | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t         | meridian-defense
+ engineer@meridian-defense.demo | client_user  | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t         | meridian-defense
+ auditor@meridian-defense.demo  | client_user  | a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00 | t         | meridian-defense
+(3 rows)
+
+
+
+Extracted org_id: 'a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00'
+
+============================================================
+Query 4 — Active users count for meridian-defense org (a10d9db5-be5e-5f72-bb8e-04cdc3dc1e00)
+============================================================
+ count 
+-------
+     3
+(1 row)
+
+
+
+Done.

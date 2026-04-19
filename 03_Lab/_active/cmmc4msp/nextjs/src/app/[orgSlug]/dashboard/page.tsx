@@ -52,7 +52,7 @@ function MyTasksWidget({ userId, orgSlug }: { userId: string; orgSlug: string })
     variables: { userId },
     skip: !userId,
   })
-  const tasks = (data?.assignments ?? []).filter((a: any) => a.status !== 'completed')
+  const tasks = (data?.assignments ?? []).filter((a: any) => a.status !== 'accepted')
 
   if (loading) return <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
 

@@ -420,7 +420,7 @@ export const GET_ORG_USERS = gql`
       role
       is_active
       created_at
-      assignments_aggregate(where: { status: { _nin: ["completed", "accepted"] } }) {
+      assignments_aggregate(where: { status: { _nin: ["accepted"] } }) {
         aggregate {
           count
         }

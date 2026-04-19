@@ -83,7 +83,17 @@ export function Navbar() {
           {user?.role?.replace('_', ' ')}
         </span>
         <button
-          onClick={() => signOut({ callbackUrl: '/' })}
+          onClick={async () => {
+            // Clear NextAuth session, then end the Authentik OIDC session so
+            // the provider doesn't silently re-authenticate on the next visit.
+            await signOut({ redirect: false })
+            const issuer = (process.env.NEXT_PUBLIC_AUTHENTIK_ISSUER || '').replace(/\/$/, '')
+            const hint = (user as any)?.accessToken ?? ''
+            const returnTo = encodeURIComponent(window.location.origin + '/')
+            window.location.href = hint
+              ? `${issuer}/end-session/?id_token_hint=${hint}&post_logout_redirect_uri=${returnTo}`
+              : `${issuer}/end-session/?post_logout_redirect_uri=${returnTo}`
+          }}
           className="text-sm text-gray-500 hover:text-gray-900 border border-gray-200 rounded px-2 py-1 hover:border-gray-300 transition-colors"
         >
           Sign out
