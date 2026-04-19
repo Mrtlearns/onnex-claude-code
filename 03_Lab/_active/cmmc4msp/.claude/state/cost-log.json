@@ -20,9 +20,9 @@
       "date": "2026-04-18",
       "tools": {
         "Glob": 24,
-        "Read": 149,
-        "Bash": 214,
-        "Write": 25,
+        "Read": 154,
+        "Bash": 253,
+        "Write": 26,
         "ToolSearch": 5,
         "Monitor": 1,
         "Edit": 36,
@@ -32,8 +32,8 @@
         "Grep": 5,
         "TaskOutput": 1
       },
-      "total_calls": 479,
-      "weight_total": 382
+      "total_calls": 524,
+      "weight_total": 422
     }
   ]
 }
