@@ -10,10 +10,12 @@
         "Glob": 15,
         "Grep": 21,
         "Edit": 86,
-        "Monitor": 1
+        "Monitor": 1,
+        "ToolSearch": 1,
+        "AskUserQuestion": 1
       },
-      "total_calls": 321,
-      "weight_total": 310
+      "total_calls": 323,
+      "weight_total": 312
     }
   ]
 }
