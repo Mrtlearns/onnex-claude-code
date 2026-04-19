@@ -383,6 +383,27 @@ export const GET_RECENT_ERRORS = gql`
   }
 `
 
+export const GET_CONTROL_OBJECTIVES = gql`
+  query GetControlObjectives($programId: uuid!, $nistIdPrefix: String!) {
+    program_controls(
+      where: {
+        program_id: { _eq: $programId }
+        control_definition: {
+          is_objective: { _eq: true }
+          nist_id: { _ilike: $nistIdPrefix }
+        }
+      }
+      order_by: { control_definition: { nist_id: asc } }
+    ) {
+      id
+      control_definition {
+        nist_id
+        assessment_objective
+      }
+    }
+  }
+`
+
 export const GET_ORG_USERS = gql`
   query GetOrgUsers($orgId: uuid!) {
     users(

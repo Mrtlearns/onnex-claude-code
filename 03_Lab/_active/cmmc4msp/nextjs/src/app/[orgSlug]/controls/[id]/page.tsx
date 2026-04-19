@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
-import { GET_CONTROL_DETAIL } from '@/graphql/queries'
+import { GET_CONTROL_DETAIL, GET_CONTROL_OBJECTIVES } from '@/graphql/queries'
 import { UPDATE_CONTROL_STATUS, UPDATE_CONTROL_NOTES } from '@/graphql/mutations'
 import { ControlStatusBadge } from '@/components/ControlStatusBadge'
 import { ArtifactUploader } from '@/components/ArtifactUploader'
@@ -74,6 +74,13 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
 
   const pc = data?.program_controls_by_pk
   const def = pc?.control_definition
+
+  const nistId = def?.nist_id || ''
+  const { data: objData } = useQuery(GET_CONTROL_OBJECTIVES, {
+    variables: { programId: pc?.program_id, nistIdPrefix: `${nistId}[%` },
+    skip: !pc?.program_id || !nistId || def?.is_objective,
+  })
+  const objectives = objData?.program_controls || []
 
   const handleGenerateDraft = async () => {
     setGeneratingDraft(true)
@@ -154,12 +161,35 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">Requirement</h2>
         <p className="text-sm text-gray-700 leading-relaxed">{def?.requirement_text}</p>
-        {def?.assessment_objective && (
+        {(def?.assessment_objective || objectives.length > 0) && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
               Assessment Objective
             </h3>
-            <p className="text-sm text-gray-600">{def.assessment_objective}</p>
+            {objectives.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-sm text-gray-500 italic">Determine if:</p>
+                <ul className="space-y-1.5 mt-1">
+                  {objectives.map((obj: any) => {
+                    const text = obj.control_definition?.assessment_objective || ''
+                    const nistSub = obj.control_definition?.nist_id || ''
+                    const label = nistSub.match(/\[([^\]]+)\]/)?.[1]
+                    return (
+                      <li key={obj.id} className="flex gap-2 text-sm text-gray-700">
+                        {label && (
+                          <span className="font-mono text-xs font-bold text-gray-400 mt-0.5 flex-shrink-0">
+                            [{label}]
+                          </span>
+                        )}
+                        <span>{text.replace(/^\[[^\]]+\]\s*/,'')}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">{def.assessment_objective}</p>
+            )}
           </div>
         )}
       </div>
