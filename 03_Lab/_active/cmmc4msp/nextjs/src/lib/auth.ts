@@ -1,5 +1,46 @@
 import type { NextAuthOptions } from 'next-auth'
 
+/**
+ * Resolve the caller's DB users.id (UUID) from email.
+ *
+ * Why: Authentik JWT `sub` for seeded demo users is an integer pk string
+ * (e.g. "9"), not a UUID. Hasura's `users.id` and all `assigned_to` FKs
+ * are UUIDs, so we must resolve email → users.id on sign-in and cache
+ * on the JWT. Gracefully returns null if the user has no DB row yet
+ * (new Authentik user who hasn't been provisioned) — callers fall
+ * back to `sub`, matching existing behavior.
+ */
+async function resolveDbUserId(email: string): Promise<string | null> {
+  const adminSecret = process.env.HASURA_ADMIN_SECRET
+  if (!adminSecret || !email) return null
+  const base = (process.env.HASURA_INTERNAL_URL || process.env.NEXT_PUBLIC_HASURA_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  const endpoint = base.endsWith('/v1/graphql') ? base : `${base}/v1/graphql`
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': adminSecret,
+      },
+      body: JSON.stringify({
+        query: 'query($email: String!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }',
+        variables: { email },
+      }),
+    })
+    if (!res.ok) {
+      console.error('[auth] resolveDbUserId HTTP', res.status)
+      return null
+    }
+    const body = await res.json()
+    return body?.data?.users?.[0]?.id ?? null
+  } catch (err) {
+    console.error('[auth] resolveDbUserId error:', err)
+    return null
+  }
+}
+
 async function refreshAuthentikToken(token: any): Promise<any> {
   if (!token.refreshToken) return { ...token, error: 'NoRefreshToken' }
 
