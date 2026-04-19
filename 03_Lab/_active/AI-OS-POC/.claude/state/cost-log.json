@@ -69,13 +69,13 @@
     {
       "date": "2026-04-18",
       "tools": {
-        "Bash": 158,
+        "Bash": 173,
         "Read": 31,
         "Edit": 11,
         "Write": 2
       },
-      "total_calls": 202,
-      "weight_total": 171
+      "total_calls": 217,
+      "weight_total": 186
     }
   ]
 }
