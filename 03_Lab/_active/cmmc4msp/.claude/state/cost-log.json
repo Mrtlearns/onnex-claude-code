@@ -9,11 +9,11 @@
         "Agent": 13,
         "Glob": 15,
         "Grep": 19,
-        "Edit": 84,
+        "Edit": 85,
         "Monitor": 1
       },
-      "total_calls": 308,
-      "weight_total": 307
+      "total_calls": 309,
+      "weight_total": 308
     }
   ]
 }

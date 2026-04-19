@@ -370,17 +370,19 @@
       const md = await res.text();
 
       marked.setOptions({ gfm: true, breaks: false });
-      const renderer = new marked.Renderer();
-      const origHeading = renderer.heading.bind(renderer);
-      renderer.heading = function(text, level, raw) {
-        const id = slugify(raw);
-        return `<h${level} id="${id}">${text}</h${level}>`;
-      };
-      marked.use({ renderer });
-
       const html = marked.parse(md);
       const content = document.getElementById('docContent');
       content.innerHTML = html;
+
+      // Add IDs to headings via DOM (version-agnostic with marked API changes)
+      const usedIds = new Set();
+      content.querySelectorAll('h1, h2, h3, h4').forEach(h => {
+        let id = slugify(h.textContent);
+        let unique = id, i = 2;
+        while (usedIds.has(unique)) { unique = id + '-' + i; i++; }
+        usedIds.add(unique);
+        h.id = unique;
+      });
 
       // Build TOC
       const toc = document.getElementById('tocList');
