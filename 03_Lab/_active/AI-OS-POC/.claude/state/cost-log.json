@@ -70,12 +70,12 @@
       "date": "2026-04-18",
       "tools": {
         "Bash": 307,
-        "Read": 32,
+        "Read": 33,
         "Edit": 11,
         "Write": 2,
         "Grep": 1
       },
-      "total_calls": 353,
+      "total_calls": 354,
       "weight_total": 320
     }
   ]
