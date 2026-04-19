@@ -12,16 +12,21 @@ state machine is enforced and every transition is logged to assignment_events.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.database import get_db
 from app.deps import get_current_user, require_client_admin_or_above
+from app.routers.controls import _resolve_db_user_id
 from app.services import n8n_service
+from app.services.email_service import send_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -85,6 +90,7 @@ class TransitionRequest(BaseModel):
 async def bulk_assign_controls(
     body: BulkAssignRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(require_client_admin_or_above),
 ) -> dict:
@@ -119,8 +125,30 @@ async def bulk_assign_controls(
     if not assignee:
         raise HTTPException(404, "Assignee user not found or inactive")
 
+    # Pre-fetch control details for email template
+    ctrl_uids = []
+    for cid in body.control_ids:
+        try:
+            ctrl_uids.append(uuid.UUID(cid))
+        except ValueError:
+            raise HTTPException(422, f"Invalid control UUID: {cid}")
+
+    ctrl_def_rows = await conn.fetch(
+        """
+        SELECT pc.id AS pc_id, cd.nist_id, cd.requirement_text
+        FROM program_controls pc
+        JOIN control_definitions cd ON pc.control_definition_id = cd.id
+        WHERE pc.id = ANY($1)
+        """,
+        ctrl_uids,
+    )
+    ctrl_details: dict[str, dict] = {
+        str(r["pc_id"]): {"nist_id": r["nist_id"], "requirement_text": r["requirement_text"] or ""}
+        for r in ctrl_def_rows
+    }
+
     assignment_ids: list[str] = []
-    actor_uid = uuid.UUID(user["user_id"])
+    actor_uid = await _resolve_db_user_id(conn, user)
 
     for ctrl_id_str in body.control_ids:
         try:
@@ -179,6 +207,33 @@ async def bulk_assign_controls(
             context={"assignee_name": assignee["full_name"]},
         )
 
+    # Send one consolidated email to the assignee covering all assigned controls
+    if assignment_ids and assignee["email"]:
+        ctrl_list_html = "<ul>" + "".join(
+            f"<li><b>{ctrl_details[cid]['nist_id']}</b> — {ctrl_details[cid]['requirement_text'][:100]}</li>"
+            for cid in body.control_ids
+            if cid in ctrl_details
+        ) + "</ul>"
+        html = f"""
+    <p>Hi {assignee['full_name'] or assignee['email']},</p>
+    <p>You've been assigned <b>{len(assignment_ids)}</b> CMMC control(s) for evidence gathering.</p>
+    {ctrl_list_html}
+    <p>Due date: {body.due_date or 'Not specified'}</p>
+    <p>Instructions: {body.instructions or 'Upload evidence via the platform.'}</p>
+    <p><a href="https://app.cmmc4msp.on-nex.us/tasks">View your tasks &rarr;</a></p>
+    """
+        try:
+            await send_email(
+                to=assignee["email"],
+                subject=f"CMMC Evidence Request: {len(assignment_ids)} control(s) assigned",
+                html=html,
+                category="assignment",
+                reference_id=str(prog_uid),
+                conn=conn,
+            )
+        except Exception as exc:
+            logger.warning(f"email_send_failed: {exc}")
+
     return {"created": len(assignment_ids), "assignment_ids": assignment_ids}
 
 
@@ -222,7 +277,7 @@ async def transition_assignment(
     if not _can_transition_to(to_status, user, row):
         raise HTTPException(403, f"Insufficient role to transition to '{to_status}'")
 
-    actor_uid = uuid.UUID(user["user_id"])
+    actor_uid = await _resolve_db_user_id(conn, user)
     set_parts: list[str] = ["status = $1", "updated_at = NOW()"]
     vals: list = [to_status, aid]
 

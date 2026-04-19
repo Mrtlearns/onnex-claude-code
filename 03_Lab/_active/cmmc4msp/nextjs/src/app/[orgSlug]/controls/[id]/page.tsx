@@ -322,6 +322,7 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
             programId={pc.program_id || ''}
             controlId={pc.id}
             accessToken={(session?.user as any)?.accessToken || ''}
+            onArtifactCreated={() => refetch()}
           />
         )}
 

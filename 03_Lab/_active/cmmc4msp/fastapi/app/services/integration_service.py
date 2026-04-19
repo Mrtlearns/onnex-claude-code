@@ -163,10 +163,11 @@ async def pull_o365_evidence(cred: dict, org_id: uuid.UUID) -> list[dict]:
 async def pull_splunk_evidence(cred: dict, org_id: uuid.UUID) -> list[dict]:
     """Pull Splunk audit log summary."""
     token = cred["value"]
+    instance_url = (cred.get("instance_url") or "").rstrip("/") or "https://splunk-instance"
     evidence = []
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
-            "https://splunk-instance/services/search/jobs/export",
+            f"{instance_url}/services/search/jobs/export",
             headers={"Authorization": f"Splunk {token}", "Accept": "application/json"},
             data={"search": "search index=_audit | head 100 | table _time user action", "output_mode": "json"},
         )
@@ -199,7 +200,7 @@ async def sync_integration(
     Returns sync summary.
     """
     integration = await conn.fetchrow(
-        "SELECT id, org_id, provider FROM integrations WHERE id = $1 AND status = 'active'",
+        "SELECT id, org_id, provider, instance_url FROM integrations WHERE id = $1 AND status = 'active'",
         integration_id,
     )
     if not integration:
@@ -208,6 +209,9 @@ async def sync_integration(
     cred = await get_integration_credentials(integration_id, conn)
     if not cred:
         raise ValueError(f"No credentials for integration {integration_id}")
+
+    # Pass instance_url into cred dict so provider pullers (e.g. Splunk) can use it
+    cred["instance_url"] = integration["instance_url"] or ""
 
     puller = PROVIDER_PULLERS.get(integration["provider"])
     if not puller:
@@ -228,23 +232,26 @@ async def sync_integration(
 
     artifacts_created = 0
     for ev in evidence_list:
-        art_id = uuid.uuid4()
-        await conn.execute(
+        # Find ALL matching program_controls for this evidence item
+        pc_rows = await conn.fetch(
             """
-            INSERT INTO artifacts (id, file_name, mime_type, assessment_status, source_type, source_integration_id, program_control_id)
-            SELECT $1, $2, 'application/json', 'pending', $3, $4,
-                   pc.id
-            FROM program_controls pc
+            SELECT pc.id FROM program_controls pc
             JOIN control_definitions cd ON pc.control_definition_id = cd.id
             JOIN programs p ON pc.program_id = p.id
-            WHERE p.org_id = $5
-              AND cd.nist_id = ANY($6)
-            LIMIT 1
+            WHERE p.org_id = $1 AND cd.nist_id = ANY($2)
             """,
-            art_id, ev["file_name"], integration["provider"], integration_id,
             integration["org_id"], ev.get("controls", []),
         )
-        artifacts_created += 1
+        for pc_row in pc_rows:
+            art_id = uuid.uuid4()
+            await conn.execute(
+                """
+                INSERT INTO artifacts (id, file_name, mime_type, assessment_status, source_type, source_integration_id, program_control_id)
+                VALUES ($1, $2, 'application/json', 'pending', $3, $4, $5)
+                """,
+                art_id, ev["file_name"], integration["provider"], integration_id, pc_row["id"],
+            )
+            artifacts_created += 1
 
     await conn.execute(
         "UPDATE integrations SET last_sync_at = NOW(), last_error = NULL, status = 'active', updated_at = NOW() WHERE id = $1",

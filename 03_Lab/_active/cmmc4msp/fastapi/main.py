@@ -12,6 +12,7 @@ configure_logging()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from minio import Minio
 
 from app.config import settings
@@ -118,6 +119,12 @@ app.include_router(ssp_interview.router, prefix="/api/programs/{program_id}/ssp-
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(triage.router, prefix="/api/triage", tags=["triage"])
 app.include_router(client_errors.router, prefix="/api/client-errors", tags=["client-errors"])
+
+# Harvester scripts — served from /harvester/*
+import os as _os_static
+_harvester_dir = _os_static.path.join(_os_static.path.dirname(__file__), "static", "harvester")
+if _os_static.path.isdir(_harvester_dir):
+    app.mount("/harvester", StaticFiles(directory=_harvester_dir), name="harvester")
 
 
 async def _check_postgres() -> str:

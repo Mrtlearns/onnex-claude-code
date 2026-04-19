@@ -154,6 +154,78 @@ async def initiate_upload(
     }
 
 
+@router.post("/bulk-upload-zip", status_code=201)
+async def bulk_upload_zip(
+    program_id: str,
+    file: UploadFile = File(...),
+    request: Request = None,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Accept a ZIP from the harvester script with manifest.json mapping files to NIST IDs."""
+    import io
+    import json
+    import zipfile
+
+    from app.services.minio_service import ensure_bucket, upload_bytes
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    program = await conn.fetchrow("SELECT id, org_id FROM programs WHERE id = $1", prog_uid)
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(program["org_id"]) != user.get("org_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    data = await file.read()
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            names = zf.namelist()
+            if "manifest.json" not in names:
+                raise HTTPException(status_code=400, detail="ZIP missing manifest.json")
+            manifest = json.loads(zf.read("manifest.json"))
+            files_map = manifest.get("files", [])  # [{filename, nist_ids: []}]
+
+            minio_client = request.app.state.minio
+            ensure_bucket(minio_client, ARTIFACTS_BUCKET)
+
+            artifacts_created = 0
+            for entry in files_map:
+                fname = entry.get("filename")
+                nist_ids = entry.get("nist_ids", [])
+                if not fname or not nist_ids or fname not in names:
+                    continue
+                content = zf.read(fname)
+                # Find program_controls matching the NIST IDs
+                pc_rows = await conn.fetch(
+                    """
+                    SELECT pc.id FROM program_controls pc
+                    JOIN control_definitions cd ON pc.control_definition_id = cd.id
+                    WHERE pc.program_id = $1 AND cd.nist_id = ANY($2)
+                    """,
+                    prog_uid, nist_ids,
+                )
+                for pc_row in pc_rows:
+                    art_id = uuid.uuid4()
+                    minio_key = f"harvester/{art_id}_{fname.replace('/', '_')}"
+                    upload_bytes(minio_client, ARTIFACTS_BUCKET, minio_key, content, "application/octet-stream")
+                    await conn.execute(
+                        """
+                        INSERT INTO artifacts (id, program_control_id, file_name, mime_type,
+                                              minio_key, assessment_status, source_type)
+                        VALUES ($1, $2, $3, 'application/octet-stream', $4, 'pending', 'harvester')
+                        """,
+                        art_id, pc_row["id"], fname, minio_key,
+                    )
+                    artifacts_created += 1
+            return {"artifacts_created": artifacts_created}
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid ZIP file")
+
+
 async def _chunk_and_embed(pool, artifact_id: uuid.UUID, minio_client, minio_key: str, file_name: str, mime_type: str) -> None:
     """Background task: extract text, chunk, embed, store in artifact_chunks."""
     import logging as _log

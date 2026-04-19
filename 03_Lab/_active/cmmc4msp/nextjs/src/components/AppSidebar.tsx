@@ -24,6 +24,7 @@ import {
   LinkIcon,
   ClipboardDocumentCheckIcon,
   ShieldExclamationIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import { getSPRSColor } from '@/lib/constants'
 import clsx from 'clsx'
@@ -83,10 +84,11 @@ function orgNav(role: string, base: string): NavSection[] {
   }
 
   const extended: NavItem[] = [
-    { href: `${base}/team`,     label: 'Team',      icon: UsersIcon },
-    { href: `${base}/artifacts`,label: 'Artifacts',  icon: PaperClipIcon },
-    { href: `${base}/poam`,     label: 'POA&M',      icon: DocumentTextIcon },
-    { href: `${base}/reports`,  label: 'Reports',   icon: ChartBarIcon },
+    { href: `${base}/team`,                label: 'Team',       icon: UsersIcon },
+    { href: `${base}/evidence-automation`, label: 'Quick Wins', icon: BoltIcon },
+    { href: `${base}/artifacts`,           label: 'Artifacts',  icon: PaperClipIcon },
+    { href: `${base}/poam`,                label: 'POA&M',      icon: DocumentTextIcon },
+    { href: `${base}/reports`,             label: 'Reports',    icon: ChartBarIcon },
   ]
 
   const sections: NavSection[] = [{ items: [...core, ...extended] }]

@@ -471,3 +471,54 @@ export const GET_LATEST_TRIAGE_REPORT = gql`
     }
   }
 `
+
+export const GET_AUTO_COVERAGE = gql`
+  query GetAutoCoverage($programId: uuid!) {
+    total: program_controls_aggregate(
+      where: { program_id: { _eq: $programId }, is_applicable: { _eq: true } }
+    ) {
+      aggregate { count }
+    }
+    auto_satisfied: program_controls_aggregate(
+      where: {
+        program_id: { _eq: $programId }
+        is_applicable: { _eq: true }
+        artifacts: {
+          source_type: {
+            _in: [
+              "entra_id"
+              "okta"
+              "defender"
+              "crowdstrike"
+              "o365"
+              "splunk"
+              "harvester"
+              "interview"
+            ]
+          }
+        }
+      }
+    ) {
+      aggregate { count }
+    }
+  }
+`
+
+export const GET_INTERVIEW_CONTROLS = gql`
+  query GetInterviewControls($programId: uuid!) {
+    control_chat_messages(
+      where: { program_control: { program_id: { _eq: $programId } } }
+      order_by: { program_control_id: asc }
+    ) {
+      program_control_id
+      program_control {
+        id
+        control_definition {
+          nist_id
+          cmmc_id
+          requirement_text
+        }
+      }
+    }
+  }
+`

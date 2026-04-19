@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime
 from typing import Any, Optional
 
 import asyncpg
@@ -498,6 +499,92 @@ async def clear_chat_history(
         "DELETE FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2",
         pc_uid, del_user_uid,
     )
+
+
+# ---------------------------------------------------------------------------
+# Interview-to-Artifact endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/program/{program_id}/{control_id}/finalize-interview", status_code=201)
+async def finalize_interview_as_artifact(
+    program_id: str,
+    control_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Save the current copilot chat transcript as an evidence artifact on this control."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    # Verify access (same pattern as other chat endpoints)
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    user_uid = await _resolve_db_user_id(conn, user)
+
+    # Fetch full chat history
+    rows = await conn.fetch(
+        "SELECT role, content, created_at FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2 ORDER BY created_at ASC",
+        pc_uid, user_uid,
+    )
+    if not rows:
+        raise HTTPException(400, "No chat history found for this control")
+
+    # Build markdown transcript
+    lines = [f"# Compliance Interview Transcript\n\nGenerated: {datetime.utcnow().isoformat()}\n\n---\n"]
+    for r in rows:
+        role_label = "**SME:**" if r["role"] == "user" else "**Copilot:**"
+        lines.append(f"{role_label}\n\n{r['content']}\n\n")
+    transcript_md = "".join(lines)
+
+    # Upload to MinIO
+    from app.services.minio_service import upload_bytes, ensure_bucket, get_minio_client
+    minio_client = get_minio_client(request.app)
+    ensure_bucket(minio_client, "cmmc-artifacts")
+    art_id = uuid.uuid4()
+    storage_key = f"interviews/{art_id}.md"
+    upload_bytes(minio_client, "cmmc-artifacts", storage_key, transcript_md.encode(), "text/markdown")
+
+    # Insert artifact
+    from app.config import settings as _s
+    await conn.execute(
+        """
+        INSERT INTO artifacts (id, program_control_id, file_name, mime_type, minio_key,
+                              assessment_status, source_type)
+        VALUES ($1, $2, $3, 'text/markdown', $4, 'pending', 'interview')
+        """,
+        art_id, pc_uid, f"interview_transcript_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.md",
+        storage_key,
+    )
+
+    # Trigger assessment via n8n webhook (fire and forget)
+    import httpx
+    try:
+        webhook_url = (
+            _s.n8n_webhook_base_url + "/artifact-submitted"
+            if hasattr(_s, "n8n_webhook_base_url")
+            else "https://n8n.cmmc4msp.on-nex.us/webhook/artifact-submitted"
+        )
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(webhook_url, json={
+                "artifact_id": str(art_id),
+                "secret": _s.webhook_secret if hasattr(_s, "webhook_secret") else "",
+            })
+    except Exception as exc:
+        logger.warning(f"webhook_trigger_failed: {exc}")
+
+    return {"artifact_id": str(art_id), "status": "pending_assessment"}
 
 
 # ---------------------------------------------------------------------------
