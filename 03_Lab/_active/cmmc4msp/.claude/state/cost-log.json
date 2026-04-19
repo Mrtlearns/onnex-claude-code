@@ -20,7 +20,7 @@
       "date": "2026-04-18",
       "tools": {
         "Glob": 28,
-        "Read": 181,
+        "Read": 182,
         "Bash": 339,
         "Write": 30,
         "ToolSearch": 6,
@@ -32,8 +32,17 @@
         "Grep": 8,
         "TaskOutput": 1
       },
-      "total_calls": 658,
+      "total_calls": 659,
       "weight_total": 531
+    },
+    {
+      "date": "2026-04-19",
+      "tools": {
+        "Bash": 1,
+        "Monitor": 1
+      },
+      "total_calls": 2,
+      "weight_total": 2
     }
   ]
 }
