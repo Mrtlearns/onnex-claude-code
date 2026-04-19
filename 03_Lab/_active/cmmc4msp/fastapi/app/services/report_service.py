@@ -159,15 +159,23 @@ async def generate_ssp_pdf(
 
     # ---- Section 4: Implementation Status ------------------------------------
     story.append(Paragraph("4. Control Implementation Status", styles["SectionHeading"]))
-    table_data = [["NIST ID", "CMMC ID", "Family", "Status", "Implementation Notes"]]
+    cell_style = styles["BodySmall"]
+    header_style = ParagraphStyle(
+        name="TableHeader", parent=cell_style, textColor=colors.white,
+        fontName="Helvetica-Bold", fontSize=8,
+    )
+    table_data = [[
+        Paragraph(h, header_style)
+        for h in ["NIST ID", "CMMC ID", "Family", "Status", "Implementation Notes"]
+    ]]
     for row in controls:
-        notes = (row.get("implementation_notes") or "")[:200]
+        notes = row.get("implementation_notes") or ""
         table_data.append([
-            row["nist_id"],
-            row.get("cmmc_id") or "",
-            row.get("family") or "",
-            (row.get("status") or "").replace("_", " ").title(),
-            notes,
+            _cell(row["nist_id"], cell_style),
+            _cell(row.get("cmmc_id") or "", cell_style),
+            _cell(row.get("family") or "", cell_style),
+            _cell((row.get("status") or "").replace("_", " ").title(), cell_style),
+            _cell(notes, cell_style),
         ])
 
     col_widths = [0.8 * inch, 0.8 * inch, 1.2 * inch, 1.1 * inch, 3.6 * inch]
@@ -274,28 +282,28 @@ async def generate_poam_pdf(
     if not controls:
         story.append(Paragraph("No open items — all applicable controls are fully implemented.", styles["Normal"]))
     else:
+        cell_style = styles["BodySmall"]
+        header_style = ParagraphStyle(
+            name="TableHeader", parent=cell_style, textColor=colors.white,
+            fontName="Helvetica-Bold", fontSize=8,
+        )
         table_data = [[
-            "Control ID",
-            "Description",
-            "Status",
-            "Responsible Org",
-            "Resources",
-            "Milestone Date",
-            "Remediation Plan",
+            Paragraph(h, header_style)
+            for h in ["Control ID", "Description", "Status", "Responsible Org", "Resources", "Milestone Date", "Remediation Plan"]
         ]]
         for row in controls:
-            desc = (row.get("requirement_text") or "")[:120]
+            desc = row.get("requirement_text") or ""
             milestone = row.get("target_completion_date")
             milestone_str = milestone.strftime("%Y-%m-%d") if isinstance(milestone, date) else (str(milestone)[:10] if milestone else "TBD")
-            notes = (row.get("implementation_notes") or "")[:150]
+            notes = row.get("implementation_notes") or ""
             table_data.append([
-                row["nist_id"],
-                desc,
-                (row.get("status") or "").replace("_", " ").title(),
-                program["org_name"],
-                "TBD",
-                milestone_str,
-                notes or "Remediation plan pending.",
+                _cell(row["nist_id"], cell_style),
+                _cell(desc, cell_style),
+                _cell((row.get("status") or "").replace("_", " ").title(), cell_style),
+                _cell(program["org_name"], cell_style),
+                _cell("TBD", cell_style),
+                _cell(milestone_str, cell_style),
+                _cell(notes or "Remediation plan pending.", cell_style),
             ])
 
         # Landscape letter = 11" wide; 9.5" usable after margins
