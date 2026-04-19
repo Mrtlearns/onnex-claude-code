@@ -33,7 +33,7 @@ export const NAV_ITEMS = [
   // DEV NOTE: brain-cognitive is an optional feature module — remove this line + the brain-cognitive dirs to disable
   { label: "BRAIN",         href: "/brain-cognitive", icon: BrainCircuit,  permission: "read:all",        phase: 12 },
   { label: "Skills",        href: "/tools",         icon: Zap,             permission: "manage:all",      phase: 12 },
-  { label: "Settings",      href: "/settings",      icon: Settings2,       permission: "manage:all",      phase: 12 },
+  { label: "Settings",      href: "/settings",      icon: Settings2,       permission: "read:all",        phase: 12 },
   { label: "Client Portal", href: "/portal",        icon: ExternalLink,    permission: "read:own_portal", phase: 12 },
 ] as const
 

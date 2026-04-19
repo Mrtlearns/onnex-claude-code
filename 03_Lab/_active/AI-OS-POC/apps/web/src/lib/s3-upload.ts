@@ -27,7 +27,7 @@ export async function s3PutObject(
 
   const canonHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`
   const signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date"
-  const canonReq = `PUT\n/${BUCKET}/${key}\n\n${canonHeaders}\n${signedHeaders}\n${payloadHash}`
+  const canonReq = `PUT\n/${BUCKET}/${key}\n\n${canonHeaders}${signedHeaders}\n${payloadHash}`
 
   const scope = `${dateStamp}/${REGION}/s3/aws4_request`
   const sts = `AWS4-HMAC-SHA256\n${amzDate}\n${scope}\n${hexHash(canonReq)}`
