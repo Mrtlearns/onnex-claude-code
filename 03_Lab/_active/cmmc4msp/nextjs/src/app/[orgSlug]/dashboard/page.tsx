@@ -228,31 +228,31 @@ export default function DashboardPage({ params }: DashboardProps) {
 
       {/* Summary row */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <Link href={`/${orgSlug}/controls?status=fully_implemented`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Controls Complete</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
             {completeCount}
             <span className="text-sm font-normal text-gray-400">/{totalControls}</span>
           </p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        </Link>
+        <Link href={`/${orgSlug}/controls`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
           <p className="text-xs text-gray-500 uppercase tracking-wider">SPRS Score</p>
           <p className={`text-2xl font-bold mt-1 ${
             sprsScore < 0 ? 'text-red-600' : sprsScore < 70 ? 'text-amber-500' : 'text-green-600'
           }`}>
             {sprsScore}
           </p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        </Link>
+        <Link href={`/${orgSlug}/tasks`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Open Assignments</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">—</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
+        </Link>
+        <Link href={`/${orgSlug}/reports`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Program Status</p>
           <p className="text-sm font-semibold text-gray-800 mt-2 capitalize">
             {(liveProgram?.status || 'scoping').replace(/_/g, ' ')}
           </p>
-        </div>
+        </Link>
       </div>
 
       {/* Main grid */}
@@ -267,7 +267,7 @@ export default function DashboardPage({ params }: DashboardProps) {
 
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Phase Progress</h2>
-          <PhaseProgress programControls={programControls} currentPhase={currentPhase} />
+          <PhaseProgress programControls={programControls} currentPhase={currentPhase} orgSlug={orgSlug} />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-5">
@@ -282,7 +282,7 @@ export default function DashboardPage({ params }: DashboardProps) {
 
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Domain Coverage Heatmap</h2>
-        <DomainHeatmap programControls={programControls} />
+        <DomainHeatmap programControls={programControls} orgSlug={orgSlug} />
       </div>
     </div>
   )

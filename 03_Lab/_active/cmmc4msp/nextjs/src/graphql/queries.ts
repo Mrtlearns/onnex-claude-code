@@ -383,6 +383,27 @@ export const GET_RECENT_ERRORS = gql`
   }
 `
 
+export const GET_ORG_USERS = gql`
+  query GetOrgUsers($orgId: uuid!) {
+    users(
+      where: { org_id: { _eq: $orgId }, is_active: { _eq: true } }
+      order_by: { full_name: asc_nulls_last }
+    ) {
+      id
+      email
+      full_name
+      role
+      is_active
+      created_at
+      assignments_aggregate(where: { status: { _nin: ["completed", "accepted"] } }) {
+        aggregate {
+          count
+        }
+      }
+    }
+  }
+`
+
 export const GET_PROGRAM_ARTIFACTS = gql`
   query GetProgramArtifacts($programId: uuid!) {
     artifacts(

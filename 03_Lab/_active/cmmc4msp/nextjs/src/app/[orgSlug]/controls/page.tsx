@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@apollo/client'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { GET_ORG_BY_SLUG, GET_PROGRAM_CONTROLS, GET_PROGRAM_CONTROLS_UNFILTERED } from '@/graphql/queries'
 import { ControlStatusBadge } from '@/components/ControlStatusBadge'
@@ -24,8 +25,10 @@ const STATUS_OPTIONS = [
 
 export default function ControlsPage({ params }: ControlsPageProps) {
   const { orgSlug } = params
-  const [phaseFilter, setPhaseFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const searchParams = useSearchParams()
+  const [phaseFilter, setPhaseFilter] = useState(searchParams.get('phase') || '')
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
+  const [domainFilter, setDomainFilter] = useState(searchParams.get('domain') || '')
   const [search, setSearch] = useState('')
 
   const { data: orgData, loading: orgLoading } = useQuery(GET_ORG_BY_SLUG, {
@@ -46,6 +49,7 @@ export default function ControlsPage({ params }: ControlsPageProps) {
     const def = pc.control_definition
     if (phaseFilter && def?.far_above_phase !== phaseFilter) return false
     if (statusFilter && pc.status !== statusFilter) return false
+    if (domainFilter && def?.family_abbrev !== domainFilter) return false
     if (search) {
       const q = search.toLowerCase()
       if (
@@ -116,6 +120,14 @@ export default function ControlsPage({ params }: ControlsPageProps) {
             </option>
           ))}
         </select>
+        {domainFilter && (
+          <button
+            onClick={() => setDomainFilter('')}
+            className="flex items-center gap-1 px-3 py-2 text-sm bg-blue-50 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100"
+          >
+            Domain: {domainFilter} ×
+          </button>
+        )}
       </div>
 
       {/* Controls Table */}

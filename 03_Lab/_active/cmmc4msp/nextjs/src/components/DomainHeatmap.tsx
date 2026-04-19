@@ -1,10 +1,12 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { DOMAIN_ABBREVS } from '@/lib/constants'
 import { ProgramControl } from '@/lib/types'
 
 interface DomainHeatmapProps {
   programControls: ProgramControl[]
+  orgSlug?: string
 }
 
 function getHeatmapBg(pct: number): string {
@@ -16,7 +18,7 @@ function getHeatmapBg(pct: number): string {
   return 'bg-blue-800 text-white'
 }
 
-export function DomainHeatmap({ programControls }: DomainHeatmapProps) {
+export function DomainHeatmap({ programControls, orgSlug }: DomainHeatmapProps) {
   const [tooltip, setTooltip] = useState<{ abbrev: string; x: number; y: number } | null>(null)
 
   const domains = Object.keys(DOMAIN_ABBREVS)
@@ -34,22 +36,26 @@ export function DomainHeatmap({ programControls }: DomainHeatmapProps) {
   return (
     <div className="relative">
       <div className="grid grid-cols-7 gap-2">
-        {domainStats.map((d) => (
-          <div
-            key={d.abbrev}
-            className={`rounded-lg p-2 cursor-pointer transition-transform hover:scale-105 ${getHeatmapBg(
-              d.pct
-            )}`}
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect()
-              setTooltip({ abbrev: d.abbrev, x: rect.left, y: rect.top })
-            }}
-            onMouseLeave={() => setTooltip(null)}
-          >
-            <p className="text-xs font-bold text-center">{d.abbrev}</p>
-            <p className="text-xs text-center">{d.pct}%</p>
-          </div>
-        ))}
+        {domainStats.map((d) => {
+          const cell = (
+            <div
+              className={`rounded-lg p-2 cursor-pointer transition-transform hover:scale-105 ${getHeatmapBg(d.pct)}`}
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                setTooltip({ abbrev: d.abbrev, x: rect.left, y: rect.top })
+              }}
+              onMouseLeave={() => setTooltip(null)}
+            >
+              <p className="text-xs font-bold text-center">{d.abbrev}</p>
+              <p className="text-xs text-center">{d.pct}%</p>
+            </div>
+          )
+          return orgSlug ? (
+            <Link key={d.abbrev} href={`/${orgSlug}/controls?domain=${d.abbrev}`}>{cell}</Link>
+          ) : (
+            <div key={d.abbrev}>{cell}</div>
+          )
+        })}
       </div>
       {tooltip && (
         <div className="fixed z-50 bg-gray-900 text-white text-xs rounded px-2 py-1 pointer-events-none"
