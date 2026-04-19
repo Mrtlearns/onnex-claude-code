@@ -69,20 +69,21 @@
     {
       "date": "2026-04-18",
       "tools": {
-        "Bash": 368,
-        "Read": 75,
+        "Bash": 378,
+        "Read": 76,
         "Edit": 33,
         "Write": 16,
         "Grep": 1,
         "Glob": 12,
         "Agent": 1,
-        "ToolSearch": 3,
+        "ToolSearch": 4,
         "AskUserQuestion": 1,
         "TaskCreate": 10,
-        "TaskUpdate": 18
+        "TaskUpdate": 18,
+        "Monitor": 1
       },
-      "total_calls": 538,
-      "weight_total": 459
+      "total_calls": 551,
+      "weight_total": 471
     }
   ]
 }
