@@ -146,7 +146,7 @@ export function TimeEntryForm({ onSuccess, onCancel, isManager = false }: TimeEn
           <Label>Log on behalf of</Label>
           <UserSelect
             value={watch("user_id")}
-            onChange={(v) => setValue("user_id" as any, v)}
+            onChange={(v) => setValue("user_id", v)}
             placeholder="Myself (default)"
           />
         </div>

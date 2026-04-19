@@ -41,6 +41,7 @@ export const CreateTimeEntrySchema = z.object({
   duration_minutes: z.number().int().min(1, 'Duration must be at least 1 minute'),
   date: z.string().min(1, 'Date is required'),
   billable: z.boolean().default(true),
+  user_id: z.string().optional(),
 });
 export type CreateTimeEntryInput = z.infer<typeof CreateTimeEntrySchema>;
 
