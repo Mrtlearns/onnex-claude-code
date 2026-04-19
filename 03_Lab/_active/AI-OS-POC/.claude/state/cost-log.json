@@ -88,13 +88,14 @@
     {
       "date": "2026-04-19",
       "tools": {
-        "Bash": 19,
-        "Read": 3,
-        "Edit": 7,
-        "Write": 2
+        "Bash": 32,
+        "Read": 6,
+        "Edit": 10,
+        "Write": 2,
+        "Grep": 3
       },
-      "total_calls": 31,
-      "weight_total": 28
+      "total_calls": 53,
+      "weight_total": 44
     }
   ]
 }
