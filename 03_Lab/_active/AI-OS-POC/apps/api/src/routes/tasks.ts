@@ -76,6 +76,8 @@ export async function tasksRoutes(fastify: FastifyInstance) {
         project_id, parent_task_id, assignee_id, title, description,
         status = 'todo', priority = 'medium', due_date,
       } = request.body as any
+      const bodyRaw = request.body as any
+      const assignee_ids: string[] = bodyRaw.assignee_ids ?? (assignee_id ? [assignee_id] : [])
 
       if (!title) {
         return reply.code(400).send({ error: 'title is required' })
@@ -83,13 +85,14 @@ export async function tasksRoutes(fastify: FastifyInstance) {
 
       const result = await pool.query(
         `INSERT INTO tasks
-           (tenant_id, project_id, parent_task_id, assignee_id, title, description, status, priority, due_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+           (tenant_id, project_id, parent_task_id, assignee_id, assignee_ids, title, description, status, priority, due_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
           tenantId,
           project_id ?? null,
           parent_task_id ?? null,
           assignee_id ?? null,
+          assignee_ids,
           title,
           description ?? null,
           status,
@@ -141,7 +144,7 @@ export async function tasksRoutes(fastify: FastifyInstance) {
       const existingTask = existingResult.rows[0]
 
       const allowedFields = [
-        'project_id', 'parent_task_id', 'assignee_id', 'title',
+        'project_id', 'parent_task_id', 'assignee_id', 'assignee_ids', 'title',
         'description', 'status', 'due_date',
         'start_date', 'end_date', 'estimated_hours', 'actual_hours',
         'task_type', 'ai_output', 'ai_completed_at', 'ai_session_id',
@@ -187,6 +190,23 @@ export async function tasksRoutes(fastify: FastifyInstance) {
           )
         } catch {
           // Non-fatal — notification failure should not block task update response
+        }
+      }
+
+      // NOTIF-02b: Notify any NEW users added via assignee_ids array
+      if (Array.isArray(body.assignee_ids)) {
+        const existingIds: string[] = existingTask.assignee_ids ?? []
+        const newIds = (body.assignee_ids as string[]).filter(id => !existingIds.includes(id))
+        for (const userId of newIds) {
+          try {
+            await pool.query(
+              `INSERT INTO notifications (tenant_id, user_id, type, title, body, entity_type, entity_id)
+               VALUES ($1, $2, 'task_assigned', 'You were assigned a task', $3, 'task', $4)`,
+              [tenantId, userId, updatedTask.title, updatedTask.id],
+            )
+          } catch {
+            // Non-fatal
+          }
         }
       }
 

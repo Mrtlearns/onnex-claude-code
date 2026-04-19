@@ -13,6 +13,7 @@ export interface Task {
   project_id?: string
   parent_task_id?: string
   assignee_id?: string
+  assignee_ids?: string[]
   title: string
   description?: string
   status: TaskStatus

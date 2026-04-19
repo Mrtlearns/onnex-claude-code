@@ -167,19 +167,31 @@ export function TaskCardContent({ task, isExpanded, onToggleExpand, overlay }: T
             </span>
           )}
 
-          {/* Assignee avatar — right-aligned */}
-          {task.assignee_id && (
-            <div className="ml-auto shrink-0">
-              <div className={cn(
-                "h-[22px] w-[22px] rounded-full text-[9px] font-bold",
-                "flex items-center justify-center ring-1 shrink-0",
-                avatarColor(task.assignee_id),
-                cfg.avatarRing,
-              )}>
-                {avatarInitials(task.assignee_id)}
+          {/* Assignee avatar stack — right-aligned */}
+          {(() => {
+            const ids = task.assignee_ids?.length ? task.assignee_ids : (task.assignee_id ? [task.assignee_id] : [])
+            if (!ids.length) return null
+            const shown = ids.slice(0, 3)
+            return (
+              <div className="ml-auto flex items-center -space-x-1.5 shrink-0">
+                {shown.map((id, i) => (
+                  <div key={id} className={cn(
+                    "h-[22px] w-[22px] rounded-full text-[9px] font-bold",
+                    "flex items-center justify-center ring-1 shrink-0",
+                    avatarColor(id),
+                    cfg.avatarRing,
+                  )} style={{ zIndex: shown.length - i }}>
+                    {avatarInitials(id)}
+                  </div>
+                ))}
+                {ids.length > 3 && (
+                  <div className="h-[22px] w-[22px] rounded-full text-[9px] font-bold flex items-center justify-center ring-1 bg-slate-700 text-slate-300 ring-slate-600" style={{ zIndex: 0 }}>
+                    +{ids.length - 3}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* ── Expanded details ── */}
@@ -193,19 +205,24 @@ export function TaskCardContent({ task, isExpanded, onToggleExpand, overlay }: T
                 </span>
               </div>
             )}
-            {task.assignee_id && (
-              <div className="flex items-center gap-1.5">
-                <div className={cn(
-                  "h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0",
-                  avatarColor(task.assignee_id),
-                )}>
-                  {avatarInitials(task.assignee_id)}
+            {(() => {
+              const ids = task.assignee_ids?.length ? task.assignee_ids : (task.assignee_id ? [task.assignee_id] : [])
+              if (!ids.length) return null
+              return (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex -space-x-1">
+                    {ids.slice(0, 3).map(id => (
+                      <div key={id} className={cn("h-4 w-4 rounded-full text-[8px] font-bold flex items-center justify-center shrink-0 ring-1 ring-background", avatarColor(id))}>
+                        {avatarInitials(id)}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {ids.length === 1 ? ids[0].slice(0, 20) : `${ids.length} assignees`}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground truncate">
-                  {task.assignee_id.slice(0, 20)}
-                </span>
-              </div>
-            )}
+              )
+            })()}
             {task.description && (
               <div className="flex items-start gap-1.5 mt-1">
                 <AlignLeft className="h-3 w-3 text-muted-foreground/40 shrink-0 mt-0.5" />
