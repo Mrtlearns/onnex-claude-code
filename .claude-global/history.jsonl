@@ -1080,3 +1080,5 @@
 {"display":"status","pastedContents":{},"timestamp":1776565278105,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ib_subcontractor","sessionId":"f6c8746f-0b0b-47c5-bb7e-88a1017afab8"}
 {"display":"do this \"switch the\n   ingest workflow's embeddings node to Gemini (gemini-embedding-001)\"","pastedContents":{},"timestamp":1776567726907,"project":"D:\\Code\\Claude\\03_Lab\\_active\\AI-OS-POC","sessionId":"06c06e65-d779-46fd-83d2-40a410ba064b"}
 {"display":"status","pastedContents":{},"timestamp":1776567746382,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ib_subcontractor","sessionId":"f6c8746f-0b0b-47c5-bb7e-88a1017afab8"}
+{"display":"I think it is time to migrate this using new-project skill to poc-backend and provision it with a proper external accesible traefik-a route","pastedContents":{},"timestamp":1776568732556,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ib_subcontractor","sessionId":"f6c8746f-0b0b-47c5-bb7e-88a1017afab8"}
+{"display":"check progress of this","pastedContents":{},"timestamp":1776569098783,"project":"D:\\Code\\Claude\\03_Lab\\_active\\AI-OS-POC","sessionId":"06c06e65-d779-46fd-83d2-40a410ba064b"}
