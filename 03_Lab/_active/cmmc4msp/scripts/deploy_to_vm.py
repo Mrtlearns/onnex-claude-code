@@ -48,6 +48,9 @@ FILES = [
     'nextjs/src/app/[orgSlug]/settings/notifications/page.tsx',
     'nextjs/src/app/admin/analytics/page.tsx',
     'nextjs/src/app/[orgSlug]/controls/[id]/page.tsx',
+    'nextjs/src/app/[orgSlug]/artifacts/page.tsx',
+    'nextjs/src/app/[orgSlug]/integrations/page.tsx',
+    'nextjs/src/graphql/queries.ts',
 ]
 
 

@@ -383,6 +383,39 @@ export const GET_RECENT_ERRORS = gql`
   }
 `
 
+export const GET_PROGRAM_ARTIFACTS = gql`
+  query GetProgramArtifacts($programId: uuid!) {
+    artifacts(
+      where: { program_control: { program_id: { _eq: $programId } } }
+      order_by: { created_at: desc }
+    ) {
+      id
+      file_name
+      mime_type
+      assessment_status
+      assessment_attempts
+      created_at
+      program_control {
+        id
+        control_definition {
+          id
+          nist_id
+          cmmc_id
+          family_abbrev
+          requirement_text
+        }
+      }
+      assessments(order_by: { created_at: desc }, limit: 1) {
+        id
+        verdict
+        confidence
+        rationale
+        created_at
+      }
+    }
+  }
+`
+
 export const GET_LATEST_TRIAGE_REPORT = gql`
   query GetLatestTriageReport {
     triage_reports(order_by: { created_at: desc }, limit: 1) {
