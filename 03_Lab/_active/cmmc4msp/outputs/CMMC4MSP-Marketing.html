@@ -365,9 +365,48 @@
 </head>
 <body>
 
+<!-- ── SHARED NAV BAR (no-print) ─────────────────────── -->
+<style>
+  .site-nav { position: sticky; top: 0; z-index: 1000; background: rgba(10, 15, 30, 0.9); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px); border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .site-nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .site-nav-brand { display: flex; align-items: center; gap: 10px; color: white; font-weight: 800; font-size: 16px; text-decoration: none; letter-spacing: -0.01em; }
+  .site-nav-logo { width: 30px; height: 30px; background: linear-gradient(135deg, #3b82f6, #06b6d4); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; color: #0a0f1e; }
+  .site-nav-links { display: flex; gap: 4px; align-items: center; }
+  .site-nav-links a { color: #cbd5e1; text-decoration: none; padding: 8px 14px; font-size: 14px; font-weight: 500; border-radius: 6px; }
+  .site-nav-links a:hover { color: white; background: rgba(255,255,255,0.06); }
+  .site-nav-links a.active { color: white; background: rgba(59,130,246,0.15); }
+  .site-nav-cta { background: #3b82f6; color: white !important; padding: 8px 18px !important; border-radius: 7px; font-weight: 600 !important; margin-left: 8px; }
+  .site-nav-cta:hover { background: #1e40af !important; }
+  .site-nav-toggle { display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+  @media (max-width: 860px) {
+    .site-nav-links { display: none; flex-direction: column; position: absolute; top: 64px; left: 0; right: 0; background: #0a0f1e; padding: 12px; gap: 2px; }
+    .site-nav-links.open { display: flex; }
+    .site-nav-links a { width: 100%; padding: 12px 16px; }
+    .site-nav-toggle { display: block; }
+  }
+  @media print { .site-nav, .print-bar { display: none !important; } }
+</style>
+<nav class="site-nav no-print">
+  <div class="site-nav-inner">
+    <a href="/" class="site-nav-brand">
+      <span class="site-nav-logo">CM</span>
+      <span>CMMC Compliance OS</span>
+    </a>
+    <button class="site-nav-toggle" onclick="document.getElementById('siteNavLinks').classList.toggle('open')">☰</button>
+    <div class="site-nav-links" id="siteNavLinks">
+      <a href="/">Home</a>
+      <a href="/CMMC4MSP-Marketing.html" class="active">Overview</a>
+      <a href="/product-guide.html">Product Guide</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/#faq">FAQ</a>
+      <a href="https://app.cmmc4msp.on-nex.us" target="_blank" class="site-nav-cta">Book a Demo</a>
+    </div>
+  </div>
+</nav>
+
 <!-- ── PRINT BAR ─────────────────────────────────────── -->
 <div class="print-bar no-print">
-  <span>CMMC Compliance OS — Marketing Overview</span>
+  <span>CMMC Compliance OS — Marketing Overview (Printable)</span>
   <button class="print-btn" onclick="window.print()">
     ⬇ Save / Print to PDF
   </button>
