@@ -168,7 +168,7 @@ export function DealForm({ onSuccess, onCancel, dealId, defaultValues }: DealFor
         <Label className="text-sm">Owner (optional)</Label>
         <UserSelect
           value={watch("owner_id")}
-          onChange={(v) => setValue("owner_id", v ?? null)}
+          onChange={(v) => setValue("owner_id", v ?? undefined)}
           placeholder="No owner"
           className="h-9 text-sm"
         />
