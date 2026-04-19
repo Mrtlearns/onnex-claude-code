@@ -76,14 +76,14 @@
         "Grep": 1,
         "Glob": 12,
         "Agent": 1,
-        "ToolSearch": 4,
+        "ToolSearch": 5,
         "AskUserQuestion": 1,
         "TaskCreate": 10,
-        "TaskUpdate": 18,
+        "TaskUpdate": 19,
         "Monitor": 7
       },
-      "total_calls": 591,
-      "weight_total": 508
+      "total_calls": 593,
+      "weight_total": 510
     }
   ]
 }
