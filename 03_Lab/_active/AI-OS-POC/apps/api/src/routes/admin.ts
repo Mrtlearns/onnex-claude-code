@@ -190,6 +190,135 @@ export async function adminRoutes(fastify: FastifyInstance) {
     },
   })
 
+  // ---------------------------------------------------------------------------
+  // Staff management (Authentik create + user_profiles row)
+  // ---------------------------------------------------------------------------
+
+  const ROLE_TO_GROUP: Record<string, string> = {
+    super_admin: 'aios-super-admins',
+    admin: 'aios-admins',
+    manager: 'aios-managers',
+    team_member: 'aios-team',
+    contractor: 'aios-contractors',
+    finance: 'aios-finance',
+    client_viewer: 'aios-clients',
+  }
+
+  // POST /api/v1/admin/staff — create Authentik user with password + insert user_profiles
+  fastify.post('/api/v1/admin/staff', {
+    preHandler: [
+      (fastify as any).authenticate,
+      requireRole(['admin', 'super_admin']),
+    ],
+    handler: async (request: any, reply: any) => {
+      const { name, email, password, role, timezone, job_title, phone } = request.body as any
+      const actor = request.user
+      const tenantId = actor?.tenant_id ?? 'default'
+
+      if (!name || !email || !password || !role) {
+        return reply.code(400).send({ error: 'name, email, password, role are required' })
+      }
+
+      // 1. Create user in Authentik
+      const username = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '.')
+      const createResp = await authentikFetch('/api/v3/core/users/', {
+        method: 'POST',
+        body: JSON.stringify({
+          username,
+          name,
+          email,
+          is_active: true,
+          type: 'internal',
+          groups: [],
+          attributes: { aios_role: role },
+        }),
+      })
+      const authentikUser = await createResp.json() as any
+      const authentikPk = authentikUser.pk
+      const userId: string = authentikUser.uid ?? String(authentikPk)
+
+      // 2. Set password
+      await authentikFetch(`/api/v3/core/users/${authentikPk}/set_password/`, {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+      })
+
+      // 3. Add to Authentik group
+      const groupName = ROLE_TO_GROUP[role]
+      if (groupName) {
+        try {
+          const groupResp = await authentikFetch(
+            `/api/v3/core/groups/?name=${encodeURIComponent(groupName)}&page_size=1`,
+          )
+          const groupData = await groupResp.json() as any
+          const groupPk = groupData.results?.[0]?.pk
+          if (groupPk) {
+            await authentikFetch(`/api/v3/core/groups/${groupPk}/add_user/`, {
+              method: 'POST',
+              body: JSON.stringify({ pk: authentikPk }),
+            })
+          }
+        } catch (err) {
+          fastify.log.warn({ err }, 'group assignment failed (non-fatal)')
+        }
+      }
+
+      // 4. Insert user_profiles row
+      await pool.query(
+        `INSERT INTO user_profiles (user_id, tenant_id, display_name, timezone, job_title, phone)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (user_id) DO UPDATE SET
+           display_name = EXCLUDED.display_name,
+           timezone     = EXCLUDED.timezone,
+           job_title    = EXCLUDED.job_title,
+           phone        = EXCLUDED.phone,
+           updated_at   = now()`,
+        [userId, tenantId, name, timezone ?? null, job_title ?? null, phone ?? null],
+      )
+
+      // 5. Audit
+      await insertAuditLog(pool, fastify, actor?.sub ?? null, actor?.name ?? null,
+        'staff_created', 'user', userId, email, { role, name, email })
+
+      return reply.code(201).send({ id: userId, name, email, role, authentik_pk: authentikPk })
+    },
+  })
+
+  // PATCH /api/v1/admin/staff/:id — update profile fields (role via existing /users/:id/role)
+  fastify.patch('/api/v1/admin/staff/:id', {
+    preHandler: [
+      (fastify as any).authenticate,
+      requireRole(['admin', 'super_admin']),
+    ],
+    handler: async (request: any, reply: any) => {
+      const { id } = request.params as any
+      const { timezone, job_title, phone, status } = request.body as any
+      const actor = request.user
+      const tenantId = actor?.tenant_id ?? 'default'
+
+      const setClauses: string[] = []
+      const values: unknown[] = []
+      let i = 1
+      if (timezone !== undefined)  { setClauses.push(`timezone = $${i++}`);  values.push(timezone) }
+      if (job_title !== undefined) { setClauses.push(`job_title = $${i++}`); values.push(job_title) }
+      if (phone !== undefined)     { setClauses.push(`phone = $${i++}`);     values.push(phone) }
+      if (status !== undefined)    { setClauses.push(`status = $${i++}`);    values.push(status) }
+      setClauses.push('updated_at = now()')
+
+      if (setClauses.length > 1) {
+        await pool.query(
+          `UPDATE user_profiles SET ${setClauses.join(', ')} WHERE user_id = $${i} AND tenant_id = $${i + 1}`,
+          [...values, id, tenantId],
+        )
+      }
+
+      await insertAuditLog(pool, fastify, actor?.sub ?? null, actor?.name ?? null,
+        'staff_updated', 'user', id, null, { timezone, job_title, phone, status })
+
+      return reply.code(200).send({ updated: true })
+    },
+  })
+
   // GET /api/v1/admin/audit-log — read audit_log table (workspace-global, no tenant filter)
   // admin, super_admin
   fastify.get('/api/v1/admin/audit-log', {

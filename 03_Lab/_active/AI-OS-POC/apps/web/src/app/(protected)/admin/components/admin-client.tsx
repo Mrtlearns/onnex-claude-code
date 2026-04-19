@@ -5,6 +5,7 @@
 import type { Session } from "next-auth"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UsersTab } from "./users-tab"
+import { StaffTab } from "./staff-tab"
 import { AuditLogTab } from "./audit-log-tab"
 import { AiMemoryPanel } from "./ai-memory-panel"
 
@@ -20,19 +21,27 @@ export function AdminClient({ session }: AdminClientProps) {
     <div className="flex flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
 
-      <Tabs defaultValue={isSuperAdmin ? "users" : "audit-log"}>
+      <Tabs defaultValue={isSuperAdmin ? "staff" : "audit-log"}>
         <TabsList>
           {isSuperAdmin && (
-            <TabsTrigger value="users">Users</TabsTrigger>
+            <>
+              <TabsTrigger value="staff">Staff</TabsTrigger>
+              <TabsTrigger value="users">Authentik Users</TabsTrigger>
+            </>
           )}
           <TabsTrigger value="audit-log">Audit Log</TabsTrigger>
           <TabsTrigger value="ai-memory">AI Memory</TabsTrigger>
         </TabsList>
 
         {isSuperAdmin && (
-          <TabsContent value="users">
-            <UsersTab />
-          </TabsContent>
+          <>
+            <TabsContent value="staff">
+              <StaffTab />
+            </TabsContent>
+            <TabsContent value="users">
+              <UsersTab />
+            </TabsContent>
+          </>
         )}
 
         <TabsContent value="audit-log">

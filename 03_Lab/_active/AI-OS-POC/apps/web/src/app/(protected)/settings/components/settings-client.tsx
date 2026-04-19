@@ -3,6 +3,7 @@
 // 3-tab layout: General | Email | Integrations
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ProfileSettingsForm } from "./profile-settings-form"
 import { WorkspaceSettingsForm } from "./workspace-settings-form"
 import { SmtpSettingsForm } from "./smtp-settings-form"
 import { N8nSettingsForm } from "./n8n-settings-form"
@@ -15,13 +16,18 @@ export function SettingsClient() {
     <div className="flex flex-col gap-6 p-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
-      <Tabs defaultValue="general">
+      <Tabs defaultValue="profile">
         <TabsList>
+          <TabsTrigger value="profile">My Profile</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="demo">Demo Data</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile" className="mt-6">
+          <ProfileSettingsForm />
+        </TabsContent>
 
         <TabsContent value="general" className="mt-6">
           <WorkspaceSettingsForm />

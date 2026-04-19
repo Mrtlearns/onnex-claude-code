@@ -18,13 +18,15 @@ import {
 } from "@/components/ui/select"
 import { CreateTimeEntrySchema, type CreateTimeEntryInput } from "@/lib/schemas"
 import type { Project } from "@/types/api"
+import { UserSelect } from "@/components/ui/user-select"
 
 interface TimeEntryFormProps {
   onSuccess: () => void
   onCancel: () => void
+  isManager?: boolean
 }
 
-export function TimeEntryForm({ onSuccess, onCancel }: TimeEntryFormProps) {
+export function TimeEntryForm({ onSuccess, onCancel, isManager = false }: TimeEntryFormProps) {
   const queryClient = useQueryClient()
   const today = new Date().toISOString().split("T")[0]
 
@@ -32,6 +34,8 @@ export function TimeEntryForm({ onSuccess, onCancel }: TimeEntryFormProps) {
     register,
     handleSubmit,
     control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateTimeEntryInput>({
     resolver: zodResolver(CreateTimeEntrySchema),
@@ -135,6 +139,18 @@ export function TimeEntryForm({ onSuccess, onCancel }: TimeEntryFormProps) {
           <p className="text-xs text-destructive">{errors.date.message}</p>
         )}
       </div>
+
+      {/* Log on behalf of (managers only) */}
+      {isManager && (
+        <div className="space-y-1">
+          <Label>Log on behalf of</Label>
+          <UserSelect
+            value={watch("user_id")}
+            onChange={(v) => setValue("user_id" as any, v)}
+            placeholder="Myself (default)"
+          />
+        </div>
+      )}
 
       {/* Billable */}
       <div className="flex items-center gap-2">

@@ -360,6 +360,38 @@ export async function apiInviteUser(token: string, body: { email: string; role: 
   })
 }
 
+// === Staff + User Profiles ===
+import type { StaffMember, UserProfile, CreateStaffInput } from "@/types/api"
+
+export async function apiGetStaff(token: string): Promise<StaffMember[]> {
+  return apiFetch<StaffMember[]>("/api/v1/staff", token)
+}
+
+export async function apiCreateStaff(token: string, body: CreateStaffInput): Promise<{ id: string; name: string; email: string; role: string }> {
+  return apiFetch("/api/v1/admin/staff", token, {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+export async function apiPatchStaff(token: string, userId: string, body: Partial<Pick<UserProfile, "timezone" | "job_title" | "phone"> & { status: string }>): Promise<void> {
+  await apiFetch<void>(`/api/v1/admin/staff/${userId}`, token, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  })
+}
+
+export async function apiGetMyProfile(token: string): Promise<UserProfile> {
+  return apiFetch<UserProfile>("/api/v1/me/profile", token)
+}
+
+export async function apiPatchMyProfile(token: string, body: Partial<Pick<UserProfile, "display_name" | "timezone" | "job_title" | "phone" | "avatar_url">>): Promise<UserProfile> {
+  return apiFetch<UserProfile>("/api/v1/me/profile", token, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  })
+}
+
 export async function apiGetAuditLog(token: string): Promise<AuditLogEntry[]> {
   const data = await apiFetch<{ auditLog: AuditLogEntry[] } | { entries: AuditLogEntry[] } | AuditLogEntry[]>('/api/v1/admin/audit-log', token)
   if (Array.isArray(data)) return data

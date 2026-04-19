@@ -41,7 +41,9 @@ import { brainRoutes } from "./routes/brain.js";
 import { ragRoutes } from "./routes/rag.js";
 import { apiKeyAuthPlugin } from "./plugins/api-key-auth.js";
 // Document signing — LibreSign integration
-import { documentSignRoutes } from "./routes/document-sign.js";
+import { documentSignRoutes } from "./routes/document-sign.js"
+// Staff people-picker
+import { staffRoutes } from "./routes/staff.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -214,6 +216,17 @@ async function runMigrations() {
   } catch (err) {
     console.warn("Migration 020 warning:", err);
   }
+
+  // User profiles — staff onboarding
+  try {
+    const sql021 = readFileSync(
+      join(__dirname, "db/migrations/021_user_profiles.sql"),
+      "utf8",
+    );
+    await pool.query(sql021);
+  } catch (err) {
+    console.warn("Migration 021 warning:", err);
+  }
 }
 
 async function main() {
@@ -265,6 +278,8 @@ async function main() {
   await fastify.register(ragRoutes);
   // Document signing
   await fastify.register(documentSignRoutes);
+  // Staff people-picker
+  await fastify.register(staffRoutes);
 
   try {
     await fastify.listen({ port: PORT, host: HOST });

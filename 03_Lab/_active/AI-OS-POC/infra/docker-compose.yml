@@ -346,6 +346,11 @@ services:
       NEXTCLOUD_INTERNAL_URL: ${NEXTCLOUD_BASE_URL:-http://nextcloud-app:80}
       NEXTCLOUD_USER: ${NEXTCLOUD_ADMIN_USER:-ncadmin}
       NEXTCLOUD_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-ncadmin_dev_2024}
+      MINIO_INTERNAL_URL: ${S3_ENDPOINT:-http://minio-core:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin_dev}
+      S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-uploads}
+      NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://10.10.110.31:9000}
       TZ: America/Los_Angeles
     networks:
     - edge_net
@@ -383,6 +388,8 @@ services:
       REDIS_URL: ${REDIS_URL}
       AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI}
       AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER}
+      AUTHENTIK_INTERNAL_URL: ${AUTHENTIK_INTERNAL_URL:-http://authentik-server:9000}
+      AUTHENTIK_API_TOKEN: ${AUTHENTIK_API_TOKEN}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3002}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -390,6 +397,10 @@ services:
       TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-aios}
       PAPERLESS_AI_API_TOKEN: ${PAPERLESS_AI_API_TOKEN}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio-core:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin_dev}
+      S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-uploads}
       TZ: America/Los_Angeles
     networks:
     - edge_net

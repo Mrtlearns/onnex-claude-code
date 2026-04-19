@@ -303,6 +303,32 @@ export interface AdminUser {
   role: string
 }
 
+export interface StaffMember {
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  job_title: string | null
+  status: string
+  timezone: string | null
+}
+
+export interface UserProfile extends StaffMember {
+  tenant_id: string
+  phone: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateStaffInput {
+  name: string
+  email: string
+  password: string
+  role: string
+  timezone?: string | null
+  job_title?: string | null
+  phone?: string | null
+}
+
 export interface AuditLogEntry {
   id: string
   actor_id: string
