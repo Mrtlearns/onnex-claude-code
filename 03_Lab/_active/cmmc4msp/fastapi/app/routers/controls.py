@@ -308,6 +308,11 @@ async def send_chat_message(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
+    try:
+        user_uid = uuid.UUID(user["user_id"])
+    except (ValueError, KeyError):
+        user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+
     # Get prior history (last 10 pairs = 20 messages)
     history_rows = await conn.fetch(
         """
@@ -315,7 +320,7 @@ async def send_chat_message(
         WHERE program_control_id = $1 AND user_id = $2
         ORDER BY created_at DESC LIMIT 20
         """,
-        pc_uid, uuid.UUID(user["user_id"]),
+        pc_uid, user_uid,
     )
     history = [{"role": r["role"], "content": r["content"]} for r in reversed(history_rows)]
 
@@ -327,7 +332,7 @@ async def send_chat_message(
         INSERT INTO control_chat_messages (program_control_id, user_id, role, content)
         VALUES ($1, $2, 'user', $3)
         """,
-        pc_uid, uuid.UUID(user["user_id"]), body.message,
+        pc_uid, user_uid, body.message,
     )
 
     full_response: list[str] = []
@@ -354,7 +359,7 @@ async def send_chat_message(
                         (program_control_id, user_id, role, content, model_used)
                     VALUES ($1, $2, 'assistant', $3, $4)
                     """,
-                    pc_uid, uuid.UUID(user["user_id"]), content, "anthropic/claude-sonnet-4-6",
+                    pc_uid, user_uid, content, "anthropic/claude-sonnet-4-6",
                 )
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
@@ -388,6 +393,11 @@ async def get_chat_history(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
+    try:
+        get_user_uid = uuid.UUID(user["user_id"])
+    except (ValueError, KeyError):
+        get_user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+
     rows = await conn.fetch(
         """
         SELECT id, role, content, created_at, model_used, tokens_used
@@ -395,7 +405,7 @@ async def get_chat_history(
         WHERE program_control_id = $1 AND user_id = $2
         ORDER BY created_at ASC
         """,
-        pc_uid, uuid.UUID(user["user_id"]),
+        pc_uid, get_user_uid,
     )
     return {
         "messages": [
@@ -439,9 +449,14 @@ async def clear_chat_history(
     if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
         raise HTTPException(403, "Access denied")
 
+    try:
+        del_user_uid = uuid.UUID(user["user_id"])
+    except (ValueError, KeyError):
+        del_user_uid = uuid.uuid5(uuid.NAMESPACE_URL, user.get("user_id", "anonymous"))
+
     await conn.execute(
         "DELETE FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2",
-        pc_uid, uuid.UUID(user["user_id"]),
+        pc_uid, del_user_uid,
     )
 
 

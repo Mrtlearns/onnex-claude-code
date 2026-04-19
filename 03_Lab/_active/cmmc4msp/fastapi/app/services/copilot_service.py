@@ -45,7 +45,7 @@ async def build_context(
     # 2. Org artifacts for this control
     artifacts = await conn.fetch(
         """
-        SELECT ar.id, ar.file_name, a.verdict, a.rationale, a.gaps_noted
+        SELECT ar.id, ar.file_name, a.verdict, a.rationale, a.gaps
         FROM artifacts ar
         JOIN assessments a ON a.artifact_id = ar.id
         WHERE ar.program_control_id = $1
@@ -102,7 +102,7 @@ async def build_context(
             art_lines.append(
                 f"- File: {a['file_name']} (ID: {a['id']}) | Verdict: {a['verdict']}\n"
                 f"  Rationale: {(a['rationale'] or '')[:300]}\n"
-                f"  Gaps: {(a['gaps_noted'] or '')[:200]}"
+                f"  Gaps: {(a['gaps'] or '')[:200]}"
             )
         context_parts.append("=== ORG'S UPLOADED EVIDENCE ===\n" + "\n".join(art_lines))
 
