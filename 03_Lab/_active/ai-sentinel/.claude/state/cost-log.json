@@ -14,7 +14,7 @@
     {
       "date": "2026-04-19",
       "tools": {
-        "Bash": 62,
+        "Bash": 65,
         "Glob": 1,
         "Grep": 6,
         "Read": 21,
@@ -22,8 +22,8 @@
         "Write": 5,
         "Edit": 8
       },
-      "total_calls": 104,
-      "weight_total": 85
+      "total_calls": 107,
+      "weight_total": 88
     }
   ]
 }

@@ -1,1 +1,0 @@
-"""Prequal backend application package."""
