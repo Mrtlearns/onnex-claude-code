@@ -100,6 +100,14 @@
       },
       "total_calls": 434,
       "weight_total": 340
+    },
+    {
+      "date": "2026-04-20",
+      "tools": {
+        "Glob": 1
+      },
+      "total_calls": 1,
+      "weight_total": 0
     }
   ]
 }
