@@ -14,10 +14,10 @@
     {
       "date": "2026-04-19",
       "tools": {
-        "Bash": 4
+        "Bash": 6
       },
-      "total_calls": 4,
-      "weight_total": 4
+      "total_calls": 6,
+      "weight_total": 6
     }
   ]
 }
