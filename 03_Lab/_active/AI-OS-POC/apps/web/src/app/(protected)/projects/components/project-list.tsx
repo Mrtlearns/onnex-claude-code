@@ -35,7 +35,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProjectForm } from "./project-form"
 import { ProjectKanbanBoard } from "./project-kanban-board"
-import type { Client, Project, ProjectMember } from "@/types/api"
+import type { Client, Project, ProjectMember, StaffMember } from "@/types/api"
 
 function ProjectAvatarStack({ projectId }: { projectId: string }) {
   const { data: members = [] } = useQuery<ProjectMember[]>({
@@ -43,19 +43,29 @@ function ProjectAvatarStack({ projectId }: { projectId: string }) {
     queryFn: () => fetch(`/api/bff/projects/${projectId}/members`).then(r => r.json()),
     staleTime: 30_000,
   })
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["staff"],
+    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    staleTime: 120_000,
+  })
+  const staffById = new Map(staff.map(s => [s.user_id, s]))
+
   if (!members.length) return <span className="text-xs text-muted-foreground">—</span>
   const shown = members.slice(0, 3)
   const extra = members.length - 3
   return (
     <div className="flex items-center -space-x-2">
-      {shown.map(m => (
-        <Avatar key={m.user_id} className="h-7 w-7 ring-2 ring-background">
-          <AvatarImage src={m.avatar_url ?? undefined} />
-          <AvatarFallback className="text-[10px] bg-primary/20">
-            {m.user_name.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-      ))}
+      {shown.map(m => {
+        const s = staffById.get(m.user_id)
+        return (
+          <Avatar key={m.user_id} className="h-7 w-7 ring-2 ring-background">
+            <AvatarImage src={s?.avatar_url ?? m.avatar_url ?? undefined} />
+            <AvatarFallback className="text-[10px] bg-primary/20">
+              {(s?.display_name ?? m.user_name).slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        )
+      })}
       {extra > 0 && (
         <div className="h-7 w-7 rounded-full ring-2 ring-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
           +{extra}

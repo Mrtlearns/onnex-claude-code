@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select"
 import { UserPlus, Trash2, Users, Clock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { ProjectMember, AdminUser } from "@/types/api"
+import type { ProjectMember, AdminUser, StaffMember } from "@/types/api"
 
 interface ProjectTeamProps {
   projectId: string
@@ -32,6 +32,13 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
     queryFn: () => fetch(`/api/bff/projects/${projectId}/members`).then(r => r.json()),
     staleTime: 30_000,
   })
+
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["staff"],
+    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    staleTime: 120_000,
+  })
+  const staffById = new Map(staff.map(s => [s.user_id, s]))
 
   const { data: allUsers = [] } = useQuery<AdminUser[]>({
     queryKey: ["admin-users"],
@@ -152,15 +159,17 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {members.map(member => (
+          {members.map(member => {
+            const s = staffById.get(member.user_id)
+            return (
             <div
               key={member.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border/50 hover:bg-muted/30 transition-colors"
             >
               <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={member.avatar_url ?? undefined} />
+                <AvatarImage src={s?.avatar_url ?? member.avatar_url ?? undefined} />
                 <AvatarFallback className="text-xs bg-primary/15">
-                  {(member.user_name || member.user_id).slice(0, 2).toUpperCase()}
+                  {(s?.display_name ?? member.user_name ?? member.user_id).slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
@@ -183,7 +192,8 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-          ))}
+          )
+          })}
         </div>
       )}
     </div>

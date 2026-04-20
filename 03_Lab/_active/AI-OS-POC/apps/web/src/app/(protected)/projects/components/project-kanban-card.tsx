@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { Project, ProjectMember } from "@/types/api"
+import type { Project, ProjectMember, StaffMember } from "@/types/api"
 import { cn } from "@/lib/utils"
 
 // ─── Per-status visual config ─────────────────────────────────────────────────
@@ -129,6 +129,14 @@ export const ProjectCardContent = memo(function ProjectCardContent({
     enabled: !overlay,
   })
 
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["staff"],
+    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    staleTime: 120_000,
+    enabled: !overlay,
+  })
+  const staffById = new Map(staff.map(s => [s.user_id, s]))
+
   const totalPhases = project.phases?.length ?? 0
   const completedPhases = project.phases?.filter(p => p.completed).length ?? 0
   const phaseProgress = totalPhases > 0 ? (completedPhases / totalPhases) * 100 : 0
@@ -197,18 +205,21 @@ export const ProjectCardContent = memo(function ProjectCardContent({
         {/* Team avatar stack */}
         {!overlay && members.length > 0 && (
           <div className="flex items-center -space-x-2">
-            {shownMembers.map((m, i) => (
-              <Avatar
-                key={m.user_id}
-                className="h-5 w-5 ring-1 ring-background shrink-0"
-                style={{ zIndex: shownMembers.length - i }}
-              >
-                <AvatarImage src={m.avatar_url ?? undefined} />
-                <AvatarFallback className={cn("text-[8px] font-bold", avatarColor(m.user_id))}>
-                  {m.user_name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            ))}
+            {shownMembers.map((m, i) => {
+              const s = staffById.get(m.user_id)
+              return (
+                <Avatar
+                  key={m.user_id}
+                  className="h-5 w-5 ring-1 ring-background shrink-0"
+                  style={{ zIndex: shownMembers.length - i }}
+                >
+                  <AvatarImage src={s?.avatar_url ?? m.avatar_url ?? undefined} />
+                  <AvatarFallback className={cn("text-[8px] font-bold", avatarColor(m.user_id))}>
+                    {(s?.display_name ?? m.user_name).slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )
+            })}
             {extraMembers > 0 && (
               <div
                 className="h-5 w-5 rounded-full text-[8px] font-bold flex items-center justify-center ring-1 bg-slate-700 text-slate-300 ring-slate-600"
@@ -252,6 +263,13 @@ function ProjectDetailModal({
     staleTime: 60_000,
     enabled: open,
   })
+
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["staff"],
+    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    staleTime: 120_000,
+  })
+  const staffById = new Map(staff.map(s => [s.user_id, s]))
 
   const totalPhases = project.phases?.length ?? 0
   const completedPhases = project.phases?.filter(p => p.completed).length ?? 0
@@ -348,17 +366,20 @@ function ProjectDetailModal({
                 Team Members
               </h3>
               <div className="flex flex-wrap gap-2">
-                {members.map(m => (
-                  <div key={m.user_id} className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage src={m.avatar_url ?? undefined} />
-                      <AvatarFallback className={cn("text-[9px] font-bold", avatarColor(m.user_id))}>
-                        {m.user_name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs text-muted-foreground">{m.user_name}</span>
-                  </div>
-                ))}
+                {members.map(m => {
+                  const s = staffById.get(m.user_id)
+                  return (
+                    <div key={m.user_id} className="flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={s?.avatar_url ?? m.avatar_url ?? undefined} />
+                        <AvatarFallback className={cn("text-[9px] font-bold", avatarColor(m.user_id))}>
+                          {(s?.display_name ?? m.user_name).slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-muted-foreground">{s?.display_name ?? m.user_name}</span>
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}
