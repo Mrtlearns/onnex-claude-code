@@ -106,12 +106,13 @@
       "tools": {
         "Glob": 2,
         "Read": 1,
-        "Write": 1,
+        "Write": 2,
         "ToolSearch": 1,
-        "Bash": 6
+        "Bash": 6,
+        "ExitPlanMode": 1
       },
-      "total_calls": 11,
-      "weight_total": 8
+      "total_calls": 13,
+      "weight_total": 10
     }
   ]
 }

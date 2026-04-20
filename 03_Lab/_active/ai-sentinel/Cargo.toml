@@ -6,6 +6,8 @@ members = [
     "crates/ai-sentinel-feed",
     "crates/ai-sentinel-store",
     "crates/ai-sentinel-api",
+    "crates/ai-sentinel-classifier",
+    "crates/ai-sentinel-proxy",
 ]
 
 [workspace.dependencies]
@@ -65,6 +67,20 @@ utoipa-scalar = { version = "0.1", features = ["axum"] }
 
 # Config
 config = "0.14"
+toml = "0.8"
+
+# TLS / Proxy (gateway crate)
+tokio-rustls = "0.26"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+rustls-pemfile = "2"
+rcgen = { version = "0.13", features = ["pem"] }
+
+# Network / IP
+ipnet = { version = "2", features = ["serde"] }
+blake3 = "1"
+
+# Atomic swap (hot-reload)
+arc-swap = "1"
 
 # OpenTelemetry
 opentelemetry = "0.24"

@@ -33,7 +33,7 @@ progress:
 | 1 | AgentSec Core Build | **Complete** | 100% |
 | 2 | Semantic Intent + Egress Inspection | **Complete** | 100% |
 | 3 | SDK + SaaS + Multi-tenant | **Complete** | 100% |
-| 4 | Gateway MVP (Network MITM Proxy) | **Planned** | 0% |
+| 4 | Gateway MVP (Network MITM Proxy) | **In Progress** | 0% |
 
 ---
 

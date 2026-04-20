@@ -14,6 +14,17 @@ pub struct SignatureSet {
     /// Compiled regex for fast matching
     compiled_injection: Option<RegexSet>,
     compiled_tools: Option<RegexSet>,
+
+    // ── Gateway fields (Phase 4) ──────────────────────────────────────────────
+
+    /// Known LLM provider hostnames for SNI matching (e.g. "api.anthropic.com")
+    pub sni_patterns: Vec<String>,
+    /// URL path prefixes that indicate LLM API traffic (e.g. "/v1/messages")
+    pub url_path_patterns: Vec<String>,
+    /// Compiled regex for SNI matching
+    compiled_sni: Option<RegexSet>,
+    /// Compiled regex for URL path matching
+    compiled_url_paths: Option<RegexSet>,
 }
 
 impl SignatureSet {
@@ -30,7 +41,19 @@ impl SignatureSet {
             cve_ids,
             compiled_injection,
             compiled_tools,
+            sni_patterns: Vec::new(),
+            url_path_patterns: Vec::new(),
+            compiled_sni: None,
+            compiled_url_paths: None,
         }
+    }
+
+    pub fn with_provider_data(mut self, sni_patterns: Vec<String>, url_path_patterns: Vec<String>) -> Self {
+        self.compiled_sni = RegexSet::new(&sni_patterns).ok();
+        self.compiled_url_paths = RegexSet::new(&url_path_patterns).ok();
+        self.sni_patterns = sni_patterns;
+        self.url_path_patterns = url_path_patterns;
+        self
     }
 
     pub fn matches_threat(&self, text: &str) -> bool {
@@ -45,6 +68,23 @@ impl SignatureSet {
             return rs.is_match(tool_name);
         }
         false
+    }
+
+    /// Returns true if the hostname matches a known LLM provider SNI pattern.
+    pub fn matches_sni(&self, hostname: &str) -> bool {
+        if let Some(ref rs) = self.compiled_sni {
+            return rs.is_match(hostname);
+        }
+        // Fallback: exact match in list
+        self.sni_patterns.iter().any(|p| p == hostname)
+    }
+
+    /// Returns true if the URL path matches a known LLM API path pattern.
+    pub fn matches_url_path(&self, path: &str) -> bool {
+        if let Some(ref rs) = self.compiled_url_paths {
+            return rs.is_match(path);
+        }
+        self.url_path_patterns.iter().any(|p| path.starts_with(p.as_str()))
     }
 
     pub fn pattern_count(&self) -> usize {

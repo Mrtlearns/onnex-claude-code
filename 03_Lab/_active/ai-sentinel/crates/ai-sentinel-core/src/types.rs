@@ -20,6 +20,10 @@ pub enum CallerType {
     Temporal,
     Sdk,
     Unknown,
+    /// Network-layer gateway: caller is identified by 5-tuple blake3 hash
+    Network,
+    /// OS process intercepted via eBPF/WFP agent
+    Agent,
 }
 
 impl Default for CallerType {
@@ -41,6 +45,10 @@ pub struct CallerContext {
     pub prompt_tokens: Option<u32>,
     pub completion_tokens: Option<u32>,
     pub cost_usd: Option<f64>,
+    /// Source IP address (gateway mode: extracted from CONNECT 5-tuple)
+    pub source_ip: Option<String>,
+    /// OS process name (agent mode: e.g. "cursor.exe pid=4812")
+    pub process_name: Option<String>,
 }
 
 // ─── Tool Manifest ────────────────────────────────────────────────────────────
