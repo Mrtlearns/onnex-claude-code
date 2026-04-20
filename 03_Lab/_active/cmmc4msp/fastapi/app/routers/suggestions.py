@@ -140,16 +140,18 @@ async def suggest_controls_for_artifact(
 
     # Cosine similarity against all control definition embeddings
     rows = await conn.fetch(
-        f"""
+        """
         SELECT cde.control_definition_id,
-               1 - (cde.requirement_embedding <=> '{vec_str}'::vector) AS sim,
+               1 - (cde.requirement_embedding <=> $1::vector) AS sim,
                cd.nist_id, cd.cmmc_id, cd.requirement_text, cd.family, cd.family_abbrev
         FROM control_definition_embeddings cde
         JOIN control_definitions cd ON cde.control_definition_id = cd.id
         WHERE cde.requirement_embedding IS NOT NULL
         ORDER BY sim DESC
-        LIMIT {_TOP_N * 2}
+        LIMIT $2
         """,
+        vec_str,
+        _TOP_N * 2,
     )
 
     if not rows:
@@ -178,15 +180,16 @@ async def suggest_controls_for_artifact(
         ctrl_vec_str = "[" + ",".join(f"{v:.6f}" for v in ctrl_vec) + "]"
 
         supporting = await conn.fetch(
-            f"""
+            """
             SELECT chunk_text,
-                   1 - (embedding <=> '{ctrl_vec_str}'::vector) AS chunk_sim
+                   1 - (embedding <=> $2::vector) AS chunk_sim
             FROM artifact_chunks
             WHERE artifact_id = $1 AND embedding IS NOT NULL
             ORDER BY chunk_sim DESC
             LIMIT 3
             """,
             art_uid,
+            ctrl_vec_str,
         )
         top_chunks = [r["chunk_text"][:300] for r in supporting]
 

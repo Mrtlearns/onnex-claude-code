@@ -16,11 +16,31 @@ export const DOMAIN_ABBREVS: Record<string, string> = {
 }
 
 export const PHASE_CONFIG = [
-  { phase: '1', label: 'Boundary & Physical', controls: 17, points: 37 },
-  { phase: '2', label: 'SSP & Identity', controls: 23, points: 32 },
-  { phase: '3', label: 'Remote Access & IR', controls: 22, points: 34 },
-  { phase: '4', label: 'Audit & Config', controls: 23, points: 37 },
-  { phase: '5', label: 'Advanced & Personnel', controls: 25, points: 47 },
+  {
+    phase: '1', label: 'Boundary & Physical', controls: 17, points: 37,
+    description: 'Establish your CUI boundary: physical access controls, network segmentation, and media protection. These 17 controls define who and what can reach your controlled environment.',
+    unlocks: 'Phase 2 — SSP documentation and identity hardening',
+  },
+  {
+    phase: '2', label: 'SSP & Identity', controls: 23, points: 32,
+    description: 'Document your System Security Plan and lock down authentication. Control 3.12.4 (SSP) is the gate — SPRS is capped at -203 until it is marked complete.',
+    unlocks: 'Phase 3 — Remote access and incident response',
+  },
+  {
+    phase: '3', label: 'Remote Access & IR', controls: 22, points: 34,
+    description: 'Secure all remote connections and establish incident response capability. Covers VPN/Zero Trust configurations, IR planning, and maintenance controls.',
+    unlocks: 'Phase 4 — Audit trails and configuration management',
+  },
+  {
+    phase: '4', label: 'Audit & Config', controls: 23, points: 37,
+    description: 'Implement audit logging across all systems and lock down configurations. Every change must be tracked, every baseline enforced.',
+    unlocks: 'Phase 5 — Risk management, personnel, and advanced security',
+  },
+  {
+    phase: '5', label: 'Advanced & Personnel', controls: 25, points: 47,
+    description: 'Complete risk assessments, supply chain controls, and personnel security. These 25 controls finalize your path to a 110 SPRS score and CMMC Level 2 readiness.',
+    unlocks: 'CMMC Level 2 certification readiness',
+  },
 ]
 
 export function getSPRSColor(score: number): string {

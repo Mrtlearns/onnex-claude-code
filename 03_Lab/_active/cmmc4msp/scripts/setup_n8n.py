@@ -1,5 +1,16 @@
 """Set up n8n: fix workflow ownership, create credentials, activate workflows."""
-import subprocess, json, sys
+import subprocess, json, sys, os
+
+from _secrets import require
+
+PG_PASSWORD = require(
+    "PG_APP_PASSWORD",
+    prompt="Postgres cmmc_app password: ",
+)
+WEBHOOK_SECRET = require(
+    "FASTAPI_WEBHOOK_SECRET",
+    prompt="FastAPI webhook secret (X-Webhook-Secret): ",
+)
 
 def psql(sql, db="n8n_db"):
     r = subprocess.run(
@@ -94,7 +105,7 @@ pg_cred = n8n_api("POST", "/api/v1/credentials", {
         "port": 5432,
         "database": "cmmc_main",
         "user": "cmmc_app",
-        "password": "iHItynfab9yUwZ9GgyJYtbxdBQOSYMtm",
+        "password": PG_PASSWORD,
         "ssl": "disable"
     }
 })
@@ -106,7 +117,7 @@ webhook_cred = n8n_api("POST", "/api/v1/credentials", {
     "type": "httpHeaderAuth",
     "data": {
         "name": "X-Webhook-Secret",
-        "value": "changeme"
+        "value": WEBHOOK_SECRET
     }
 })
 print(f"Webhook credential: {webhook_cred.get('id', webhook_cred.get('error', 'unknown'))}")

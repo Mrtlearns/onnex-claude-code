@@ -1,12 +1,11 @@
 """Artifacts router — presigned upload, status, and text extraction."""
 from __future__ import annotations
 
-import asyncio
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.config import settings
@@ -88,6 +87,7 @@ async def extract_artifact_text_n8n(
 async def initiate_upload(
     program_control_id: str,
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
@@ -116,7 +116,12 @@ async def initiate_upload(
     artifact_id = uuid.uuid4()
     minio_key = f"{pc['program_id']}/{pc_uid}/{artifact_id}/{file_name}"
 
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+    if file.size and file.size > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
     file_bytes = await file.read()
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
 
     await conn.execute(
         """
@@ -134,21 +139,91 @@ async def initiate_upload(
     upload_bytes(minio_client, ARTIFACTS_BUCKET, minio_key, file_bytes, mime_type)
 
     download_presigned = get_presigned_download_url(minio_client, ARTIFACTS_BUCKET, minio_key)
-    asyncio.create_task(
-        n8n_service.trigger_assessment(
-            str(artifact_id),
-            str(pc_uid),
-            download_presigned,
-        )
+    background_tasks.add_task(
+        n8n_service.trigger_assessment,
+        str(artifact_id), str(pc_uid), download_presigned,
     )
-    asyncio.create_task(
-        _chunk_and_embed(request.app.state.pool, artifact_id, minio_client, minio_key, file_name, mime_type)
+    background_tasks.add_task(
+        _chunk_and_embed,
+        request.app.state.pool, artifact_id, minio_client, minio_key, file_name, mime_type,
     )
 
     return {
         "artifact_id": str(artifact_id),
         "minio_key": minio_key,
     }
+
+
+@router.post("/bulk-upload-zip", status_code=201)
+async def bulk_upload_zip(
+    program_id: str,
+    file: UploadFile = File(...),
+    request: Request = None,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Accept a ZIP from the harvester script with manifest.json mapping files to NIST IDs."""
+    import io
+    import json
+    import zipfile
+
+    from app.services.minio_service import ensure_bucket, upload_bytes
+
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    program = await conn.fetchrow("SELECT id, org_id FROM programs WHERE id = $1", prog_uid)
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(program["org_id"]) != user.get("org_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    data = await file.read()
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            names = zf.namelist()
+            if "manifest.json" not in names:
+                raise HTTPException(status_code=400, detail="ZIP missing manifest.json")
+            manifest = json.loads(zf.read("manifest.json"))
+            files_map = manifest.get("files", [])  # [{filename, nist_ids: []}]
+
+            minio_client = request.app.state.minio
+            ensure_bucket(minio_client, ARTIFACTS_BUCKET)
+
+            artifacts_created = 0
+            for entry in files_map:
+                fname = entry.get("filename")
+                nist_ids = entry.get("nist_ids", [])
+                if not fname or not nist_ids or fname not in names:
+                    continue
+                content = zf.read(fname)
+                # Find program_controls matching the NIST IDs
+                pc_rows = await conn.fetch(
+                    """
+                    SELECT pc.id FROM program_controls pc
+                    JOIN control_definitions cd ON pc.control_definition_id = cd.id
+                    WHERE pc.program_id = $1 AND cd.nist_id = ANY($2)
+                    """,
+                    prog_uid, nist_ids,
+                )
+                for pc_row in pc_rows:
+                    art_id = uuid.uuid4()
+                    minio_key = f"harvester/{art_id}_{fname.replace('/', '_')}"
+                    upload_bytes(minio_client, ARTIFACTS_BUCKET, minio_key, content, "application/octet-stream")
+                    await conn.execute(
+                        """
+                        INSERT INTO artifacts (id, program_control_id, file_name, mime_type,
+                                              minio_key, assessment_status, source_type)
+                        VALUES ($1, $2, $3, 'application/octet-stream', $4, 'pending', 'harvester')
+                        """,
+                        art_id, pc_row["id"], fname, minio_key,
+                    )
+                    artifacts_created += 1
+            return {"artifacts_created": artifacts_created}
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid ZIP file")
 
 
 async def _chunk_and_embed(pool, artifact_id: uuid.UUID, minio_client, minio_key: str, file_name: str, mime_type: str) -> None:
@@ -264,6 +339,60 @@ async def get_artifact_status(
 
     require_same_org(str(row["org_id"]), user)
     return {"artifact_id": artifact_id, "assessment_status": row["assessment_status"]}
+
+
+# ---------------------------------------------------------------------------
+# A3 — Evidence Drift Detection: dismiss drift
+# ---------------------------------------------------------------------------
+
+
+class DismissDriftRequest(BaseModel):
+    note: str
+
+
+@router.post("/{artifact_id}/dismiss-drift")
+async def dismiss_drift(
+    artifact_id: str,
+    body: DismissDriftRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Mark a drifted artifact as reviewed and dismissed by the current user."""
+    try:
+        art_uid = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    artifact = await conn.fetchrow(
+        """
+        SELECT ar.id, p.org_id
+        FROM artifacts ar
+        JOIN program_controls pc ON ar.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE ar.id = $1
+        """,
+        art_uid,
+    )
+    if not artifact:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    if user["role"] not in ("msp_admin", "super_admin") and str(artifact["org_id"]) != user.get("org_id"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await conn.execute(
+        """
+        UPDATE artifacts SET
+            drift_status        = 'dismissed',
+            drift_dismissed_by  = $1,
+            drift_dismissed_at  = NOW(),
+            drift_dismiss_note  = $2
+        WHERE id = $3
+        """,
+        uuid.UUID(user["user_id"]),
+        body.note,
+        art_uid,
+    )
+    return {"status": "dismissed", "artifact_id": artifact_id}
 
 
 @router.api_route("/{artifact_id}/extract", methods=["GET", "POST"])

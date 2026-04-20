@@ -1,6 +1,10 @@
 """MinIO object storage helpers."""
+import hashlib
+import hmac as _hmac
 import io
+import time
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from minio import Minio
 from minio.error import S3Error  # noqa: F401 — re-exported for callers
@@ -34,6 +38,21 @@ def get_presigned_download_url(
         key,
         expires=timedelta(seconds=expires_seconds),
     )
+
+
+def get_proxy_download_url(
+    bucket: str,
+    key: str,
+    api_url: str,
+    signing_secret: str,
+    expires: int = 3600,
+) -> str:
+    """Return a FastAPI-proxied download URL signed with HMAC-SHA256."""
+    exp = int(time.time()) + expires
+    payload = f"{bucket}:{key}:{exp}"
+    sig = _hmac.new(signing_secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    qs = urlencode({"bucket": bucket, "key": key, "exp": exp, "sig": sig})
+    return f"{api_url.rstrip('/')}/api/reports/download?{qs}"
 
 
 def upload_bytes(

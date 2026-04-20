@@ -1,9 +1,13 @@
 """Create n8n API key and Postgres credential via REST API."""
-import subprocess, json, http.cookiejar, urllib.request, urllib.error, urllib.parse
+import subprocess, json, http.cookiejar, urllib.request, urllib.error, urllib.parse, os
 
-N8N_BASE = "http://localhost:5678"
-EMAIL = "admin@cmmc4msp.on-nex.us"
-PASSWORD = "mK21iOdUo2eXTGGoLz4ry4ex"
+from _secrets import require
+
+N8N_BASE = os.environ.get("N8N_INTERNAL_URL", "http://localhost:5678")
+EMAIL = os.environ.get("N8N_ADMIN_EMAIL", "admin@cmmc4msp.on-nex.us")
+PASSWORD = require("N8N_ADMIN_PASSWORD", prompt=f"n8n admin password for {EMAIL}: ")
+PG_PASSWORD = require("PG_APP_PASSWORD", prompt="Postgres cmmc_app password: ")
+WEBHOOK_SECRET = require("FASTAPI_WEBHOOK_SECRET", prompt="FastAPI webhook secret: ")
 
 # Set up cookie jar for session
 cookie_jar = http.cookiejar.CookieJar()
@@ -68,7 +72,7 @@ if api_key:
             "port": 5432,
             "database": "cmmc_main",
             "user": "cmmc_app",
-            "password": "iHItynfab9yUwZ9GgyJYtbxdBQOSYMtm",
+            "password": PG_PASSWORD,
             "ssl": "disable"
         }
     })
@@ -81,7 +85,7 @@ if api_key:
         "type": "httpHeaderAuth",
         "data": {
             "name": "X-Webhook-Secret",
-            "value": "changeme"
+            "value": WEBHOOK_SECRET
         }
     })
     print(f"Webhook credential: {cred2.get('id', cred2)}")

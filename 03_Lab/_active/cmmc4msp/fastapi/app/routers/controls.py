@@ -1,18 +1,77 @@
 """Controls router — control definitions and program-level control management."""
 from __future__ import annotations
 
+import json
 import uuid
+from datetime import datetime
 from typing import Any, Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
+from app.logging_config import get_logger
 from app.models import ControlStatusUpdate
 from app.services import sprs_service
+from app.services import error_events_service
+from app.services.background import run_with_pool
+from app.services.copilot_service import build_context, stream_chat
+
+logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+async def _resolve_db_user_id(conn: asyncpg.Connection, user: dict) -> uuid.UUID:
+    """Map a JWT-authenticated user to a row in the public.users table.
+
+    Lookup order:
+      1. Existing DB user by email (SSO users created by seeders / onboarding flow)
+      2. Existing DB user by raw JWT sub (if sub happens to be a valid UUID matching a row)
+      3. Create a new row keyed on deterministic uuid5(email) and return that id
+
+    Guarantees the returned UUID exists in users so FK inserts succeed.
+    """
+    email = (user.get("email") or "").strip().lower()
+    raw_sub = user.get("user_id") or ""
+
+    if email:
+        row = await conn.fetchrow("SELECT id FROM users WHERE lower(email) = $1", email)
+        if row:
+            return row["id"]
+
+    try:
+        sub_uid = uuid.UUID(raw_sub)
+        row = await conn.fetchrow("SELECT id FROM users WHERE id = $1", sub_uid)
+        if row:
+            return row["id"]
+    except (ValueError, TypeError):
+        pass
+
+    seed = email or raw_sub or "anonymous"
+    new_uid = uuid.uuid5(uuid.NAMESPACE_URL, seed)
+    org_uid = None
+    try:
+        org_uid = uuid.UUID(user["org_id"]) if user.get("org_id") else None
+    except (ValueError, TypeError):
+        org_uid = None
+
+    await conn.execute(
+        """
+        INSERT INTO users (id, email, full_name, role, org_id, is_active)
+        VALUES ($1, $2, $3, $4, $5, true)
+        ON CONFLICT (id) DO NOTHING
+        """,
+        new_uid,
+        email or f"unknown-{str(new_uid)[:8]}",
+        user.get("full_name") or email or "Unknown",
+        user.get("role") or "client_user",
+        org_uid,
+    )
+    return new_uid
 
 
 def _row_to_definition(row: asyncpg.Record) -> dict:
@@ -257,3 +316,636 @@ async def update_program_control(
         ctrl_uid,
     )
     return _row_to_program_control(updated)
+
+
+# ---------------------------------------------------------------------------
+# Copilot chat endpoints
+# ---------------------------------------------------------------------------
+
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(..., max_length=4000)
+
+
+@router.post("/program/{program_id}/{control_id}/chat")
+async def send_chat_message(
+    program_id: str,
+    control_id: str,
+    body: ChatMessageRequest,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Send a message to the compliance copilot for this control."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    # Verify access
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    user_uid = await _resolve_db_user_id(conn, user)
+
+    # Get prior history (last 10 pairs = 20 messages)
+    history_rows = await conn.fetch(
+        """
+        SELECT role, content FROM control_chat_messages
+        WHERE program_control_id = $1 AND user_id = $2
+        ORDER BY created_at DESC LIMIT 20
+        """,
+        pc_uid, user_uid,
+    )
+    history = [{"role": r["role"], "content": r["content"]} for r in reversed(history_rows)]
+
+    system_prompt, _ = await build_context(pc_uid, body.message, user.get("org_id", ""), conn)
+
+    # Save user message
+    await conn.execute(
+        """
+        INSERT INTO control_chat_messages (program_control_id, user_id, role, content)
+        VALUES ($1, $2, 'user', $3)
+        """,
+        pc_uid, user_uid, body.message,
+    )
+
+    full_response: list[str] = []
+    pool = request.app.state.pool
+
+    async def _stream():
+        async for chunk in stream_chat(system_prompt, history, body.message):
+            full_response.append(chunk)
+            yield chunk
+        # Save assistant response after streaming completes using a fresh connection
+        content = "".join(
+            json.loads(c[6:])["content"]
+            for c in full_response
+            if c.startswith("data: ")
+            and c.strip() != "data: [DONE]"
+            and c[6:].strip() != "[DONE]"
+            and "{" in c
+        )
+        if content:
+            async with pool.acquire() as write_conn:
+                await write_conn.execute(
+                    """
+                    INSERT INTO control_chat_messages
+                        (program_control_id, user_id, role, content, model_used)
+                    VALUES ($1, $2, 'assistant', $3, $4)
+                    """,
+                    pc_uid, user_uid, content, "anthropic/claude-sonnet-4-6",
+                )
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+@router.get("/program/{program_id}/{control_id}/chat")
+async def get_chat_history(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get conversation history for this control/user."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    get_user_uid = await _resolve_db_user_id(conn, user)
+
+    rows = await conn.fetch(
+        """
+        SELECT id, role, content, created_at, model_used, tokens_used
+        FROM control_chat_messages
+        WHERE program_control_id = $1 AND user_id = $2
+        ORDER BY created_at ASC
+        """,
+        pc_uid, get_user_uid,
+    )
+    return {
+        "messages": [
+            {
+                "id": str(r["id"]),
+                "role": r["role"],
+                "content": r["content"],
+                "created_at": r["created_at"].isoformat(),
+                "model_used": r.get("model_used"),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.delete("/program/{program_id}/{control_id}/chat", status_code=204)
+async def clear_chat_history(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Clear conversation history for this user/control pair."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        """
+        SELECT pc.id, p.org_id
+        FROM program_controls pc
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pc.id = $1 AND p.id = $2
+        """,
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    del_user_uid = await _resolve_db_user_id(conn, user)
+
+    await conn.execute(
+        "DELETE FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2",
+        pc_uid, del_user_uid,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Interview-to-Artifact endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.post("/program/{program_id}/{control_id}/finalize-interview", status_code=201)
+async def finalize_interview_as_artifact(
+    program_id: str,
+    control_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Save the current copilot chat transcript as an evidence artifact on this control."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    # Verify access (same pattern as other chat endpoints)
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    user_uid = await _resolve_db_user_id(conn, user)
+
+    # Fetch full chat history
+    rows = await conn.fetch(
+        "SELECT role, content, created_at FROM control_chat_messages WHERE program_control_id = $1 AND user_id = $2 ORDER BY created_at ASC",
+        pc_uid, user_uid,
+    )
+    if not rows:
+        raise HTTPException(400, "No chat history found for this control")
+
+    # Build markdown transcript
+    lines = [f"# Compliance Interview Transcript\n\nGenerated: {datetime.utcnow().isoformat()}\n\n---\n"]
+    for r in rows:
+        role_label = "**SME:**" if r["role"] == "user" else "**Copilot:**"
+        lines.append(f"{role_label}\n\n{r['content']}\n\n")
+    transcript_md = "".join(lines)
+
+    # Upload to MinIO
+    from app.services.minio_service import upload_bytes, ensure_bucket, get_minio_client
+    minio_client = get_minio_client(request.app)
+    ensure_bucket(minio_client, "cmmc-artifacts")
+    art_id = uuid.uuid4()
+    storage_key = f"interviews/{art_id}.md"
+    upload_bytes(minio_client, "cmmc-artifacts", storage_key, transcript_md.encode(), "text/markdown")
+
+    # Insert artifact
+    from app.config import settings as _s
+    await conn.execute(
+        """
+        INSERT INTO artifacts (id, program_control_id, file_name, mime_type, minio_key,
+                              assessment_status, source_type)
+        VALUES ($1, $2, $3, 'text/markdown', $4, 'pending', 'interview')
+        """,
+        art_id, pc_uid, f"interview_transcript_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.md",
+        storage_key,
+    )
+
+    # Trigger assessment via n8n webhook (fire and forget)
+    import httpx
+    try:
+        webhook_url = (
+            _s.n8n_webhook_base_url + "/artifact-submitted"
+            if hasattr(_s, "n8n_webhook_base_url")
+            else "https://n8n.cmmc4msp.on-nex.us/webhook/artifact-submitted"
+        )
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(webhook_url, json={
+                "artifact_id": str(art_id),
+                "secret": _s.webhook_secret if hasattr(_s, "webhook_secret") else "",
+            })
+    except Exception as exc:
+        logger.warning(f"webhook_trigger_failed: {exc}")
+
+    return {"artifact_id": str(art_id), "status": "pending_assessment"}
+
+
+# ---------------------------------------------------------------------------
+# Policy Draft endpoints
+# ---------------------------------------------------------------------------
+
+
+class DraftReviewRequest(BaseModel):
+    status: str  # 'reviewed' | 'rejected'
+    reviewer_notes: Optional[str] = None
+
+
+@router.post("/program/{program_id}/{control_id}/draft-policy", status_code=202)
+async def generate_draft_policy(
+    program_id: str,
+    control_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Trigger async policy draft generation. Returns draft_id immediately."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    # Create placeholder draft record immediately
+    draft_id = uuid.uuid4()
+    await conn.execute(
+        """
+        INSERT INTO policy_drafts (id, program_control_id, generated_by, content_markdown, status)
+        VALUES ($1, $2, $3, '', 'generating')
+        """,
+        draft_id, pc_uid, uuid.UUID(user["user_id"]),
+    )
+
+    pool = request.app.state.pool
+    minio = request.app.state.minio
+    actor_uid = uuid.UUID(user["user_id"])
+    correlation_id = getattr(request.state, "correlation_id", None)
+    org_id = str(pc["org_id"]) if pc["org_id"] else None
+
+    async def _generate(conn: asyncpg.Connection) -> None:
+        from app.services.policy_draft_service import generate_policy_draft
+        await generate_policy_draft(pc_uid, actor_uid, conn, minio)
+        await conn.execute(
+            "UPDATE policy_drafts SET status = 'draft' WHERE id = $1", draft_id
+        )
+
+    async def _on_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE policy_drafts SET status = 'error', error_message=$1 WHERE id = $2",
+            str(exc)[:2000], draft_id,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, pool, _generate,
+        component="controls.policy_draft",
+        correlation_id=correlation_id,
+        org_id=org_id,
+        on_error=_on_error,
+    )
+    return {"draft_id": str(draft_id), "status": "generating"}
+
+
+@router.get("/program/{program_id}/{control_id}/draft-policy")
+async def list_draft_policies(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """List all drafts for a control."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    rows = await conn.fetch(
+        """
+        SELECT pd.id, pd.status, pd.created_at, pd.reviewed_at, pd.reviewer_notes,
+               pd.minio_key, u.full_name AS generated_by_name, r.full_name AS reviewed_by_name
+        FROM policy_drafts pd
+        JOIN users u ON pd.generated_by = u.id
+        LEFT JOIN users r ON pd.reviewed_by = r.id
+        WHERE pd.program_control_id = $1
+        ORDER BY pd.created_at DESC
+        """,
+        pc_uid,
+    )
+    return {
+        "drafts": [
+            {
+                "id": str(r["id"]),
+                "status": r["status"],
+                "created_at": r["created_at"].isoformat(),
+                "generated_by": r["generated_by_name"],
+                "reviewed_by": r.get("reviewed_by_name"),
+                "reviewed_at": r["reviewed_at"].isoformat() if r["reviewed_at"] else None,
+                "reviewer_notes": r["reviewer_notes"],
+                "has_docx": bool(r["minio_key"]),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/program/{program_id}/{control_id}/draft-policy/{draft_id}")
+async def get_draft_policy(
+    program_id: str,
+    control_id: str,
+    draft_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get draft content + DOCX download URL."""
+    try:
+        pc_uid = uuid.UUID(control_id)
+        draft_uid = uuid.UUID(draft_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    draft = await conn.fetchrow(
+        """
+        SELECT pd.*, p.org_id
+        FROM policy_drafts pd
+        JOIN program_controls pc ON pd.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE pd.id = $1 AND pd.program_control_id = $2
+        """,
+        draft_uid, pc_uid,
+    )
+    if not draft:
+        raise HTTPException(404, "Draft not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(draft["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    docx_url = None
+    if draft["minio_key"]:
+        from app.services.minio_service import get_presigned_download_url
+        docx_url = get_presigned_download_url(
+            request.app.state.minio_public, "cmmc-drafts", draft["minio_key"]
+        )
+
+    return {
+        "id": str(draft["id"]),
+        "status": draft["status"],
+        "content_markdown": draft["content_markdown"],
+        "docx_url": docx_url,
+        "reviewer_notes": draft["reviewer_notes"],
+        "model_used": draft["model_used"],
+        "created_at": draft["created_at"].isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gap Analysis endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/program/{program_id}/{control_id}/gap-analysis", status_code=202)
+async def trigger_gap_analysis(
+    program_id: str,
+    control_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Trigger async gap analysis. Returns immediately; poll GET for results."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        prog_uid = _uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    gap_pool = request.app.state.pool
+    gap_actor = _uuid.UUID(user["user_id"])
+    gap_cid = getattr(request.state, "correlation_id", None)
+    gap_org = str(pc["org_id"]) if pc["org_id"] else None
+
+    async def _run(conn: asyncpg.Connection) -> None:
+        from app.services.gap_analysis_service import run_gap_analysis
+        await run_gap_analysis(pc_uid, gap_actor, conn)
+
+    async def _on_gap_error(conn: asyncpg.Connection, exc: Exception) -> None:
+        await conn.execute(
+            "UPDATE control_gap_analyses SET status='failed', error_message=$1 "
+            "WHERE program_control_id=$2 ORDER BY created_at DESC LIMIT 1",
+            str(exc)[:2000], pc_uid,
+        )
+
+    background_tasks.add_task(
+        run_with_pool, gap_pool, _run,
+        component="controls.gap_analysis",
+        correlation_id=gap_cid,
+        org_id=gap_org,
+        on_error=_on_gap_error,
+    )
+    return {"status": "generating", "message": "Gap analysis started. Poll GET /gap-analysis for results."}
+
+
+@router.get("/program/{program_id}/{control_id}/gap-analysis")
+async def list_gap_analyses(
+    program_id: str,
+    control_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """List gap analyses for a control."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        prog_uid = _uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    pc = await conn.fetchrow(
+        "SELECT pc.id, p.org_id FROM program_controls pc JOIN programs p ON pc.program_id = p.id WHERE pc.id = $1 AND p.id = $2",
+        pc_uid, prog_uid,
+    )
+    if not pc:
+        raise HTTPException(404, "Control not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(pc["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    rows = await conn.fetch(
+        """
+        SELECT id, status, coverage_pct, objectives_covered, objectives_total,
+               overall_assessment, suggested_next_upload, created_at
+        FROM control_gap_analyses
+        WHERE program_control_id = $1
+        ORDER BY created_at DESC LIMIT 10
+        """,
+        pc_uid,
+    )
+    return {
+        "analyses": [
+            {
+                "id": str(r["id"]),
+                "status": r["status"],
+                "coverage_pct": r["coverage_pct"],
+                "objectives_covered": r["objectives_covered"],
+                "objectives_total": r["objectives_total"],
+                "overall_assessment": r["overall_assessment"],
+                "suggested_next_upload": r["suggested_next_upload"],
+                "created_at": r["created_at"].isoformat(),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/program/{program_id}/{control_id}/gap-analysis/{analysis_id}")
+async def get_gap_analysis(
+    program_id: str,
+    control_id: str,
+    analysis_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Get a specific gap analysis by ID."""
+    import uuid as _uuid
+    try:
+        pc_uid = _uuid.UUID(control_id)
+        analysis_uid = _uuid.UUID(analysis_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    row = await conn.fetchrow(
+        """
+        SELECT ga.*, p.org_id
+        FROM control_gap_analyses ga
+        JOIN program_controls pc ON ga.program_control_id = pc.id
+        JOIN programs p ON pc.program_id = p.id
+        WHERE ga.id = $1 AND ga.program_control_id = $2
+        """,
+        analysis_uid, pc_uid,
+    )
+    if not row:
+        raise HTTPException(404, "Analysis not found")
+    if user["role"] not in ("msp_admin", "super_admin") and str(row["org_id"]) != user.get("org_id"):
+        raise HTTPException(403, "Access denied")
+
+    return {
+        "id": str(row["id"]),
+        "status": row["status"],
+        "gap_report": row["gap_report"],
+        "overall_assessment": row["overall_assessment"],
+        "suggested_next_upload": row["suggested_next_upload"],
+        "coverage_pct": row["coverage_pct"],
+        "objectives_covered": row["objectives_covered"],
+        "objectives_total": row["objectives_total"],
+        "created_at": row["created_at"].isoformat(),
+    }
+
+
+@router.post("/program/{program_id}/{control_id}/draft-policy/{draft_id}/review")
+async def review_draft_policy(
+    program_id: str,
+    control_id: str,
+    draft_id: str,
+    body: DraftReviewRequest,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """MSP admin: approve or reject a policy draft."""
+    if user["role"] not in ("msp_admin", "super_admin"):
+        raise HTTPException(403, "MSP admin role required")
+    if body.status not in ("reviewed", "rejected"):
+        raise HTTPException(400, "status must be 'reviewed' or 'rejected'")
+    try:
+        pc_uid = uuid.UUID(control_id)
+        draft_uid = uuid.UUID(draft_id)
+    except ValueError:
+        raise HTTPException(422, "Invalid UUID")
+
+    draft = await conn.fetchrow(
+        "SELECT id FROM policy_drafts WHERE id = $1 AND program_control_id = $2",
+        draft_uid, pc_uid,
+    )
+    if not draft:
+        raise HTTPException(404, "Draft not found")
+
+    await conn.execute(
+        """
+        UPDATE policy_drafts SET status = $1, reviewed_by = $2, reviewed_at = NOW(), reviewer_notes = $3
+        WHERE id = $4
+        """,
+        body.status, uuid.UUID(user["user_id"]), body.reviewer_notes, draft_uid,
+    )
+    return {"status": body.status, "draft_id": str(draft_uid)}

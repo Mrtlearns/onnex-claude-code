@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { PHASE_CONFIG } from '@/lib/constants'
 import { ProgramControl } from '@/lib/types'
 import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid'
@@ -6,9 +7,10 @@ import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid'
 interface PhaseProgressProps {
   programControls: ProgramControl[]
   currentPhase: string
+  orgSlug?: string
 }
 
-export function PhaseProgress({ programControls, currentPhase }: PhaseProgressProps) {
+export function PhaseProgress({ programControls, currentPhase, orgSlug }: PhaseProgressProps) {
   return (
     <div className="space-y-3">
       {PHASE_CONFIG.map((p) => {
@@ -21,13 +23,13 @@ export function PhaseProgress({ programControls, currentPhase }: PhaseProgressPr
         const isUnlocked = phaseControls.some((pc) => pc.is_phase_unlocked)
         const isAllComplete = complete === total && total > 0
         const isCurrent = p.phase === currentPhase
+        const href = orgSlug ? `/${orgSlug}/controls?phase=${p.phase}` : undefined
 
-        return (
+        const inner = (
           <div
-            key={p.phase}
-            className={`rounded-lg border p-3 ${
+            className={`rounded-lg border p-3 transition-shadow ${
               isCurrent ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'
-            }`}
+            } ${href ? 'hover:shadow-sm cursor-pointer' : ''}`}
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -65,6 +67,12 @@ export function PhaseProgress({ programControls, currentPhase }: PhaseProgressPr
             </div>
             <p className="text-xs text-gray-400 mt-1">{pct}% complete</p>
           </div>
+        )
+
+        return href ? (
+          <Link key={p.phase} href={href}>{inner}</Link>
+        ) : (
+          <div key={p.phase}>{inner}</div>
         )
       })}
     </div>

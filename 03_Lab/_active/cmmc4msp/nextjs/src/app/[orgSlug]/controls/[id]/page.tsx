@@ -1,11 +1,12 @@
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
-import { GET_CONTROL_DETAIL } from '@/graphql/queries'
+import { GET_CONTROL_DETAIL, GET_CONTROL_OBJECTIVES } from '@/graphql/queries'
 import { UPDATE_CONTROL_STATUS, UPDATE_CONTROL_NOTES } from '@/graphql/mutations'
 import { ControlStatusBadge } from '@/components/ControlStatusBadge'
 import { ArtifactUploader } from '@/components/ArtifactUploader'
 import { AlsoSatisfiesList } from '@/components/AlsoSatisfiesList'
+import { CopilotChat } from '@/components/CopilotChat'
 import { ControlStatus } from '@/lib/types'
 import { CONTROL_STATUS_CONFIG } from '@/lib/constants'
 import {
@@ -49,6 +50,9 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
   const canEdit = user?.role === 'msp_admin' || user?.role === 'client_admin'
 
   const [proofExpanded, setProofExpanded] = useState(false)
+  const [activeTab, setActiveTab] = useState<'artifacts' | 'copilot'>('artifacts')
+  const [generatingDraft, setGeneratingDraft] = useState(false)
+  const [draftGenerated, setDraftGenerated] = useState(false)
   const [statusDraft, setStatusDraft] = useState<string>('')
   const [notesDraft, setNotesDraft] = useState<string>('')
   const [notesSaved, setNotesSaved] = useState(false)
@@ -70,6 +74,26 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
 
   const pc = data?.program_controls_by_pk
   const def = pc?.control_definition
+
+  const nistId = def?.nist_id || ''
+  const { data: objData } = useQuery(GET_CONTROL_OBJECTIVES, {
+    variables: { programId: pc?.program_id, nistIdPrefix: `${nistId}[%` },
+    skip: !pc?.program_id || !nistId || def?.is_objective,
+  })
+  const objectives = objData?.program_controls || []
+
+  const handleGenerateDraft = async () => {
+    setGeneratingDraft(true)
+    const token = (session?.user as any)?.accessToken
+    const API = process.env.NEXT_PUBLIC_API_URL || ''
+    await fetch(`${API}/api/controls/program/${pc?.program_id}/${pc?.id}/draft-policy`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    setGeneratingDraft(false)
+    setDraftGenerated(true)
+    setTimeout(() => setDraftGenerated(false), 4000)
+  }
 
   const makeApplyHandler = (artifactId: string) => async (controlDefinitionId: string) => {
     const token = (session?.user as any)?.accessToken
@@ -137,12 +161,35 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">Requirement</h2>
         <p className="text-sm text-gray-700 leading-relaxed">{def?.requirement_text}</p>
-        {def?.assessment_objective && (
+        {(def?.assessment_objective || objectives.length > 0) && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
               Assessment Objective
             </h3>
-            <p className="text-sm text-gray-600">{def.assessment_objective}</p>
+            {objectives.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-sm text-gray-500 italic">Determine if:</p>
+                <ul className="space-y-1.5 mt-1">
+                  {objectives.map((obj: any) => {
+                    const text = obj.control_definition?.assessment_objective || ''
+                    const nistSub = obj.control_definition?.nist_id || ''
+                    const label = nistSub.match(/\[([^\]]+)\]/)?.[1]
+                    return (
+                      <li key={obj.id} className="flex gap-2 text-sm text-gray-700">
+                        {label && (
+                          <span className="font-mono text-xs font-bold text-gray-400 mt-0.5 flex-shrink-0">
+                            [{label}]
+                          </span>
+                        )}
+                        <span>{text.replace(/^\[[^\]]+\]\s*/,'')}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">{def.assessment_objective}</p>
+            )}
           </div>
         )}
       </div>
@@ -230,7 +277,56 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
         )}
       </div>
 
-      {/* Artifacts */}
+      {/* Policy Draft */}
+      {canEdit && pc?.status && !['fully_implemented', 'not_applicable'].includes(pc.status) && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-purple-800">AI Policy Draft</p>
+            <p className="text-xs text-purple-600 mt-0.5">Generate a first-pass policy document tailored to your environment.</p>
+          </div>
+          <button
+            onClick={handleGenerateDraft}
+            disabled={generatingDraft}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {generatingDraft ? (
+              <>
+                <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                Drafting…
+              </>
+            ) : draftGenerated ? '✓ Draft queued' : '✦ Generate Draft Policy'}
+          </button>
+        </div>
+      )}
+
+      {/* Tabs: Artifacts | Copilot */}
+      <div>
+        <div className="flex border-b border-gray-200 mb-4">
+          {(['artifacts', 'copilot'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize transition-colors ${
+                activeTab === tab
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'copilot' ? '✦ Copilot' : 'Evidence Artifacts'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'copilot' && (
+          <CopilotChat
+            programId={pc.program_id || ''}
+            controlId={pc.id}
+            accessToken={(session?.user as any)?.accessToken || ''}
+            onArtifactCreated={() => refetch()}
+          />
+        )}
+
+        {activeTab === 'artifacts' && (
       <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">Evidence Artifacts</h2>
         {(pc.artifacts || []).length === 0 ? (
@@ -322,6 +418,8 @@ export default function ControlDetailPage({ params }: ControlDetailProps) {
             onUploadComplete={() => refetch()}
           />
         </div>
+      </div>
+        )}
       </div>
     </div>
   )

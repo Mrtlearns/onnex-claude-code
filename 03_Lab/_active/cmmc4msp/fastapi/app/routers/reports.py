@@ -1,16 +1,24 @@
 """Reports router — SSP, POA&M PDF generation and download listing."""
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac
+import time
 import uuid
 from typing import Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
-from app.services.report_service import REPORTS_BUCKET, generate_poam_pdf, generate_ssp_pdf
+from app.services.report_service import (
+    REPORTS_BUCKET, EXPORTS_BUCKET,
+    generate_poam_pdf, generate_ssp_pdf,
+    generate_sprs_xlsx, generate_audit_package_zip,
+)
 
 router = APIRouter()
 
@@ -21,7 +29,7 @@ async def _resolve_user(
 ) -> dict:
     """Authenticate via webhook secret (n8n internal) or JWT (user-facing)."""
     if x_webhook_secret and x_webhook_secret == settings.webhook_secret:
-        return {"role": "super_admin", "org_id": "", "msp_id": ""}
+        return {"role": "msp_admin", "org_id": "", "msp_id": "", "user_id": "00000000-0000-0000-0000-000000000000"}
     # Fall back to JWT
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -42,6 +50,50 @@ async def _check_program_access(program_id: uuid.UUID, user: dict, conn: asyncpg
     return prog
 
 
+_ALLOWED_BUCKETS = frozenset({"cmmc-reports", "cmmc-artifacts", "cmmc-exports"})
+
+
+@router.get("/download")
+async def proxy_download(
+    request: Request,
+    bucket: str = Query(...),
+    key: str = Query(...),
+    exp: int = Query(...),
+    sig: str = Query(...),
+) -> StreamingResponse:
+    """Proxy-download a MinIO object. URL must be signed by get_proxy_download_url()."""
+    if int(time.time()) > exp:
+        raise HTTPException(status_code=403, detail="Download link expired")
+
+    payload = f"{bucket}:{key}:{exp}"
+    expected = _hmac.new(
+        settings.webhook_secret.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+    if not _hmac.compare_digest(sig, expected):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    if bucket not in _ALLOWED_BUCKETS:
+        raise HTTPException(status_code=400, detail="Invalid bucket")
+
+    try:
+        minio_client = request.app.state.minio
+        obj = minio_client.get_object(bucket, key)
+        filename = key.split("/")[-1]
+        if filename.endswith(".xlsx"):
+            media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif filename.endswith(".zip"):
+            media = "application/zip"
+        else:
+            media = "application/pdf"
+        return StreamingResponse(
+            obj,
+            media_type=media,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not retrieve file: {exc}")
+
+
 @router.post("/{program_id}/ssp")
 async def generate_ssp(
     program_id: str,
@@ -54,8 +106,7 @@ async def generate_ssp(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
 
-    if user.get("role") not in ("super_admin",):
-        await _check_program_access(prog_uid, user, conn)
+    await _check_program_access(prog_uid, user, conn)
 
     download_url = await generate_ssp_pdf(
         str(prog_uid),
@@ -78,8 +129,7 @@ async def generate_poam(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid program_id")
 
-    if user.get("role") not in ("super_admin",):
-        await _check_program_access(prog_uid, user, conn)
+    await _check_program_access(prog_uid, user, conn)
 
     download_url = await generate_poam_pdf(
         str(prog_uid),
@@ -121,3 +171,39 @@ async def list_downloads(
         raise HTTPException(status_code=500, detail=f"Could not list reports: {exc}")
 
     return sorted(objects, key=lambda x: x.get("last_modified") or "", reverse=True)
+
+
+@router.post("/{program_id}/sprs-sheet")
+async def generate_sprs_sheet(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(_resolve_user),
+) -> dict:
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+    await _check_program_access(prog_uid, user, conn)
+    download_url = await generate_sprs_xlsx(
+        str(prog_uid), conn, request.app.state.minio, request.app.state.minio_public,
+    )
+    return {"download_url": download_url}
+
+
+@router.post("/{program_id}/audit-package")
+async def generate_audit_package(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(_resolve_user),
+) -> dict:
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+    await _check_program_access(prog_uid, user, conn)
+    download_url = await generate_audit_package_zip(
+        str(prog_uid), conn, request.app.state.minio, request.app.state.minio_public,
+    )
+    return {"download_url": download_url}

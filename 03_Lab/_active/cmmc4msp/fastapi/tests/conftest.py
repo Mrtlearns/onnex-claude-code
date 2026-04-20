@@ -103,6 +103,7 @@ async def async_client() -> AsyncGenerator[tuple[AsyncClient, AsyncMock], None]:
 
         fastapi_app.state.pool = mock_pool
         fastapi_app.state.minio = mock_minio
+        fastapi_app.state.minio_public = mock_minio
 
         transport = ASGITransport(app=fastapi_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

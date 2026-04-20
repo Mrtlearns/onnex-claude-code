@@ -22,7 +22,7 @@ python3 -m pip install paramiko -q  # if missing
 import paramiko
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect('10.10.110.34', username='mrt', password='Poll0000')
+client.connect('10.10.110.34', username='mrt', password=os.environ['VM_SSH_PASSWORD'])
 
 _, stdout, stderr = client.exec_command('your command here', timeout=60)
 print(stdout.read().decode('utf-8', errors='replace'))
@@ -38,7 +38,8 @@ Also append `2>&1 | cat` to Bash tool commands.
 
 ### Sudo
 ```python
-client.exec_command('echo Poll0000 | sudo -S <command>')
+sudo_pw = os.environ['VM_SSH_PASSWORD']
+client.exec_command(f'echo {sudo_pw} | sudo -S <command>')
 ```
 
 ---
@@ -47,9 +48,10 @@ client.exec_command('echo Poll0000 | sudo -S <command>')
 
 ```python
 # mrt cannot write to /opt/ — create and chown first:
+sudo_pw = os.environ['VM_SSH_PASSWORD']
 client.exec_command(
-    'echo Poll0000 | sudo -S mkdir -p /opt/pocs/<name> && '
-    'echo Poll0000 | sudo -S chown -R mrt:mrt /opt/pocs'
+    f'echo {sudo_pw} | sudo -S mkdir -p /opt/pocs/<name> && '
+    f'echo {sudo_pw} | sudo -S chown -R mrt:mrt /opt/pocs'
 )
 
 # Then SFTP works normally

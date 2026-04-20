@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "python \".claude/hooks/pre-compact.py\"",
+            "command": "python \"D:/Code/Claude/03_Lab/_active/cmmc4msp/.claude/hooks/pre-compact.py\"",
             "type": "command"
           }
         ],
@@ -15,7 +15,7 @@
       {
         "hooks": [
           {
-            "command": "python \".claude/hooks/cost-tracker.py\"",
+            "command": "python \"D:/Code/Claude/03_Lab/_active/cmmc4msp/.claude/hooks/cost-tracker.py\"",
             "type": "command"
           }
         ],
@@ -26,6 +26,6 @@
   "statusLine": {
     "type": "command",
     "padding": 0,
-    "command": "bash \".claude/statusline.sh\""
+    "command": "bash \"D:/Code/Claude/03_Lab/_active/cmmc4msp/.claude/statusline.sh\""
   }
 }

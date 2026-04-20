@@ -1,4 +1,4 @@
-import { Sidebar } from '@/components/Sidebar'
+import { AppSidebar } from '@/components/AppSidebar'
 
 export default function OrgLayout({
   children,
@@ -9,8 +9,8 @@ export default function OrgLayout({
 }) {
   return (
     <div className="flex min-h-screen">
-      <Sidebar orgSlug={params.orgSlug} />
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
+      <AppSidebar context="org" orgSlug={params.orgSlug} />
+      <main className="flex-1 overflow-auto p-6">{children}</main>
     </div>
   )
 }

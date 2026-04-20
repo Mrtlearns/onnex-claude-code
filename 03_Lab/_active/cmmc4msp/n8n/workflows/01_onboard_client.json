@@ -1,5 +1,5 @@
 {
-  "name": "01 \u00e2\u20ac\u201d Onboard Client",
+  "name": "01 â€” Onboard Client",
   "nodes": [
     {
       "id": "a1b2c3d4-0001-0001-0001-000000000001",
@@ -107,7 +107,7 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO activity_log (org_id, program_id, event_type, description, metadata) VALUES ($1::uuid, $2::uuid, 'onboard_complete', 'Client onboarded \u00e2\u20ac\u201d 110 controls seeded', '{}'::jsonb)",
+        "query": "INSERT INTO activity_log (org_id, program_id, event_type, description, metadata) VALUES ($1::uuid, $2::uuid, 'onboard_complete', 'Client onboarded â€” 110 controls seeded', '{}'::jsonb)",
         "additionalFields": {
           "queryParams": "={{ $('Build Insert Rows').first().json.org_id }},={{ $('Build Insert Rows').first().json.program_id }}"
         }
@@ -235,7 +235,8 @@
   },
   "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
   },
   "staticData": null,
   "tags": [],

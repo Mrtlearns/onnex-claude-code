@@ -7,6 +7,7 @@ Supports dual JWT algorithms:
 import os
 import json
 import logging
+import time
 from functools import lru_cache
 
 import httpx
@@ -44,15 +45,26 @@ def _peek_alg(token: str) -> str:
         return "HS256"
 
 
+_jwks_cache: list[dict] = []
+_jwks_fetched_at: float = 0.0
+_JWKS_TTL = 300  # 5 minutes
+
+
 def _fetch_jwks() -> list[dict]:
-    """Fetch JWKS from Authentik. Returns list of JWK keys."""
+    """Fetch JWKS from Authentik with 5-minute in-memory cache."""
+    global _jwks_cache, _jwks_fetched_at
+    now = time.monotonic()
+    if _jwks_cache and (now - _jwks_fetched_at) < _JWKS_TTL:
+        return _jwks_cache
     try:
         resp = httpx.get(JWKS_URL, timeout=5.0)
         resp.raise_for_status()
-        return resp.json().get("keys", [])
+        _jwks_cache = resp.json().get("keys", [])
+        _jwks_fetched_at = now
+        return _jwks_cache
     except Exception as exc:
         logger.warning("Failed to fetch JWKS from %s: %s", JWKS_URL, exc)
-        return []
+        return _jwks_cache
 
 
 def _decode_rs256(token: str) -> dict:
@@ -94,6 +106,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         org_id: str = payload.get("org_id", "")
         role: str = payload.get("role", "client_user")
         msp_id: str = payload.get("msp_id", "")
+        email: str = payload.get("email", "") or payload.get("preferred_username", "")
+        full_name: str = payload.get("name", "") or payload.get("given_name", "")
 
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -103,6 +117,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
             "org_id": org_id,
             "role": role,
             "msp_id": msp_id,
+            "email": email,
+            "full_name": full_name,
         }
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")

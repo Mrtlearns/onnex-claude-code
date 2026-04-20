@@ -2248,3 +2248,69 @@
   - role: super_admin
     permission:
       filter: {}
+
+# ─────────────────────────────────────────────
+# error_events — system error log (migration 025)
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: error_events
+  object_relationships:
+  - name: triage_report
+    using:
+      foreign_key_constraint_on: triaged_by_report_id
+  select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        msp_id:
+          _eq: X-Hasura-Msp-Id
+  - role: org_admin
+    permission:
+      columns:
+      - id
+      - org_id
+      - program_id
+      - correlation_id
+      - source
+      - severity
+      - component
+      - message
+      - stack_trace
+      - context
+      - triaged
+      - created_at
+      filter:
+        org_id:
+          _eq: X-Hasura-Org-Id
+
+# ─────────────────────────────────────────────
+# triage_reports — AI triage batch reports (migration 025)
+# ─────────────────────────────────────────────
+- table:
+    schema: public
+    name: triage_reports
+  array_relationships:
+  - name: error_events
+    using:
+      foreign_key_constraint_on:
+        table:
+          schema: public
+          name: error_events
+        column: triaged_by_report_id
+  select_permissions:
+  - role: super_admin
+    permission:
+      columns: "*"
+      filter: {}
+  - role: msp_admin
+    permission:
+      columns: "*"
+      filter:
+        msp_id:
+          _eq: X-Hasura-Msp-Id

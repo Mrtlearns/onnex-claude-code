@@ -14,6 +14,22 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
   })
 }
 
+async function throwIfNotOk(res: Response): Promise<void> {
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const j = await res.clone().json()
+      detail = j.detail || j.message || detail
+    } catch {
+      // ignore parse errors
+    }
+    const err = new Error(detail) as Error & { status?: number; correlationId?: string }
+    err.status = res.status
+    err.correlationId = res.headers.get('X-Correlation-ID') ?? undefined
+    throw err
+  }
+}
+
 export async function uploadArtifact(
   programControlId: string,
   file: File,
@@ -28,17 +44,17 @@ export async function uploadArtifact(
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
-  if (!res.ok) throw new Error('Upload failed')
+  await throwIfNotOk(res)
   return res.json()
 }
 
 export async function generateReport(
   programId: string,
-  type: 'ssp' | 'poam'
+  type: 'ssp' | 'poam' | 'sprs-sheet' | 'audit-package'
 ): Promise<{ download_url: string }> {
   const res = await fetchWithAuth(`${API_URL}/api/reports/${programId}/${type}`, {
     method: 'POST',
   })
-  if (!res.ok) throw new Error('Report generation failed')
+  await throwIfNotOk(res)
   return res.json()
 }

@@ -1,0 +1,105 @@
+{
+  "id": "a1b2c3d4-0016-0016-0016-000000000000",
+  "name": "16 - Error Handler",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0016-0016-0016-000000000001",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "a1b2c3d4-0016-0016-0016-000000000002",
+      "name": "Postgres: Insert Error Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [220, 0],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO error_events (source, component, message, stack_trace, context) VALUES ('n8n', $1, $2, $3, $4::jsonb)",
+        "options": {
+          "queryReplacement": "={{ $json.workflow.name }},={{ $json.error.message }},={{ $json.error.stack }},={{ JSON.stringify({execution_id: $json.execution.id, workflow_id: $json.workflow.id}) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "wbmu564j5qFXXA1l",
+          "name": "CMMC4MSP Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0016-0016-0016-000000000003",
+      "name": "Send Error Email via Resend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [440, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "from",
+              "value": "CMMC Alerts <alerts@cmmc4msp.on-nex.us>"
+            },
+            {
+              "name": "to",
+              "value": "mrtmaharaj@gmail.com"
+            },
+            {
+              "name": "subject",
+              "value": "=n8n Workflow Failed: {{ $node['Error Trigger'].json.workflow.name }}"
+            },
+            {
+              "name": "html",
+              "value": "=<h2>n8n Workflow Error</h2><p><strong>Workflow:</strong> {{ $node['Error Trigger'].json.workflow.name }}</p><p><strong>Error:</strong> {{ $node['Error Trigger'].json.error.message }}</p><p><strong>Time:</strong> {{ $now }}</p>"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "resend-api",
+          "name": "Resend API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Postgres: Insert Error Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres: Insert Error Event": {
+      "main": [
+        [
+          {
+            "node": "Send Error Email via Resend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "pinData": null
+}

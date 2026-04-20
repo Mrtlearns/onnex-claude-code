@@ -31,9 +31,10 @@ class Settings(BaseSettings):
 
     # App
     app_url: str = "http://localhost:3000"
+    api_url: str = "https://api.cmmc4msp.on-nex.us"
 
     # Webhook auth (n8n callbacks)
-    webhook_secret: str = "changeme"
+    webhook_secret: str = ""
 
     # Authentik (user provisioning for invites)
     authentik_url: str = ""
@@ -49,6 +50,12 @@ class Settings(BaseSettings):
     # OpenRouter (AI assessments + embeddings)
     openrouter_api_key: str = ""
     embedding_model: str = "openai/text-embedding-3-small"
+
+    # Resend (transactional email)
+    resend_api_key: str = ""
+
+    # n8n workflow — assessment completion notification (Workflow 11)
+    n8n_wf_assessment_notify: str = ""
 
     @property
     def postgres_dsn(self) -> str:

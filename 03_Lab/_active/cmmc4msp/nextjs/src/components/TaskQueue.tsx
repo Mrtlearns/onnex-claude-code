@@ -1,7 +1,10 @@
 'use client'
+import { useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { Assignment } from '@/lib/types'
 import { CalendarIcon } from '@heroicons/react/24/outline'
+import { CopilotChat } from '@/components/CopilotChat'
 
 interface TaskQueueProps {
   assignments: Assignment[]
@@ -28,6 +31,10 @@ function isOverdue(dueDateStr?: string): boolean {
 }
 
 export function TaskQueue({ assignments }: TaskQueueProps) {
+  const [openCopilotId, setOpenCopilotId] = useState<string | null>(null)
+  const { data: session } = useSession()
+  const token = (session?.user as any)?.accessToken as string | undefined
+
   if (assignments.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -40,10 +47,12 @@ export function TaskQueue({ assignments }: TaskQueueProps) {
     <div className="space-y-3">
       {assignments.map((assignment) => {
         const control = (assignment as any).program_control?.control_definition
+        const programControl = (assignment as any).program_control
         const statusConfig =
           ASSIGNMENT_STATUS_CONFIG[assignment.status] || ASSIGNMENT_STATUS_CONFIG.unassigned
         const overdue = isOverdue(assignment.due_date)
         const dueSoon = isDueSoon(assignment.due_date)
+        const hasCopilot = !!(assignment.program_id && programControl?.id)
 
         return (
           <div
@@ -88,16 +97,40 @@ export function TaskQueue({ assignments }: TaskQueueProps) {
                 >
                   {statusConfig.label}
                 </span>
-                {(assignment as any).program_control?.id && (
-                  <Link
-                    href={`controls/${(assignment as any).program_control.id}`}
-                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
-                  >
-                    Upload Evidence
-                  </Link>
-                )}
+                <div className="flex items-center gap-2">
+                  {programControl?.id && (
+                    <Link
+                      href={`controls/${programControl.id}`}
+                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
+                    >
+                      Upload Evidence
+                    </Link>
+                  )}
+                  {hasCopilot && (
+                    <button
+                      onClick={() =>
+                        setOpenCopilotId(
+                          openCopilotId === assignment.id ? null : assignment.id
+                        )
+                      }
+                      className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors whitespace-nowrap"
+                    >
+                      {openCopilotId === assignment.id ? 'Close' : '✦ Copilot'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
+            {hasCopilot && openCopilotId === assignment.id && token && (
+              <div className="border-t border-gray-100 pt-3 mt-3">
+                <CopilotChat
+                  programId={assignment.program_id}
+                  controlId={programControl.id}
+                  accessToken={token}
+                />
+              </div>
+            )}
           </div>
         )
       })}

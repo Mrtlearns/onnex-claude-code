@@ -1,0 +1,35 @@
+SSH connected
+
+============================================================
+Postgres container env vars
+============================================================
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/16/bin
+POSTGRES_USER=cmmc_app
+POSTGRES_PASSWORD=iHItynfab9yUwZ9GgyJYtbxdBQOSYMtm
+POSTGRES_DB=cmmc_main
+PGDATA=/var/lib/postgresql/data
+
+
+============================================================
+docker-compose postgres config
+============================================================
+(no output)
+
+============================================================
+docker-compose .env
+============================================================
+(no output)
+
+============================================================
+psql via su postgres
+============================================================
+psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "postgres" does not exist
+
+
+============================================================
+psql via id
+============================================================
+root
+
+
+Done.

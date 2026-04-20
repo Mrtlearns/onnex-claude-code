@@ -70,28 +70,27 @@ def _make_assessment_row():
 
 @pytest.mark.asyncio
 async def test_upload_happy_path(async_client):
-    """Upload returns presigned_url and artifact_id."""
+    """Multipart upload inserts artifact, writes to MinIO, triggers n8n, returns artifact_id."""
     client, conn = async_client
     token = make_token(role="client_admin", org_id=ORG_ID)
 
     conn.fetchrow = AsyncMock(return_value=_make_program_control_row())
     conn.execute = AsyncMock(return_value="INSERT 1")
 
-    with patch("app.routers.artifacts.get_presigned_upload_url", return_value="https://minio/upload-url"), \
-         patch("app.routers.artifacts.get_presigned_download_url", return_value="https://minio/download-url"), \
-         patch("app.routers.artifacts.n8n_service.trigger_assessment", new=AsyncMock()), \
-         patch("app.routers.artifacts.asyncio.create_task", new=MagicMock()):
+    with patch("app.routers.artifacts.upload_bytes"), \
+         patch("app.routers.artifacts.get_presigned_download_url", return_value="https://minio/download-url"):
 
         resp = await client.post(
-            f"/api/artifacts/{PROGRAM_CONTROL_ID}/upload?file_name=policy.pdf&mime_type=application/pdf",
+            f"/api/artifacts/{PROGRAM_CONTROL_ID}/upload",
+            files={"file": ("policy.pdf", b"%PDF-1.4 fake content", "application/pdf")},
             headers={"Authorization": f"Bearer {token}"},
         )
 
     assert resp.status_code == 201
     body = resp.json()
-    assert "presigned_url" in body
     assert "artifact_id" in body
-    assert body["presigned_url"] == "https://minio/upload-url"
+    assert "minio_key" in body
+    assert "policy.pdf" in body["minio_key"]
 
 
 @pytest.mark.asyncio
@@ -104,6 +103,7 @@ async def test_upload_404_unknown_program_control(async_client):
 
     resp = await client.post(
         f"/api/artifacts/{PROGRAM_CONTROL_ID}/upload",
+        files={"file": ("policy.pdf", b"content", "application/pdf")},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 404
@@ -121,6 +121,7 @@ async def test_upload_403_wrong_org(async_client):
 
     resp = await client.post(
         f"/api/artifacts/{PROGRAM_CONTROL_ID}/upload",
+        files={"file": ("policy.pdf", b"content", "application/pdf")},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403

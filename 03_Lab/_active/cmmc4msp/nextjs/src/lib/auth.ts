@@ -1,5 +1,51 @@
 import type { NextAuthOptions } from 'next-auth'
 
+/**
+ * Resolve the caller's DB users.id (UUID) from email.
+ *
+ * Why: Authentik JWT `sub` for seeded demo users is an integer pk string
+ * (e.g. "9"), not a UUID. Hasura's `users.id` and all `assigned_to` FKs
+ * are UUIDs, so we must resolve email → users.id on sign-in and cache
+ * on the JWT. Gracefully returns null if the user has no DB row yet
+ * (new Authentik user who hasn't been provisioned) — callers fall
+ * back to `sub`, matching existing behavior.
+ */
+async function resolveDbUserId(email: string): Promise<string | null> {
+  const adminSecret = process.env.HASURA_ADMIN_SECRET
+  if (!adminSecret || !email) return null
+  const base = (process.env.HASURA_INTERNAL_URL || process.env.NEXT_PUBLIC_HASURA_URL || '').replace(/\/$/, '')
+  if (!base) return null
+  const endpoint = base.endsWith('/v1/graphql') ? base : `${base}/v1/graphql`
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3000)
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': adminSecret,
+      },
+      body: JSON.stringify({
+        query: 'query($email: String!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }',
+        variables: { email },
+      }),
+    })
+    if (!res.ok) {
+      console.error('[auth] resolveDbUserId HTTP', res.status)
+      return null
+    }
+    const body = await res.json()
+    return body?.data?.users?.[0]?.id ?? null
+  } catch (err) {
+    console.error('[auth] resolveDbUserId error:', err)
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function refreshAuthentikToken(token: any): Promise<any> {
   if (!token.refreshToken) return { ...token, error: 'NoRefreshToken' }
 
@@ -67,8 +113,9 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   callbacks: {
     async jwt({ token, account, profile }: any) {
-      // Initial sign-in — store all tokens and expiry
+      // Initial sign-in — store all tokens, expiry, and resolved DB user id
       if (account && profile) {
+        const dbUserId = await resolveDbUserId(profile.email)
         return {
           ...token,
           idToken: account.id_token || account.access_token,
@@ -81,7 +128,16 @@ export const authOptions: NextAuthOptions = {
           org_id: profile.org_id || '',
           msp_id: profile.msp_id || '',
           role: profile.role || 'client_user',
+          dbUserId,
+          email: profile.email,
         }
+      }
+
+      // Late-resolve: if dbUserId missing and we haven't tried yet, attempt once.
+      // dbUserIdResolved flag prevents repeated Hasura calls on every jwt refresh.
+      if (!token.dbUserId && !token.dbUserIdResolved && token.email) {
+        token.dbUserId = await resolveDbUserId(token.email)
+        token.dbUserIdResolved = true
       }
 
       // Token still valid — return as-is
@@ -97,7 +153,10 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).org_id = token.org_id
         ;(session.user as any).msp_id = token.msp_id
         ;(session.user as any).role = token.role
-        ;(session.user as any).id = token.sub
+        // Prefer resolved DB UUID for queries against users.id / assigned_to.
+        // Fall back to JWT sub for brand-new Authentik users without a DB row yet.
+        ;(session.user as any).id = token.dbUserId || token.sub
+        ;(session.user as any).sub = token.sub
         ;(session.user as any).tokenError = token.error
       }
       return session

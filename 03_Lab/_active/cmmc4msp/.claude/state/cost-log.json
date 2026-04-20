@@ -1,85 +1,22 @@
 {
   "sessions": [
     {
-      "date": "2026-03-30",
+      "date": "2026-04-19",
       "tools": {
-        "Edit": 7,
-        "TaskUpdate": 13,
-        "Write": 15,
-        "Bash": 2,
-        "Read": 1
-      },
-      "total_calls": 38,
-      "weight_total": 37
-    },
-    {
-      "date": "2026-04-03",
-      "tools": {
-        "Skill": 1,
-        "ToolSearch": 1,
+        "Read": 147,
+        "Write": 52,
+        "Bash": 261,
+        "Agent": 24,
+        "Glob": 33,
+        "Grep": 34,
+        "Edit": 138,
+        "Monitor": 1,
+        "ToolSearch": 4,
         "AskUserQuestion": 1,
-        "Bash": 36,
-        "Read": 11,
-        "Write": 5,
-        "Edit": 5,
-        "Agent": 1,
-        "ExitPlanMode": 1
+        "TodoWrite": 11
       },
-      "total_calls": 62,
-      "weight_total": 60
-    },
-    {
-      "date": "2026-04-15",
-      "tools": {
-        "Bash": 250,
-        "Read": 76,
-        "Edit": 42,
-        "Skill": 1,
-        "Write": 107,
-        "ToolSearch": 2,
-        "AskUserQuestion": 1,
-        "Agent": 8,
-        "Glob": 7,
-        "ExitPlanMode": 1
-      },
-      "total_calls": 495,
-      "weight_total": 484
-    },
-    {
-      "date": "2026-04-16",
-      "tools": {
-        "Bash": 919,
-        "Read": 192,
-        "Write": 45,
-        "Edit": 105,
-        "Glob": 39,
-        "Grep": 28,
-        "ToolSearch": 5,
-        "Agent": 5,
-        "ExitPlanMode": 1,
-        "TaskCreate": 4,
-        "TaskUpdate": 6
-      },
-      "total_calls": 1349,
-      "weight_total": 1135
-    },
-    {
-      "date": "2026-04-17",
-      "tools": {
-        "Bash": 365,
-        "Read": 144,
-        "Glob": 15,
-        "Write": 19,
-        "Edit": 48,
-        "Agent": 7,
-        "Grep": 7,
-        "ToolSearch": 5,
-        "mcp__claude_ai_Google_Drive__search_files": 1,
-        "mcp__claude_ai_Google_Drive__read_file_content": 1,
-        "mcp__claude_ai_Google_Drive__download_file_content": 1
-      },
-      "total_calls": 613,
-      "weight_total": 510
+      "total_calls": 706,
+      "weight_total": 708
     }
   ]
 }

@@ -1,0 +1,279 @@
+{
+  "id": "a1b2c3d4-0015-0015-0015-000000000000",
+  "name": "15 - Error Triage Nightly",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000002",
+      "name": "Count Untriaged Errors",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*) AS cnt FROM error_events WHERE triaged = FALSE",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000003",
+      "name": "Has Untriaged Errors",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ parseInt($json.cnt) }}",
+              "operation": "largerEqual",
+              "value2": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000004",
+      "name": "Trigger Triage Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        850,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://cmmc-fastapi:8000/api/triage/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParametersJson": "{}",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000005",
+      "name": "Wait for Triage",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        180
+      ],
+      "parameters": {
+        "amount": 60,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000006",
+      "name": "Get Latest Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        180
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://cmmc-fastapi:8000/api/triage/latest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "={{ $env.WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000007",
+      "name": "Send Triage Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.RESEND_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify({ from: 'noreply@cmmc4msp.on-nex.us', to: ['admin@cmmc4msp.on-nex.us'], subject: 'CMMC Platform Nightly Triage Report - ' + new Date().toISOString().substring(0, 10), html: '<h2>CMMC Error Triage Report</h2><p>' + (($json.report && $json.report.summary) ? $json.report.summary : 'Triage completed. Check the dashboard for details.') + '</p><p>Status: ' + ($json.status || 'unknown') + ' | Events processed: ' + ($json.event_count || 0) + '</p>' }) }}",
+        "jsonParameters": true,
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "a1b2c3d4-0015-0015-0015-000000000008",
+      "name": "Log No Errors",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        850,
+        420
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO activity_log (event_type, description, metadata) VALUES ('triage_nightly_run', 'Nightly triage: no untriaged errors found', $1::jsonb)",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify({ run_date: new Date().toISOString() }) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "CMMC Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Count Untriaged Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Untriaged Errors": {
+      "main": [
+        [
+          {
+            "node": "Has Untriaged Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Untriaged Errors": {
+      "main": [
+        [
+          {
+            "node": "Trigger Triage Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Triage Run": {
+      "main": [
+        [
+          {
+            "node": "Wait for Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Triage": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Report": {
+      "main": [
+        [
+          {
+            "node": "Send Triage Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "errorWorkflow": "a1b2c3d4-0016-0016-0016-000000000000"
+  },
+  "staticData": null
+}

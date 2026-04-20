@@ -87,12 +87,11 @@ async def test_create_invite_happy_path(async_client):
     ])
     conn.execute = AsyncMock(return_value="INSERT 1")
 
-    with patch("app.routers.invites.asyncio.create_task", new=MagicMock()):
-        resp = await client.post(
-            "/api/invites",
-            json={"email": "new@example.com", "role": "contributor", "org_id": ORG_ID},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    resp = await client.post(
+        "/api/invites",
+        json={"email": "new@example.com", "role": "contributor", "org_id": ORG_ID},
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
     assert resp.status_code == 201
     body = resp.json()
