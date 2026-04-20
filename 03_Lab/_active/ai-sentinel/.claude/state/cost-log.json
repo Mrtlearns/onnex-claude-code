@@ -14,10 +14,16 @@
     {
       "date": "2026-04-19",
       "tools": {
-        "Bash": 6
+        "Bash": 45,
+        "Glob": 1,
+        "Grep": 6,
+        "Read": 19,
+        "Agent": 1,
+        "Write": 1,
+        "Edit": 7
       },
-      "total_calls": 6,
-      "weight_total": 6
+      "total_calls": 80,
+      "weight_total": 63
     }
   ]
 }
