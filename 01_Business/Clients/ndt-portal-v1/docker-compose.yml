@@ -89,6 +89,7 @@ services:
       # Stable encryption key for credentials — do not change after first start
       N8N_ENCRYPTION_KEY: "ndt-portal-n8n-key-2026-32chars"
       N8N_SECURE_COOKIE: "false"
+      N8N_PROXY_HOPS: "1"
       GENERIC_TIMEZONE: "America/Chicago"
       EXECUTIONS_TIMEOUT: "300"
       EXECUTIONS_TIMEOUT_MAX: "3600"
