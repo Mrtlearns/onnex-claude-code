@@ -102,6 +102,7 @@ interface GatewayRequest {
   system_prompt?:  string;
   model?:          string;   // step-level model override (e.g. for retry with Opus)
   images?:         Array<{ media_type: string; data_b64: string }>;
+  max_tokens?:     number;   // override provider default — Stage 2 needs >4096 to avoid truncation
 }
 
 interface GatewayResponse {
@@ -272,6 +273,10 @@ export async function runRTPipeline(
           // Use OpenRouter model ID format. Sonnet for Stage 2 structured JSON output.
           // Haiku is the DB default (Stage 1); Sonnet for Stage 2 larger response.
           model: 'anthropic/claude-sonnet-4-6',
+          // Stage 2 structured output (render_model + zones + intersections + shot_plan)
+          // routinely exceeds the provider default (4096). Without this, output is
+          // truncated mid-JSON and validation fails on every required field.
+          max_tokens: 16384,
         });
 
         // response_json is already parsed — validate directly

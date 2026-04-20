@@ -90,6 +90,7 @@ class AnalyzeRequest(BaseModel):
     provider:        str | None = None   # step-level override (e.g. 'openai', 'gemini')
     model:           str | None = None   # step-level override (e.g. 'gpt-4o')
     images:          list[ImagePayload] | None = None   # optional: engineering drawing(s)
+    max_tokens:      int | None = None   # optional — override provider default (Stage 2 needs >4096)
 
 
 class AnalyzeResponse(BaseModel):

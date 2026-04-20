@@ -278,6 +278,10 @@ async def analyze(req: AnalyzeRequest):
             for img in req.images
         ]
 
+    # Build kwargs for max_tokens so we only pass it when the caller set it
+    # (lets each provider keep its own default when req.max_tokens is None)
+    mt_kwargs: dict = {"max_tokens": req.max_tokens} if req.max_tokens else {}
+
     # Call the appropriate provider
     t0 = time.monotonic()
     try:
@@ -287,6 +291,7 @@ async def analyze(req: AnalyzeRequest):
                 system_prompt=req.system_prompt,
                 images=images_to_send,
                 model=req.model or None,
+                **mt_kwargs,
             )
         elif provider == "claude_cli":
             response_data, prompt_tokens, completion_tokens = await claude_cli_provider.call(
@@ -294,12 +299,14 @@ async def analyze(req: AnalyzeRequest):
                 system_prompt=req.system_prompt,
                 images=images_to_send,
                 model=model or None,
+                **mt_kwargs,
             )
         elif provider == "anthropic":
             response_data, prompt_tokens, completion_tokens = await anthropic_provider.call(
                 prompt=req.prompt,
                 system_prompt=req.system_prompt,
                 images=images_to_send,
+                **mt_kwargs,
             )
         elif provider == "openrouter":
             response_data, prompt_tokens, completion_tokens = await openrouter_provider.call(
@@ -308,6 +315,7 @@ async def analyze(req: AnalyzeRequest):
                 model=model,
                 api_key=api_key,
                 images=images_to_send,
+                **mt_kwargs,
             )
         elif provider == "openai":
             response_data, prompt_tokens, completion_tokens = await openai_provider.call(
@@ -316,6 +324,7 @@ async def analyze(req: AnalyzeRequest):
                 model=model,
                 api_key=api_key,
                 images=images_to_send,
+                **mt_kwargs,
             )
         elif provider == "gemini":
             response_data, prompt_tokens, completion_tokens = await gemini_provider.call(
@@ -323,6 +332,7 @@ async def analyze(req: AnalyzeRequest):
                 system_prompt=req.system_prompt,
                 model=model,
                 api_key=api_key,
+                **mt_kwargs,
             )
         else:
             # Unknown provider — fall back to anthropic
@@ -331,6 +341,7 @@ async def analyze(req: AnalyzeRequest):
                 prompt=req.prompt,
                 system_prompt=req.system_prompt,
                 images=images_to_send,
+                **mt_kwargs,
             )
     except Exception as e:
         logger.error("LLM call failed [%s/%s]: %s", provider, model, e)
