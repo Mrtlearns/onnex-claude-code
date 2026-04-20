@@ -55,6 +55,40 @@ interface MsgContent {
   body:        string | null
 }
 
+// ── Forwarded body parser (Gmail / Outlook plain-text forward blocks) ─────────
+// Handles:
+//   Gmail:   "---------- Forwarded message ---------\nFrom: Name <email>"
+//   Outlook: "-----Original Message-----\nFrom: Name <email>"
+//   Simple:  "From: Name <email>\nSent: ...\nSubject: ..."
+
+function parseForwardedBody(body: string): MsgContent | null {
+  // Match the start of a forwarded block header
+  const blockRe = /(?:[-]{3,}\s*(?:forwarded message|original message)\s*[-]{3,}|^\s*from\s*:)/im
+  const blockMatch = blockRe.exec(body)
+  if (!blockMatch) return null
+
+  const headerSection = body.slice(blockMatch.index)
+
+  // Extract From line
+  const fromLineMatch = headerSection.match(/^From\s*:\s*(.+)$/im)
+  if (!fromLineMatch) return null
+  const { name: fromName, email: fromEmail } = parseSenderEmail(fromLineMatch[1].trim())
+  if (!fromEmail) return null
+
+  // Extract Subject line
+  const subjectMatch = headerSection.match(/^Subject\s*:\s*(.+)$/im)
+  const subject = subjectMatch ? subjectMatch[1].trim() : null
+
+  // Body is everything after the forwarded header block (skip lines starting with common header keys)
+  const headerEndRe = /\n\s*\n/
+  const headerEndMatch = headerEndRe.exec(headerSection)
+  const forwardedBody = headerEndMatch
+    ? headerSection.slice(headerEndMatch.index + headerEndMatch[0].length).trim()
+    : null
+
+  return { subject, fromEmail, fromName, body: forwardedBody }
+}
+
 function parseMsgAttachment(base64urlData: string): MsgContent | null {
   try {
     // Gmail API returns base64url — convert to standard base64 before decoding
@@ -153,7 +187,16 @@ router.post('/process', async (req: Request, res: Response) => {
       }
     }
 
-    // Effective subject/body for checks — prefer .msg content for internal senders
+    // For internal senders without a .msg attachment, try to extract original
+    // sender from the forwarded message block embedded in the email body.
+    if (internal && !msgContent) {
+      msgContent = parseForwardedBody(data.body)
+      if (msgContent) {
+        console.log(`[inbox/process] Parsed forwarded body from ${senderEmail}: originalFrom="${msgContent.fromEmail}"`)
+      }
+    }
+
+    // Effective subject/body for checks — prefer .msg/.forwarded content for internal senders
     // Fall back to Gmail snippet when body is empty (common with forwarded or HTML-only emails)
     const effectiveSubject = (internal && msgContent?.subject) ? msgContent.subject : data.subject
     const rawBody          = (internal && msgContent?.body)    ? msgContent.body    : data.body
@@ -194,10 +237,11 @@ router.post('/process', async (req: Request, res: Response) => {
     // ── New quote path ────────────────────────────────────────────────────────
 
     // Customer lookup — two-tier: sf.contacts (email) → ut.customers (domain)
-    // Skipped for internal senders (they are testers, not customers)
+    // For internal senders with a parsed original sender, look up the original customer.
     let customer: { id: string; name: string } | null = null
-    if (!internal) {
-      const domain = senderEmail.split('@')[1] ?? ''
+    const lookupEmail = (internal && msgContent?.fromEmail) ? msgContent.fromEmail : (!internal ? senderEmail : null)
+    if (lookupEmail) {
+      const domain = lookupEmail.split('@')[1] ?? ''
 
       // Tier 1: exact email match via SF contacts → ut.customers
       customer = await queryOne<{ id: string; name: string }>(
@@ -206,7 +250,7 @@ router.post('/process', async (req: Request, res: Response) => {
          JOIN ut.customers u ON u.sf_account_id = a.sf_id
          WHERE LOWER(c.email) = $1
          LIMIT 1`,
-        [senderEmail]
+        [lookupEmail]
       )
 
       // Tier 2: domain match on ut.customers
@@ -220,10 +264,10 @@ router.post('/process', async (req: Request, res: Response) => {
       }
     }
 
-    // customer_name: for internal senders show "Internal — <sender>" instead
-    const customerName = internal
+    // customer_name: for internal senders without a parsed original, show tester label
+    const customerName = (internal && !msgContent?.fromEmail)
       ? `Internal tester — ${senderName ?? senderEmail}`
-      : (customer?.name ?? senderEmail)
+      : (customer?.name ?? msgContent?.fromEmail ?? senderEmail)
 
     // ── Part number extraction + BOM lookup ─────────────────────────────────
     const fullText = `${effectiveSubject} ${effectiveBody}`
