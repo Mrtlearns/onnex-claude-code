@@ -19,6 +19,10 @@ B) MAP each zone to a 3D position using normalized coordinates:
    angle_degrees: 0-360 for circumferential features
    span_degrees: angular extent of the zone (0 for point features)
 
+   STRICT: x_normalized, y_normalized, z_normalized MUST each be in the closed interval
+   [0.0, 1.0]. If you compute a value outside this range, CLAMP it to 0.0 or 1.0 before
+   emitting — never return negatives or values > 1. angle_degrees MUST be in [0, 360].
+
    For features that wrap around a primitive (welds on cylinders), use angle_degrees for the
    start position and set span_degrees = 360 for full circumferential.
 

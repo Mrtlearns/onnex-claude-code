@@ -72,3 +72,8 @@ Respond with ONLY valid JSON matching this schema:
   "analysis_module": "string (asme_viii_vessel|asme_b31_piping|aws_structural|casting_radiography|forging_inspection|aerospace_ndt|heat_exchanger|api_tank|generic_rt)",
   "confidence": 0.0
 }
+
+COORDINATE RULES (STRICT):
+- x_normalized, y_normalized, z_normalized MUST each be a number in [0.0, 1.0]. If you compute a value outside this range, clamp it to 0.0 or 1.0 — never emit negatives or values > 1.
+- angle_degrees MUST be in [0, 360]. span_degrees MUST be in [0, 360].
+- These are fractional positions along the part's bounding box, not physical coordinates.

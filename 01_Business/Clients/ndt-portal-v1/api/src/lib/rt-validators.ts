@@ -35,12 +35,24 @@ const PositionSchema = z.object({
   }).optional(),
 });
 
+// LLMs occasionally return normalized coords outside [0,1] (e.g. -0.05 or 1.2).
+// Clamp into range rather than hard-failing the whole pipeline. NaN/Infinity still reject.
+const clamp01 = z.number().finite().transform((v, ctx) => {
+  if (v < 0 || v > 1) {
+    console.warn(`[rt-validators] clamping out-of-range normalized coord at ${ctx.path.join('.')}: ${v} → ${Math.max(0, Math.min(1, v))}`);
+  }
+  return Math.max(0, Math.min(1, v));
+});
+
+// Angles wrap naturally; normalize into [0,360) instead of rejecting.
+const wrap360 = z.number().finite().transform((v) => ((v % 360) + 360) % 360);
+
 const NormalizedPositionSchema = z.object({
-  x_normalized:  z.number().min(0).max(1),
-  y_normalized:  z.number().min(0).max(1),
-  z_normalized:  z.number().min(0).max(1),
-  angle_degrees: z.number().min(0).max(360).optional().default(0),
-  span_degrees:  z.number().min(0).max(360).optional().default(360),
+  x_normalized:  clamp01,
+  y_normalized:  clamp01,
+  z_normalized:  clamp01,
+  angle_degrees: wrap360.optional().default(0),
+  span_degrees:  z.number().finite().transform(v => Math.max(0, Math.min(360, v))).optional().default(360),
 });
 
 // ── Stage 1: PartClassification ───────────────────────────────────────────────

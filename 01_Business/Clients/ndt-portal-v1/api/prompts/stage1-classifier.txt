@@ -25,6 +25,11 @@ You MUST determine:
 
 OUTPUT: Respond with ONLY valid JSON matching EXACTLY this schema — no markdown fences, no preamble, no explanation, no extra keys.
 
+COORDINATE RULES (STRICT):
+- x_normalized, y_normalized, z_normalized MUST each be a number in the closed interval [0.0, 1.0]. If you compute a value outside this range, CLAMP it to 0.0 or 1.0 before emitting — never return negative values or values > 1.
+- angle_degrees MUST be in [0, 360]. span_degrees MUST be in [0, 360].
+- These are fractional positions along the part's bounding box, not physical coordinates.
+
 {
   "part_id": "string — drawing number, serial, or descriptive ID",
   "part_type": "pressure_vessel|pipe_spool|structural_weldment|casting|forging|aerospace_component|heat_exchanger|storage_tank|other",
