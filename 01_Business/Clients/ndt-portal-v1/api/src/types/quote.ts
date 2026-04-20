@@ -162,8 +162,9 @@ export interface UtQuoteResponse {
 }
 
 export interface UtQuoteCustomerSnapshot {
-  id: string;
+  id: string | null;
   name: string;
+  isProspect?: boolean;
   hourlyRate: number;
   cScanRate: number;
   minCharge: number;
