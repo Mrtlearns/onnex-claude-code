@@ -60,3 +60,27 @@ Success criteria:
 - [ ] White-label config supported for Onnex client deployments
 - [ ] Public API documentation complete
 - [ ] Billing integration functional
+
+---
+
+## Phase 4 — Gateway MVP
+
+**Goal:** Network-layer MITM proxy that intercepts all LLM traffic transparently by SNI. Ships as explicit proxy mode (`HTTP_PROXY=http://gateway:8080`). Reuses L0–L7 pipeline from Phases 1–3 as the inspection engine.
+
+**Milestone:** v4.0
+**Mode:** Explicit proxy (port 8080). Transparent/iptables mode deferred to Phase 6.
+
+Success criteria:
+- [ ] `HTTP_PROXY=http://gateway:8080` on one Onnex device routes all LLM traffic through gateway without app-level changes
+- [ ] Known prompt injection payload blocked; appears in audit log with `audit_id`
+- [ ] Non-LLM HTTPS traffic (GitHub, Stripe, npm) not decrypted; latency delta < 5ms
+- [ ] Gateway container restarts within 5s on crash (Docker restart policy)
+- [ ] Classifier unit tests: all 4 LLM providers classified correctly; zero false positives on 5+ non-LLM hosts
+- [ ] `cargo test --workspace` zero failures
+- [ ] `cargo clippy --workspace -- -D warnings` zero warnings
+- [ ] p99 proxy latency < 50ms
+- [ ] Docker image runs as uid 65534 (non-root)
+- [ ] `fail_open = false` is the default in `gateway.toml`
+- [ ] CA key stored in YubiHSM or air-gapped machine (gate before real-device rollout)
+
+**Wave sequence:** 1 (types) → 2 (feed + classifier) → 3 (session store extension) → 4 (proxy binary) → 5 (config + Docker + tests)

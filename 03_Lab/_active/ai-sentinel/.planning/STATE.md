@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: sdk-saas
-status: "Phase 3 Complete — All Phases Done"
-last_updated: "2026-03-25"
-last_activity: "2026-03-25 — Phase 3 complete: Python SDK, white-label profiles, docs; all 22 tests pass; full stack verified"
+milestone: v4.0
+milestone_name: gateway-mvp
+status: "Phase 4 Planned — Gateway MVP"
+last_updated: "2026-04-20"
+last_activity: "2026-04-20 — Phase 4 planned: network-layer MITM proxy, 5-wave plan, 5 new crates"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 3
+  total_plans: 4
   completed_plans: 3
 ---
 
@@ -33,6 +33,15 @@ progress:
 | 1 | AgentSec Core Build | **Complete** | 100% |
 | 2 | Semantic Intent + Egress Inspection | **Complete** | 100% |
 | 3 | SDK + SaaS + Multi-tenant | **Complete** | 100% |
+| 4 | Gateway MVP (Network MITM Proxy) | **Planned** | 0% |
+
+---
+
+## Phase 4 Gates (must resolve before shipping to real devices)
+
+- [ ] CA custody: YubiHSM or air-gapped root CA in place
+- [ ] Device audit: enumerate tools that bypass `HTTP_PROXY` in Onnex stack
+- [ ] fail_open override: per-deployment justification documented before any `fail_open = true`
 
 ---
 
@@ -93,3 +102,5 @@ progress:
 | 2026-03-25 | Phase 1 complete: 8-layer pipeline, 14 verification points, 4-container stack |
 | 2026-03-25 | Phase 2 complete: L3 (hash-projection drift) + L6 (SSRF/exfil/egress-PII), 20/20 tests |
 | 2026-03-25 | Phase 3 complete: Python SDK, white-label profiles, L3 threshold tuned, 22/22 tests |
+| 2026-04-20 | Council: gateway vs sidecar architecture decision — gateway wins with 3 hard gates |
+| 2026-04-20 | Phase 4 planned: network-layer MITM proxy, 5 waves, 5 new crates, PLAN.md created |

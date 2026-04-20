@@ -28,18 +28,19 @@
     {
       "date": "2026-04-20",
       "tools": {
-        "Bash": 12,
+        "Bash": 13,
         "Glob": 5,
-        "Read": 14,
+        "Read": 18,
         "Grep": 4,
         "Agent": 1,
         "ToolSearch": 3,
         "AskUserQuestion": 1,
-        "Write": 2,
-        "ExitPlanMode": 1
+        "Write": 4,
+        "ExitPlanMode": 1,
+        "Edit": 5
       },
-      "total_calls": 43,
-      "weight_total": 29
+      "total_calls": 55,
+      "weight_total": 37
     }
   ]
 }
