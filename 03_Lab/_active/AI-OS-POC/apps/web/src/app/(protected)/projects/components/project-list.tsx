@@ -3,6 +3,7 @@
 // Interactive project list — URL-synced filters, create dialog
 
 import { useState } from "react"
+import { LayoutGrid, List } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -33,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProjectForm } from "./project-form"
+import { ProjectKanbanBoard } from "./project-kanban-board"
 import type { Client, Project, ProjectMember } from "@/types/api"
 
 function ProjectAvatarStack({ projectId }: { projectId: string }) {
@@ -75,6 +77,7 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
+  const [view, setView] = useState<"kanban" | "list">("kanban")
 
   const activeStatus = searchParams.get("status") ?? "All"
   const clientFilter = searchParams.get("client_id") ?? ""
@@ -125,7 +128,27 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Projects</h1>
-        <Button onClick={() => setShowCreate(true)}>New Project</Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 border rounded-md p-0.5">
+            <Button
+              variant={view === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setView("kanban")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => setView("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button onClick={() => setShowCreate(true)}>New Project</Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -172,8 +195,10 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
         </TabsList>
       </Tabs>
 
-      {/* Table */}
-      {isLoading ? (
+      {/* Content area */}
+      {view === "kanban" ? (
+        <ProjectKanbanBoard projects={projects ?? []} />
+      ) : isLoading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
