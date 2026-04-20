@@ -15,7 +15,6 @@
 - **Stage 2 LLM (RT analysis): Complete** — base-rt-analyst.txt + 9 module prompts, RTAnalysisSchema validator, retry logic, Nextcloud spec injection (2026-04-17 audit)
 - **R3F renderer: Complete** — PartInspector, SceneCanvas, all 5 zone types (Ring/Line/Patch/Sphere/Arc), geometry factory, inspector store, PNG+STL export (2026-04-17 audit)
 - n8n workflows: WF-1 through WF-7 built (WF-6 Gmail poller, WF-7 auto-reply added 2026-04-14)
-- Demo environment: Not yet built
 - UT calculator: Working — formulas aligned with Excel spreadsheet
 - Customer-specific rule sets: UI built (2026-04-09)
 - Workshop dashboard: SSE real-time, DB migration 027
@@ -52,7 +51,6 @@ admin, bom, diagram-analyses, documents, email-checks, feedback, inbox, inspecti
 
 ## Client Pipeline
 - Active prospects: 0
-- ShareCRM intros initiated: 0
 - Demos scheduled: 0
 
 ## Technical Metrics

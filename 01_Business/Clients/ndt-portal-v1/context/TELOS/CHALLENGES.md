@@ -15,4 +15,4 @@
 
 ## C4: NDT Market Sales Motion
 - **Impact:** NDT companies are conservative — slow to adopt new technology
-- **Approach:** ShareCRM partnership provides warm introductions. Lead with ITAR compliance and AI accuracy as differentiators.
+- **Approach:** Lead with ITAR compliance and AI accuracy as differentiators. Direct outreach to NDT firms doing aerospace RT work.

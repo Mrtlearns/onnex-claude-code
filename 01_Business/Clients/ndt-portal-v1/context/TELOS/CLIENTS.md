@@ -5,13 +5,13 @@
 - 5–50 inspectors, receiving 50+ inspection job requests per month
 - Currently processing RT documents manually via email
 - Requires ITAR compliance for aerospace work
-- Uses or is open to ShareCRM for client portal
+- Currently processing RT documents manually via email
 
 ## Active Clients
 <!-- TBD — first client acquisition in progress -->
 
 ## Active Prospects
-<!-- ShareCRM warm intro pipeline -->
+<!-- TBD -->
 
 ## Vertical Intel
 - RT (Radiographic Testing) and UT (Ultrasonic Testing) are the primary methods
@@ -21,5 +21,4 @@
 - Key standards: ASME, AWS D1.1, MIL-STD-1916, NAS-410
 
 ## Partnership Channels
-- ShareCRM (primary distribution partner)
 - ASNT (American Society for Nondestructive Testing) community

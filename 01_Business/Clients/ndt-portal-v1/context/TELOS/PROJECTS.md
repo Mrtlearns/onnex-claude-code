@@ -13,4 +13,3 @@
   - [ ] Implement R3F component tree per Renderer Design Spec
   - [ ] Wire ndtv1-comply ITAR classification layer
   - [ ] Connect n8n email ingestion workflows
-  - [ ] Set up ShareCRM integration for client portal
