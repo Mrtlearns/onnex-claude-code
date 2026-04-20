@@ -19,9 +19,9 @@ import { ProjectKanbanColumn } from "./project-kanban-column"
 import { ProjectCardContent } from "./project-kanban-card"
 import { cn } from "@/lib/utils"
 
-type ProjectStatus = "Active" | "On Hold" | "Completed"
+type ProjectStatus = "Onboarding" | "On Hold" | "Active" | "Completed"
 
-const COLUMNS: ProjectStatus[] = ["Active", "On Hold", "Completed"]
+const COLUMNS: ProjectStatus[] = ["Onboarding", "On Hold", "Active", "Completed"]
 const VALID_STATUSES = new Set<string>(COLUMNS)
 
 // Prefer pointer-within for column targets, fall back to rect-intersection
@@ -64,7 +64,7 @@ export function ProjectKanbanBoard({ projects }: { projects: Project[] }) {
   )
 
   const columnProjects = useMemo(() => {
-    const map: Record<ProjectStatus, Project[]> = { Active: [], "On Hold": [], Completed: [] }
+    const map: Record<ProjectStatus, Project[]> = { Onboarding: [], "On Hold": [], Active: [], Completed: [] }
     for (const p of displayProjects) {
       const s = p.status as ProjectStatus
       if (map[s]) map[s].push(p)

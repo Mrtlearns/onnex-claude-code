@@ -8,7 +8,7 @@ import type { Project } from "@/types/api"
 import { ProjectKanbanCard } from "./project-kanban-card"
 import { Badge } from "@/components/ui/badge"
 
-type ProjectStatus = "Active" | "On Hold" | "Completed"
+type ProjectStatus = "Onboarding" | "On Hold" | "Active" | "Completed"
 
 interface ProjectKanbanColumnProps {
   status: ProjectStatus
@@ -22,17 +22,23 @@ const COLUMN_CONFIG: Record<ProjectStatus, {
   ring: string
   dot: string
 }> = {
-  Active: {
-    bg:          "bg-blue-950/60",
-    headerColor: "text-blue-300",
-    ring:        "ring-blue-500",
-    dot:         "bg-blue-500",
+  Onboarding: {
+    bg:          "bg-violet-950/60",
+    headerColor: "text-violet-300",
+    ring:        "ring-violet-500",
+    dot:         "bg-violet-500",
   },
   "On Hold": {
     bg:          "bg-amber-950/60",
     headerColor: "text-amber-300",
     ring:        "ring-amber-500",
     dot:         "bg-amber-500",
+  },
+  Active: {
+    bg:          "bg-blue-950/60",
+    headerColor: "text-blue-300",
+    ring:        "ring-blue-500",
+    dot:         "bg-blue-500",
   },
   Completed: {
     bg:          "bg-emerald-950/60",

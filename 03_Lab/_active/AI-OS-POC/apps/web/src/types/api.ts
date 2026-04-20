@@ -90,7 +90,7 @@ export interface Project {
   description?: string
   health?: 'on_track' | 'at_risk' | 'blocked'
   color?: string
-  status: "Active" | "Completed" | "On Hold"
+  status: "Active" | "Completed" | "On Hold" | "Onboarding"
   start_date?: string
   end_date?: string
   budget?: number
@@ -152,7 +152,7 @@ export type CreateClientInput = z.infer<typeof CreateClientSchema>
 export const CreateProjectSchema = z.object({
   name: z.string().min(1, "Name is required"),
   client_id: z.string().uuid("Must be a valid UUID").optional().or(z.literal("")),
-  status: z.enum(["Active", "Completed", "On Hold"]).default("Active"),
+  status: z.enum(["Active", "Completed", "On Hold", "Onboarding"]).default("Active"),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   budget: z.number().positive("Budget must be positive").optional(),

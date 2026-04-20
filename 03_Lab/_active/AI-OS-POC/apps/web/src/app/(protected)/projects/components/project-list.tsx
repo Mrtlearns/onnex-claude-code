@@ -79,7 +79,7 @@ interface ProjectListProps {
   initialSearch: { status?: string; client_id?: string; archived?: string }
 }
 
-const STATUS_OPTIONS = ["All", "Active", "Completed", "On Hold"] as const
+const STATUS_OPTIONS = ["All", "Onboarding", "On Hold", "Active", "Completed"] as const
 
 export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps) {
   const router = useRouter()
@@ -258,6 +258,7 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
                           ? "secondary"
                           : "outline"
                     }
+                    className={project.status === "Onboarding" ? "border-violet-500/50 text-violet-400" : undefined}
                   >
                     {project.status}
                   </Badge>

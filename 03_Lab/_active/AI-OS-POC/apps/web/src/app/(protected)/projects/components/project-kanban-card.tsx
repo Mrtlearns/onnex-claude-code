@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils"
 
 // ─── Per-status visual config ─────────────────────────────────────────────────
 
-type ProjectStatus = "Active" | "On Hold" | "Completed"
+type ProjectStatus = "Onboarding" | "On Hold" | "Active" | "Completed"
 
 const STATUS_CONFIG: Record<ProjectStatus, {
   accentBar: string
@@ -37,12 +37,12 @@ const STATUS_CONFIG: Record<ProjectStatus, {
   headerColor: string
   progressBar: string
 }> = {
-  Active: {
-    accentBar:   "bg-blue-500",
-    cardBg:      "bg-blue-950/60",
-    border:      "border-blue-800/40",
-    headerColor: "text-blue-300",
-    progressBar: "bg-blue-500",
+  Onboarding: {
+    accentBar:   "bg-violet-500",
+    cardBg:      "bg-violet-950/60",
+    border:      "border-violet-800/40",
+    headerColor: "text-violet-300",
+    progressBar: "bg-violet-500",
   },
   "On Hold": {
     accentBar:   "bg-amber-500",
@@ -50,6 +50,13 @@ const STATUS_CONFIG: Record<ProjectStatus, {
     border:      "border-amber-800/40",
     headerColor: "text-amber-300",
     progressBar: "bg-amber-500",
+  },
+  Active: {
+    accentBar:   "bg-blue-500",
+    cardBg:      "bg-blue-950/60",
+    border:      "border-blue-800/40",
+    headerColor: "text-blue-300",
+    progressBar: "bg-blue-500",
   },
   Completed: {
     accentBar:   "bg-emerald-500",
@@ -277,9 +284,10 @@ function ProjectDetailModal({
   const taskProgress = totalTasks > 0 ? Math.round((completedPhases / totalPhases) * 100) : 0
 
   const statusVariant = {
-    Active:    "default" as const,
-    Completed: "secondary" as const,
-    "On Hold": "outline" as const,
+    Onboarding: "outline" as const,
+    "On Hold":  "outline" as const,
+    Active:     "default" as const,
+    Completed:  "secondary" as const,
   }[project.status] ?? "outline"
 
   return (
