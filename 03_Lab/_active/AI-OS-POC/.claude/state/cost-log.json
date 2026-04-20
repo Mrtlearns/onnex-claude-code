@@ -88,9 +88,9 @@
     {
       "date": "2026-04-19",
       "tools": {
-        "Bash": 168,
-        "Read": 100,
-        "Edit": 58,
+        "Bash": 171,
+        "Read": 105,
+        "Edit": 68,
         "Write": 19,
         "Grep": 12,
         "Agent": 5,
@@ -98,8 +98,8 @@
         "ExitPlanMode": 2,
         "Glob": 11
       },
-      "total_calls": 377,
-      "weight_total": 299
+      "total_calls": 395,
+      "weight_total": 312
     }
   ]
 }
