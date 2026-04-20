@@ -12,5 +12,8 @@
   "type": "commonjs",
   "devDependencies": {
     "puppeteer": "^24.41.0"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }
