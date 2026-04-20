@@ -453,7 +453,7 @@
     background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
     color: var(--accent); font-size: 13px; font-family: var(--font);
     font-weight: 600; padding: 6px 14px; border-radius: 8px; cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s; text-decoration: none; display: inline-block;
   }
   #pres-download:hover { background: rgba(99,102,241,0.25); border-color: var(--accent); }
 
@@ -655,7 +655,7 @@
 <div id="pres-overlay">
   <div id="pres-progress"></div>
   <div id="pres-counter">1 / 17</div>
-  <button id="pres-download" onclick="downloadPDF()">&#8595; Download PDF</button>
+  <a id="pres-download" href="/presentation.pdf" download="AI-Sentinel-Investor-Presentation.pdf">&#8595; Download PDF</a>
   <button id="pres-close" onclick="closePresentation()">✕ Close</button>
 
   <div id="pres-stage">
@@ -1217,12 +1217,6 @@ function setMode(m) {
 const PRES_TOTAL = 17;
 let presIdx = 0;
 
-function downloadPDF() {
-  const prev = document.title;
-  document.title = 'AI-Sentinel — Investor Presentation';
-  window.print();
-  document.title = prev;
-}
 
 function openPresentation() {
   presIdx = 0;

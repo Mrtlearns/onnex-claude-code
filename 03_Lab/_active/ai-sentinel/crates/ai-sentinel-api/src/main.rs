@@ -113,6 +113,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/openapi.json", get(routes::openapi_handler))
         .route("/ui", get(routes::ui_handler))
         .route("/docs", get(routes::docs_handler))
+        .route("/presentation.pdf", get(routes::presentation_pdf_handler))
         .route("/admin/estop", post(routes::admin::estop_handler))
         .route("/admin/estop/lift", post(routes::admin::estop_lift_handler))
         .route("/admin/feed/refresh", post(routes::admin::feed_refresh_handler))

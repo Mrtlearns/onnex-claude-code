@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, response::{IntoResponse, Response}, body::Body, Json};
+use axum::http::header;
 use tokio::sync::{broadcast, mpsc};
 use serde_json::json;
 use prometheus_client::encoding::text::encode;
@@ -106,6 +107,18 @@ pub async fn ui_handler() -> impl IntoResponse {
         [("content-type", "text/html; charset=utf-8")],
         include_str!("../../static/ui.html"),
     )
+}
+
+/// GET /presentation.pdf — Pre-generated investor presentation PDF (embedded at compile time)
+pub async fn presentation_pdf_handler() -> Response {
+    let bytes: &'static [u8] = include_bytes!("../../static/presentation.pdf");
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/pdf")
+        .header(header::CONTENT_DISPOSITION, "attachment; filename=\"AI-Sentinel-Investor-Presentation.pdf\"")
+        .header(header::CACHE_CONTROL, "public, max-age=3600")
+        .body(Body::from(bytes))
+        .unwrap()
 }
 
 /// GET /docs — Scalar API browser (lightweight HTML embed)
