@@ -294,3 +294,224 @@ async def test_list_downloads_requires_auth(async_client):
     client, _ = async_client
     resp = await client.get(f"/api/reports/{PROGRAM_ID}/downloads")
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# POST /api/reports/{program_id}/sprs-sheet
+# ---------------------------------------------------------------------------
+
+SPRS_URL = "https://minio.example.com/cmmc-reports/prog/sprs_20260101.xlsx?X-Amz-Signature=xyz"
+
+
+@pytest.mark.asyncio
+async def test_generate_sprs_sheet_webhook_secret_auth(async_client):
+    """n8n internal call via X-Webhook-Secret triggers SPRS xlsx generation."""
+    client, conn = async_client
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch(
+        "app.routers.reports.generate_sprs_xlsx",
+        new=AsyncMock(return_value=SPRS_URL),
+    ):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/sprs-sheet",
+            headers={"X-Webhook-Secret": WEBHOOK_SECRET},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["download_url"] == SPRS_URL
+
+
+@pytest.mark.asyncio
+async def test_generate_sprs_sheet_jwt_msp_admin(async_client):
+    """msp_admin JWT can generate SPRS sheet."""
+    client, conn = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID)
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch(
+        "app.routers.reports.generate_sprs_xlsx",
+        new=AsyncMock(return_value=SPRS_URL),
+    ):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/sprs-sheet",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 200
+    assert "download_url" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_generate_sprs_sheet_wrong_org_returns_403(async_client):
+    """client_admin from different org cannot generate SPRS sheet."""
+    client, conn = async_client
+    other_org = str(uuid.uuid4())
+    token = make_token(role="client_admin", org_id=other_org)
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch("app.routers.reports.generate_sprs_xlsx", new=AsyncMock(return_value=SPRS_URL)):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/sprs-sheet",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_generate_sprs_sheet_invalid_uuid_returns_422(async_client):
+    client, _ = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID)
+    resp = await client.post(
+        "/api/reports/not-a-uuid/sprs-sheet",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_generate_sprs_sheet_no_auth_returns_401(async_client):
+    client, _ = async_client
+    resp = await client.post(f"/api/reports/{PROGRAM_ID}/sprs-sheet")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# POST /api/reports/{program_id}/audit-package
+# ---------------------------------------------------------------------------
+
+AUDIT_URL = "https://minio.example.com/cmmc-exports/prog/audit_package_20260101.zip?X-Amz-Signature=abc"
+
+
+@pytest.mark.asyncio
+async def test_generate_audit_package_webhook_secret_auth(async_client):
+    """n8n internal call via X-Webhook-Secret triggers audit package generation."""
+    client, conn = async_client
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch(
+        "app.routers.reports.generate_audit_package_zip",
+        new=AsyncMock(return_value=AUDIT_URL),
+    ):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/audit-package",
+            headers={"X-Webhook-Secret": WEBHOOK_SECRET},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["download_url"] == AUDIT_URL
+
+
+@pytest.mark.asyncio
+async def test_generate_audit_package_jwt_msp_admin(async_client):
+    """msp_admin JWT can generate audit package."""
+    client, conn = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID)
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch(
+        "app.routers.reports.generate_audit_package_zip",
+        new=AsyncMock(return_value=AUDIT_URL),
+    ):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/audit-package",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 200
+    assert "download_url" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_generate_audit_package_wrong_org_returns_403(async_client):
+    """client_admin from different org cannot generate audit package."""
+    client, conn = async_client
+    other_org = str(uuid.uuid4())
+    token = make_token(role="client_admin", org_id=other_org)
+    conn.fetchrow = AsyncMock(return_value=_make_program_record())
+
+    with patch("app.routers.reports.generate_audit_package_zip", new=AsyncMock(return_value=AUDIT_URL)):
+        resp = await client.post(
+            f"/api/reports/{PROGRAM_ID}/audit-package",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_generate_audit_package_invalid_uuid_returns_422(async_client):
+    client, _ = async_client
+    token = make_token(role="msp_admin", msp_id=MSP_ID)
+    resp = await client.post(
+        "/api/reports/not-a-uuid/audit-package",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_generate_audit_package_no_auth_returns_401(async_client):
+    client, _ = async_client
+    resp = await client.post(f"/api/reports/{PROGRAM_ID}/audit-package")
+    assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# GET /api/reports/download — MIME type detection
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_proxy_download_xlsx_mime_type(async_client):
+    """xlsx key returns correct spreadsheet content-type."""
+    import hashlib, hmac, time
+    client, _ = async_client
+
+    bucket = "cmmc-reports"
+    key = "prog/sprs_20260101.xlsx"
+    exp = int(time.time()) + 3600
+    payload = f"{bucket}:{key}:{exp}"
+    sig = hmac.new(WEBHOOK_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+    mock_minio = MagicMock()
+    mock_obj = MagicMock()
+    mock_obj.__iter__ = MagicMock(return_value=iter([b"PK\x03\x04"]))
+    mock_minio.get_object.return_value = mock_obj
+
+    from main import app as fastapi_app
+    fastapi_app.state.minio = mock_minio
+
+    resp = await client.get(
+        f"/api/reports/download?bucket={bucket}&key={key}&exp={exp}&sig={sig}",
+    )
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["content-type"]
+
+
+@pytest.mark.asyncio
+async def test_proxy_download_zip_mime_type(async_client):
+    """zip key returns application/zip content-type."""
+    import hashlib, hmac, time
+    client, _ = async_client
+
+    bucket = "cmmc-exports"
+    key = "prog/audit_package_20260101.zip"
+    exp = int(time.time()) + 3600
+    payload = f"{bucket}:{key}:{exp}"
+    sig = hmac.new(WEBHOOK_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+    mock_minio = MagicMock()
+    mock_obj = MagicMock()
+    mock_obj.__iter__ = MagicMock(return_value=iter([b"PK\x03\x04"]))
+    mock_minio.get_object.return_value = mock_obj
+
+    from main import app as fastapi_app
+    fastapi_app.state.minio = mock_minio
+
+    resp = await client.get(
+        f"/api/reports/download?bucket={bucket}&key={key}&exp={exp}&sig={sig}",
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/zip"

@@ -50,7 +50,7 @@ export async function uploadArtifact(
 
 export async function generateReport(
   programId: string,
-  type: 'ssp' | 'poam'
+  type: 'ssp' | 'poam' | 'sprs-sheet' | 'audit-package'
 ): Promise<{ download_url: string }> {
   const res = await fetchWithAuth(`${API_URL}/api/reports/${programId}/${type}`, {
     method: 'POST',

@@ -14,7 +14,11 @@ from fastapi.responses import StreamingResponse
 from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user, require_same_org
-from app.services.report_service import REPORTS_BUCKET, generate_poam_pdf, generate_ssp_pdf
+from app.services.report_service import (
+    REPORTS_BUCKET, EXPORTS_BUCKET,
+    generate_poam_pdf, generate_ssp_pdf,
+    generate_sprs_xlsx, generate_audit_package_zip,
+)
 
 router = APIRouter()
 
@@ -75,9 +79,15 @@ async def proxy_download(
         minio_client = request.app.state.minio
         obj = minio_client.get_object(bucket, key)
         filename = key.split("/")[-1]
+        if filename.endswith(".xlsx"):
+            media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif filename.endswith(".zip"):
+            media = "application/zip"
+        else:
+            media = "application/pdf"
         return StreamingResponse(
             obj,
-            media_type="application/pdf",
+            media_type=media,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as exc:
@@ -161,3 +171,39 @@ async def list_downloads(
         raise HTTPException(status_code=500, detail=f"Could not list reports: {exc}")
 
     return sorted(objects, key=lambda x: x.get("last_modified") or "", reverse=True)
+
+
+@router.post("/{program_id}/sprs-sheet")
+async def generate_sprs_sheet(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(_resolve_user),
+) -> dict:
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+    await _check_program_access(prog_uid, user, conn)
+    download_url = await generate_sprs_xlsx(
+        str(prog_uid), conn, request.app.state.minio, request.app.state.minio_public,
+    )
+    return {"download_url": download_url}
+
+
+@router.post("/{program_id}/audit-package")
+async def generate_audit_package(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(_resolve_user),
+) -> dict:
+    try:
+        prog_uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+    await _check_program_access(prog_uid, user, conn)
+    download_url = await generate_audit_package_zip(
+        str(prog_uid), conn, request.app.state.minio, request.app.state.minio_public,
+    )
+    return {"download_url": download_url}
