@@ -109,22 +109,7 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
   }
   const input = parsed.data as UtQuoteRequest;
 
-  // 2. Resolve customer
-  let customer: DbCustomer | null = null;
-  let isProspect = false;
-  if (input.customerId) {
-    customer = await queryOne<DbCustomer>(
-      'SELECT * FROM ut.customers WHERE id = $1 AND is_active = true',
-      [input.customerId]
-    );
-  } else if (input.customerName) {
-    customer = await queryOne<DbCustomer>(
-      'SELECT * FROM ut.customers WHERE LOWER(name) = LOWER($1) AND is_active = true',
-      [input.customerName]
-    );
-  }
-
-  // 3. Fetch settings (scan speed divisor + prospect defaults)
+  // 2. Fetch settings early (needed for prospect fallback)
   const settings = await queryOne<{
     scan_speed_divisor: number;
     default_hourly_rate: number;
@@ -138,26 +123,39 @@ router.post('/', requirePermission('UT_QUOTE_CREATE'), async (req: Request, res:
   );
   const scanSpeedDivisor = settings?.scan_speed_divisor ?? 10;
 
-  if (!customer) {
-    // Unknown customer — use global defaults and flag as prospect
+  // 3. Resolve customer — fall back to prospect defaults if not found
+  let isProspect = false;
+  let resolvedCustomer: DbCustomer | null = null;
+  if (input.customerId) {
+    resolvedCustomer = await queryOne<DbCustomer>(
+      'SELECT * FROM ut.customers WHERE id = $1 AND is_active = true',
+      [input.customerId]
+    );
+  } else if (input.customerName) {
+    resolvedCustomer = await queryOne<DbCustomer>(
+      'SELECT * FROM ut.customers WHERE LOWER(name) = LOWER($1) AND is_active = true',
+      [input.customerName]
+    );
+  }
+
+  const customer: DbCustomer = resolvedCustomer ?? (() => {
     isProspect = true;
-    customer = {
+    return {
       id: '00000000-0000-0000-0000-000000000000',
       name: input.customerName ?? input.customerId ?? 'Unknown Prospect',
-      hourly_rate:    settings?.default_hourly_rate    ?? 225,
-      cscan_rate:     settings?.cscan_hourly_rate      ?? 250,
-      technique_fee:  settings?.default_technique_fee  ?? 125,
-      env_fee_rate:   settings?.default_env_fee_rate   ?? 0.02,
-      min_charge:     settings?.default_min_charge     ?? 225,
-      cscan_min_charge: settings?.default_min_charge   ?? 225,
-      delivery_fee:   'TBD',
-      lead_time:      settings?.default_lead_time      ?? '4-5 Days',
-      has_env_fee:    false,
-      has_tech_fee:   false,
-      lot_pattern:    'simple',
-      misc_fee:       null,
+      hourly_rate:      settings?.default_hourly_rate   ?? 225,
+      cscan_rate:       settings?.cscan_hourly_rate     ?? 250,
+      technique_fee:    settings?.default_technique_fee ?? 125,
+      env_fee_rate:     settings?.default_env_fee_rate  ?? 0.02,
+      min_charge:       settings?.default_min_charge    ?? 225,
+      cscan_min_charge: settings?.default_min_charge    ?? 225,
+      delivery_fee:     'TBD',
+      lead_time:        settings?.default_lead_time     ?? '4-5 Days',
+      has_env_fee:      false,
+      has_tech_fee:     false,
+      lot_pattern:      'simple',
     };
-  }
+  })();
 
   // 4. Resolve rule set version (if rule engine enabled)
   let resolved: { ruleSetId: string; ruleSetName: string; versionId: string; version: number } | null = null;
