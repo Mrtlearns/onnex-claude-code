@@ -24,6 +24,21 @@
       },
       "total_calls": 107,
       "weight_total": 88
+    },
+    {
+      "date": "2026-04-20",
+      "tools": {
+        "Bash": 1,
+        "Glob": 4,
+        "Read": 10,
+        "Grep": 3,
+        "Agent": 1,
+        "ToolSearch": 2,
+        "AskUserQuestion": 1,
+        "Write": 1
+      },
+      "total_calls": 23,
+      "weight_total": 15
     }
   ]
 }
