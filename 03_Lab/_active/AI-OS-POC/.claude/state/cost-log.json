@@ -108,10 +108,10 @@
         "Read": 1,
         "Write": 1,
         "ToolSearch": 1,
-        "Bash": 4
+        "Bash": 6
       },
-      "total_calls": 9,
-      "weight_total": 6
+      "total_calls": 11,
+      "weight_total": 8
     }
   ]
 }
