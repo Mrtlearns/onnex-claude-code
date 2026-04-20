@@ -28,9 +28,9 @@
     {
       "date": "2026-04-20",
       "tools": {
-        "Bash": 11,
+        "Bash": 12,
         "Glob": 5,
-        "Read": 13,
+        "Read": 14,
         "Grep": 4,
         "Agent": 1,
         "ToolSearch": 3,
@@ -38,8 +38,8 @@
         "Write": 2,
         "ExitPlanMode": 1
       },
-      "total_calls": 41,
-      "weight_total": 28
+      "total_calls": 43,
+      "weight_total": 29
     }
   ]
 }
