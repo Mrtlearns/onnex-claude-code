@@ -5,7 +5,7 @@
       "tools": {
         "Read": 147,
         "Write": 52,
-        "Bash": 257,
+        "Bash": 259,
         "Agent": 24,
         "Glob": 33,
         "Grep": 34,
@@ -15,8 +15,8 @@
         "AskUserQuestion": 1,
         "TodoWrite": 11
       },
-      "total_calls": 702,
-      "weight_total": 704
+      "total_calls": 704,
+      "weight_total": 706
     }
   ]
 }
