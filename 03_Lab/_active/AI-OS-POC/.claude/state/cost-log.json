@@ -104,10 +104,14 @@
     {
       "date": "2026-04-20",
       "tools": {
-        "Glob": 1
+        "Glob": 2,
+        "Read": 1,
+        "Write": 1,
+        "ToolSearch": 1,
+        "Bash": 4
       },
-      "total_calls": 1,
-      "weight_total": 0
+      "total_calls": 9,
+      "weight_total": 6
     }
   ]
 }

@@ -28,7 +28,7 @@
     {
       "date": "2026-04-20",
       "tools": {
-        "Bash": 1,
+        "Bash": 2,
         "Glob": 4,
         "Read": 10,
         "Grep": 3,
@@ -37,8 +37,8 @@
         "AskUserQuestion": 1,
         "Write": 1
       },
-      "total_calls": 23,
-      "weight_total": 15
+      "total_calls": 24,
+      "weight_total": 16
     }
   ]
 }
