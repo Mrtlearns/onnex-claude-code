@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select"
 import { UserPlus, Trash2, Users, Clock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import type { ProjectMember, AdminUser, StaffMember } from "@/types/api"
+import type { ProjectMember, StaffMember } from "@/types/api"
 
 interface ProjectTeamProps {
   projectId: string
@@ -39,13 +39,6 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
     staleTime: 120_000,
   })
   const staffById = new Map(staff.map(s => [s.user_id, s]))
-
-  const { data: allUsers = [] } = useQuery<AdminUser[]>({
-    queryKey: ["admin-users"],
-    queryFn: () => fetch("/api/bff/admin/users").then(r => r.json()),
-    staleTime: 120_000,
-    enabled: showAdd,
-  })
 
   const addMutation = useMutation({
     mutationFn: ({ user_id, user_name, role }: { user_id: string; user_name: string; role: string }) =>
@@ -82,16 +75,16 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
 
   const handleAdd = () => {
     if (!selectedUserId) return
-    const user = allUsers.find(u => u.id === selectedUserId)
+    const member = staff.find(s => s.user_id === selectedUserId)
     addMutation.mutate({
       user_id: selectedUserId,
-      user_name: user?.name ?? selectedUserId,
+      user_name: member?.display_name ?? selectedUserId,
       role: selectedRole,
     })
   }
 
   const existingIds = new Set(members.map(m => m.user_id))
-  const availableUsers = allUsers.filter(u => !existingIds.has(u.id))
+  const availableUsers = staff.filter(s => !existingIds.has(s.user_id))
 
   return (
     <div className="space-y-4">
@@ -115,7 +108,7 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {availableUsers.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                      <SelectItem key={u.user_id} value={u.user_id}>{u.display_name}</SelectItem>
                     ))}
                     {availableUsers.length === 0 && (
                       <SelectItem value="_none" disabled>No users available</SelectItem>
