@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { signOut } from "next-auth/react"
+import { useQuery } from "@tanstack/react-query"
 import type { Session } from "next-auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -12,10 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Moon, Search, Sun } from "lucide-react"
+import { LogOut, Moon, Search, Settings, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { NotificationBell } from "@/components/layout/notification-bell"
 import { AIChatPanel } from "@/components/ai/ai-chat-panel"
+import type { UserProfile } from "@/types/api"
 
 interface HeaderProps {
   session: Session
@@ -28,6 +31,13 @@ export function Header({ session, onMenuClick }: HeaderProps) {
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U"
   const { theme, setTheme } = useTheme()
+
+  // Fetch real profile for avatar_url
+  const { data: profile } = useQuery<UserProfile>({
+    queryKey: ["my-profile"],
+    queryFn: () => fetch("/api/bff/me/profile").then((r) => r.json()),
+    staleTime: 60_000,
+  })
 
   function openCommandMenu() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }))
@@ -49,40 +59,53 @@ export function Header({ session, onMenuClick }: HeaderProps) {
       </button>
 
       <div className="flex items-center gap-2 ml-auto">
-      <AIChatPanel />
-      <NotificationBell />
-      <button
-        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label="Toggle theme"
-      >
-        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      </button>
-      <DropdownMenu>
-        <DropdownMenuTrigger className="outline-none">
-          <Avatar className="h-8 w-8 cursor-pointer">
-            <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? "User"} />
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
-            </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="cursor-pointer text-destructive focus:text-destructive"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <AIChatPanel />
+        <NotificationBell />
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Toggle theme"
+        >
+          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="outline-none">
+            <Avatar className="h-8 w-8 cursor-pointer">
+              <AvatarImage src={profile?.avatar_url ?? user?.image ?? undefined} alt={user?.name ?? "User"} />
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex items-center gap-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url ?? user?.image ?? undefined} />
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <p className="text-sm font-medium">{profile?.display_name ?? user?.name}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                My Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )

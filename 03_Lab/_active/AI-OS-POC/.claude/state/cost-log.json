@@ -65,6 +65,41 @@
       },
       "total_calls": 212,
       "weight_total": 209
+    },
+    {
+      "date": "2026-04-18",
+      "tools": {
+        "Bash": 404,
+        "Read": 79,
+        "Edit": 38,
+        "Write": 16,
+        "Grep": 1,
+        "Glob": 12,
+        "Agent": 1,
+        "ToolSearch": 5,
+        "AskUserQuestion": 1,
+        "TaskCreate": 10,
+        "TaskUpdate": 19,
+        "Monitor": 7
+      },
+      "total_calls": 593,
+      "weight_total": 510
+    },
+    {
+      "date": "2026-04-19",
+      "tools": {
+        "Bash": 142,
+        "Read": 72,
+        "Edit": 53,
+        "Write": 16,
+        "Grep": 11,
+        "Agent": 3,
+        "ToolSearch": 1,
+        "ExitPlanMode": 1,
+        "Glob": 8
+      },
+      "total_calls": 307,
+      "weight_total": 243
     }
   ]
 }

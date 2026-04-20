@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { UserSelect } from "@/components/ui/user-select"
 
 const NO_CLIENT = "__none__"
 
@@ -162,13 +163,13 @@ export function DealForm({ onSuccess, onCancel, dealId, defaultValues }: DealFor
         />
       </div>
 
-      {/* Owner ID */}
+      {/* Owner */}
       <div className="space-y-1.5">
-        <Label htmlFor="deal-owner" className="text-sm">Owner ID (optional)</Label>
-        <Input
-          id="deal-owner"
-          {...register("owner_id")}
-          placeholder="User ID"
+        <Label className="text-sm">Owner (optional)</Label>
+        <UserSelect
+          value={watch("owner_id")}
+          onChange={(v) => setValue("owner_id", v ?? undefined)}
+          placeholder="No owner"
           className="h-9 text-sm"
         />
       </div>

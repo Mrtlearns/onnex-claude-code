@@ -13,6 +13,7 @@ export interface Task {
   project_id?: string
   parent_task_id?: string
   assignee_id?: string
+  assignee_ids?: string[]
   title: string
   description?: string
   status: TaskStatus
@@ -122,6 +123,7 @@ export interface ProjectMember {
   project_id: string
   user_id: string
   user_name: string
+  avatar_url?: string | null
   role: string
   added_at: string
   logged_minutes: number
@@ -301,6 +303,32 @@ export interface AdminUser {
   email: string
   is_active: boolean
   role: string
+}
+
+export interface StaffMember {
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  job_title: string | null
+  status: string
+  timezone: string | null
+}
+
+export interface UserProfile extends StaffMember {
+  tenant_id: string
+  phone: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateStaffInput {
+  name: string
+  email: string
+  password: string
+  role: string
+  timezone?: string | null
+  job_title?: string | null
+  phone?: string | null
 }
 
 export interface AuditLogEntry {

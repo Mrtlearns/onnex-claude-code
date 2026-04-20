@@ -8,7 +8,13 @@ import { Badge } from "@/components/ui/badge"
 
 export default async function PortalProjectsPage() {
   const session = await auth()
-  const { projects } = await apiGetPortalProjects(session!.user.token)
+  let projects: Awaited<ReturnType<typeof apiGetPortalProjects>>["projects"] = []
+  try {
+    const data = await apiGetPortalProjects(session!.user.token)
+    projects = data.projects
+  } catch {
+    // No portal mapping — show empty state
+  }
 
   return (
     <div>

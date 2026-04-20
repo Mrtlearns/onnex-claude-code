@@ -26,7 +26,8 @@ type SortField = "title" | "status" | "due_date" | "created_at"
 
 export function TaskListView({ tasks }: { tasks: Task[] }) {
   const qc = useQueryClient()
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const selectedTask = selectedTaskId ? (tasks.find(t => t.id === selectedTaskId) ?? null) : null
   const [sortField, setSortField] = useState<SortField>("created_at")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
 
@@ -85,7 +86,7 @@ export function TaskListView({ tasks }: { tasks: Task[] }) {
               <TableCell>
                 <button
                   className="text-sm font-medium hover:underline text-left"
-                  onClick={() => setSelectedTask(task)}
+                  onClick={() => setSelectedTaskId(task.id)}
                 >
                   {task.title}
                 </button>
@@ -122,7 +123,7 @@ export function TaskListView({ tasks }: { tasks: Task[] }) {
         <TaskDetailDialog
           task={selectedTask}
           open={!!selectedTask}
-          onOpenChange={(open) => { if (!open) setSelectedTask(null) }}
+          onOpenChange={(open) => { if (!open) setSelectedTaskId(null) }}
         />
       )}
     </>

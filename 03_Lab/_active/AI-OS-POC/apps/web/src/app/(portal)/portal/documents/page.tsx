@@ -7,7 +7,13 @@ import { FileText, Folder } from "lucide-react"
 
 export default async function PortalDocumentsPage() {
   const session = await auth()
-  const { documents } = await apiGetPortalDocuments(session!.user.token)
+  let documents: Awaited<ReturnType<typeof apiGetPortalDocuments>>["documents"] = []
+  try {
+    const data = await apiGetPortalDocuments(session!.user.token)
+    documents = data.documents
+  } catch {
+    // No portal mapping — show empty state
+  }
 
   return (
     <div>

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Task, TaskStatus } from "@/types/api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { Task, TaskStatus, StaffMember } from "@/types/api"
 import {
   Sheet,
   SheetContent,
@@ -19,11 +19,12 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SubtasksPanel } from "./subtasks-panel"
 import { CommentsPanel } from "./comments-panel"
 import { CmsSection } from "../../documents/components/cms-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Bot } from "lucide-react"
+import { Bot, X, UserPlus } from "lucide-react"
 
 const STATUS_OPTIONS: TaskStatus[] = ["Backlog", "In Progress", "Review", "Done"]
 const TASK_TYPES = [
@@ -33,6 +34,80 @@ const TASK_TYPES = [
   { value: "research", label: "Research" },
   { value: "business", label: "Business" },
 ]
+
+// ─── AssigneeMultiSelect ──────────────────────────────────────────────────────
+
+interface AssigneeMultiSelectProps {
+  assigneeIds: string[]
+  staff: StaffMember[]
+  onChange: (ids: string[]) => void
+}
+
+function AssigneeMultiSelect({ assigneeIds, staff, onChange }: AssigneeMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const assigned = staff.filter(s => assigneeIds.includes(s.user_id))
+  const unassigned = staff.filter(s => !assigneeIds.includes(s.user_id))
+
+  function remove(id: string) {
+    onChange(assigneeIds.filter(a => a !== id))
+  }
+  function add(id: string) {
+    onChange([...assigneeIds, id])
+    setOpen(false)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+      {assigned.map(s => (
+        <span key={s.user_id} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
+          <Avatar className="h-4 w-4">
+            <AvatarImage src={s.avatar_url ?? undefined} />
+            <AvatarFallback className="text-[8px]">{s.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          {s.display_name}
+          <button type="button" onClick={() => remove(s.user_id)} className="ml-0.5 hover:text-destructive">
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      {unassigned.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen(v => !v)}
+            className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+          >
+            <UserPlus className="h-3 w-3" />
+            Add
+          </button>
+          {open && (
+            <div className="absolute top-full mt-1 left-0 z-50 bg-popover border rounded-md shadow-md min-w-[160px] py-1">
+              {unassigned.map(s => (
+                <button
+                  key={s.user_id}
+                  type="button"
+                  onClick={() => add(s.user_id)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-muted text-left"
+                >
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={s.avatar_url ?? undefined} />
+                    <AvatarFallback className="text-[8px]">{s.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  {s.display_name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {assigned.length === 0 && unassigned.length === 0 && (
+        <span className="text-xs text-muted-foreground italic">No staff</span>
+      )}
+    </div>
+  )
+}
+
+// ─── TaskDetailDialog ─────────────────────────────────────────────────────────
 
 interface TaskDetailDialogProps {
   task: Task
@@ -48,6 +123,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   const [endDate, setEndDate] = useState(task.end_date ?? "")
   const [estimatedHours, setEstimatedHours] = useState(task.estimated_hours?.toString() ?? "")
   const [actualHours, setActualHours] = useState(task.actual_hours?.toString() ?? "")
+  const [savedFlash, setSavedFlash] = useState(false)
 
   const { mutate: patchTask } = useMutation({
     mutationFn: async (body: Partial<Task>) =>
@@ -56,7 +132,17 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] })
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2000)
+    },
+  })
+
+  const { data: staff = [] } = useQuery<StaffMember[]>({
+    queryKey: ["staff"],
+    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    staleTime: 120_000,
   })
 
   const isAiTask = task.assignee_id === "__ai__"
@@ -82,6 +168,10 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             </Select>
           </div>
         </SheetHeader>
+
+        {savedFlash && (
+          <div className="text-xs text-green-600 dark:text-green-400 text-right -mt-2 mb-1">Saved ✓</div>
+        )}
 
         <div className="mt-6 space-y-4">
           {/* Date fields */}
@@ -118,7 +208,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             </div>
           </div>
 
-          {/* Hours + Assignee + Task Type */}
+          {/* Hours + Task Type */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Est. Hours</Label>
@@ -166,21 +256,19 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Assignee</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  value={isAiTask ? "" : (task.assignee_id ?? "")}
-                  readOnly={isAiTask}
-                  className="h-8 text-sm text-muted-foreground flex-1"
-                  placeholder={isAiTask ? "" : "Unassigned"}
+              <Label className="text-xs text-muted-foreground">Assignees</Label>
+              {isAiTask ? (
+                <div className="h-8 px-2 flex items-center gap-1.5 border rounded text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800 w-fit">
+                  <Bot className="h-3.5 w-3.5" />
+                  AI Agent
+                </div>
+              ) : (
+                <AssigneeMultiSelect
+                  assigneeIds={task.assignee_ids ?? (task.assignee_id ? [task.assignee_id] : [])}
+                  staff={staff}
+                  onChange={(ids) => patchTask({ assignee_ids: ids, assignee_id: ids[0] ?? undefined })}
                 />
-                {isAiTask && (
-                  <div className="h-8 px-2 flex items-center gap-1.5 border rounded text-xs bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800">
-                    <Bot className="h-3.5 w-3.5" />
-                    AI
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
 

@@ -54,9 +54,10 @@ export default async function embedRoutes(fastify: FastifyInstance) {
   fastify.get("/api/v1/embed/status", async (_req, reply) => {
     const hasKey = !!(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "REPLACE_WITH_REAL_KEY");
     return reply.code(200).send({
+      status: hasKey ? "ok" : "degraded",
       configured: hasKey,
       model: EMBEDDING_MODEL,
-      dimensions: 768
+      dimensions: 768,
     });
   });
 }

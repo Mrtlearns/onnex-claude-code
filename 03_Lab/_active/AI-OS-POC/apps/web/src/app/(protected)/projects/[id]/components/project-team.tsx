@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { UserPlus, Trash2, Users, Clock } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ProjectMember, AdminUser } from "@/types/api"
 
 interface ProjectTeamProps {
@@ -156,9 +157,12 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
               key={member.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border/50 hover:bg-muted/30 transition-colors"
             >
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-semibold shrink-0">
-                {(member.user_name || member.user_id).slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarImage src={member.avatar_url ?? undefined} />
+                <AvatarFallback className="text-xs bg-primary/15">
+                  {(member.user_name || member.user_id).slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{member.user_name || member.user_id}</p>
                 <p className="text-xs text-muted-foreground capitalize">{member.role}</p>

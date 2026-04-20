@@ -230,12 +230,14 @@ export async function projectsRoutes(fastify: FastifyInstance) {
       const { id } = request.params as any
       const result = await pool.query(
         `SELECT pm.id, pm.project_id, pm.user_id, pm.user_name, pm.role, pm.added_at,
-                COALESCE(SUM(te.duration_minutes), 0)::int AS logged_minutes
+                COALESCE(SUM(te.duration_minutes), 0)::int AS logged_minutes,
+                up.avatar_url
          FROM project_members pm
          LEFT JOIN time_entries te
            ON te.project_id = pm.project_id AND te.user_id = pm.user_id
+         LEFT JOIN user_profiles up ON up.user_id = pm.user_id
          WHERE pm.project_id = $1 AND pm.tenant_id = $2
-         GROUP BY pm.id, pm.project_id, pm.user_id, pm.user_name, pm.role, pm.added_at
+         GROUP BY pm.id, pm.project_id, pm.user_id, pm.user_name, pm.role, pm.added_at, up.avatar_url
          ORDER BY pm.added_at`,
         [id, tenantId],
       )

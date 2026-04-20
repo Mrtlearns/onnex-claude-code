@@ -44,7 +44,8 @@ function OverlayCard({ task }: { task: Task }) {
 
 export function KanbanBoard({ tasks }: { tasks: Task[] }) {
   const qc = useQueryClient()
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const selectedTask = selectedTaskId ? (tasks.find(t => t.id === selectedTaskId) ?? null) : null
   const [activeTask, setActiveTask] = useState<Task | null>(null)
   // Optimistic status override: taskId → status
   const [optimisticStatus, setOptimisticStatus] = useState<Record<string, TaskStatus>>({})
@@ -134,7 +135,7 @@ export function KanbanBoard({ tasks }: { tasks: Task[] }) {
               key={status}
               status={status}
               tasks={columnTasks[status]}
-              onTaskClick={setSelectedTask}
+              onTaskClick={(task) => setSelectedTaskId(task.id)}
             />
           ))}
         </div>
@@ -146,7 +147,7 @@ export function KanbanBoard({ tasks }: { tasks: Task[] }) {
         <TaskDetailDialog
           task={selectedTask}
           open={!!selectedTask}
-          onOpenChange={(open) => { if (!open) setSelectedTask(null) }}
+          onOpenChange={(open) => { if (!open) setSelectedTaskId(null) }}
         />
       )}
     </>

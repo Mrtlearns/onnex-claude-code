@@ -9,14 +9,22 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import type { BrainEntity, BrainGraphData } from "./types"
 
 const ENTITY_COLORS: Record<string, string> = {
-  Person:       "#60a5fa",
-  Organization: "#34d399",
-  Location:     "#f97316",
-  Concept:      "#a78bfa",
-  Technology:   "#fb7185",
-  Document:     "#fbbf24",
-  Tool:         "#38bdf8",
-  Event:        "#e879f9",
+  person:       "#60a5fa",
+  organization: "#34d399",
+  company:      "#34d399",
+  location:     "#f97316",
+  concept:      "#a78bfa",
+  technology:   "#fb7185",
+  software:     "#fb7185",
+  library:      "#fb7185",
+  document:     "#fbbf24",
+  tool:         "#38bdf8",
+  event:        "#e879f9",
+  project:      "#4ade80",
+  task:         "#86efac",
+  date:         "#64748b",
+  product:      "#f59e0b",
+  feature:      "#c084fc",
   default:      "#94a3b8",
 }
 
@@ -33,7 +41,7 @@ function runForceLayout(
   links: { source: string; target: string }[],
   width: number,
   height: number,
-  iterations = 200,
+  iterations = 400,
 ): Map<string, { x: number; y: number }> {
   if (!entities.length) return new Map()
 
@@ -171,8 +179,8 @@ export function NeuralPathwaysGraph({
                 x1={s.x} y1={s.y}
                 x2={t.x} y2={t.y}
                 stroke="hsl(var(--muted-foreground))"
-                strokeOpacity={0.25}
-                strokeWidth={1}
+                strokeOpacity={0.45}
+                strokeWidth={1.2}
               />
             )
           })}
@@ -207,7 +215,7 @@ export function NeuralPathwaysGraph({
           {entities.map((entity) => {
             const pos = positions.get(entity.id)
             if (!pos) return null
-            const color      = ENTITY_COLORS[entity.entity_type] ?? ENTITY_COLORS.default
+            const color      = ENTITY_COLORS[entity.entity_type?.toLowerCase()] ?? ENTITY_COLORS.default
             const isSelected = entity.id === selectedEntityId
             const r          = isSelected ? 12 : 8
 
@@ -249,11 +257,11 @@ export function NeuralPathwaysGraph({
       {/* Legend */}
       <div className="absolute bottom-2 left-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
         {Object.entries(ENTITY_COLORS)
-          .filter(([k]) => k !== "default")
+          .filter(([k]) => k !== "default" && k !== "company" && k !== "software" && k !== "library")
           .map(([type, color]) => (
             <span key={type} className="flex items-center gap-1">
               <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-              {type}
+              {type.charAt(0).toUpperCase() + type.slice(1)}
             </span>
           ))}
       </div>

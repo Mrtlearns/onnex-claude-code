@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest"
 import { NAV_ITEMS } from "@/components/layout/sidebar"
 
 describe("Sidebar nav items", () => {
-  it("contains exactly 15 nav items (14 original + BRAIN cognitive module)", () => {
-    expect(NAV_ITEMS.length).toBe(15)
+  it("contains exactly 17 nav items", () => {
+    expect(NAV_ITEMS.length).toBe(17)
   })
 
   it("includes all expected routes", () => {
@@ -12,7 +12,8 @@ describe("Sidebar nav items", () => {
       "/dashboard", "/clients", "/projects", "/tasks",
       "/deals", "/invoices", "/time-tracking", "/documents",
       "/reports", "/admin", "/notifications", "/ai",
-      "/settings", "/portal", "/brain-cognitive",
+      "/ai-brain", "/brain-cognitive", "/tools",
+      "/settings", "/portal",
     ]
     expected.forEach((route) => {
       expect(routes).toContain(route)
