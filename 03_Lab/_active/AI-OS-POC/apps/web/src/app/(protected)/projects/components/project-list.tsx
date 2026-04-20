@@ -31,8 +31,37 @@ import {
 } from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ProjectForm } from "./project-form"
-import type { Client, Project } from "@/types/api"
+import type { Client, Project, ProjectMember } from "@/types/api"
+
+function ProjectAvatarStack({ projectId }: { projectId: string }) {
+  const { data: members = [] } = useQuery<ProjectMember[]>({
+    queryKey: ["project-members", projectId],
+    queryFn: () => fetch(`/api/bff/projects/${projectId}/members`).then(r => r.json()),
+    staleTime: 30_000,
+  })
+  if (!members.length) return <span className="text-xs text-muted-foreground">—</span>
+  const shown = members.slice(0, 3)
+  const extra = members.length - 3
+  return (
+    <div className="flex items-center -space-x-2">
+      {shown.map(m => (
+        <Avatar key={m.user_id} className="h-7 w-7 ring-2 ring-background">
+          <AvatarImage src={m.avatar_url ?? undefined} />
+          <AvatarFallback className="text-[10px] bg-primary/20">
+            {m.user_name.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+      {extra > 0 && (
+        <div className="h-7 w-7 rounded-full ring-2 ring-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+          +{extra}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface ProjectListProps {
   initialSearch: { status?: string; client_id?: string; archived?: string }
@@ -160,6 +189,7 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Client</TableHead>
+              <TableHead>Team</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Budget</TableHead>
               <TableHead>Start Date</TableHead>
@@ -183,6 +213,7 @@ export function ProjectList({ initialSearch: _initialSearch }: ProjectListProps)
                   )}
                 </TableCell>
                 <TableCell>{project.client_name ?? "—"}</TableCell>
+                <TableCell><ProjectAvatarStack projectId={project.id} /></TableCell>
                 <TableCell>
                   <Badge
                     variant={

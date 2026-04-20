@@ -123,6 +123,7 @@ export interface ProjectMember {
   project_id: string
   user_id: string
   user_name: string
+  avatar_url?: string | null
   role: string
   added_at: string
   logged_minutes: number
