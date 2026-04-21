@@ -46,15 +46,15 @@
       "date": "2026-04-21",
       "tools": {
         "Read": 94,
-        "Bash": 91,
+        "Bash": 103,
         "Edit": 37,
         "Write": 5,
         "Glob": 8,
         "Grep": 12,
         "Agent": 3
       },
-      "total_calls": 250,
-      "weight_total": 163
+      "total_calls": 262,
+      "weight_total": 175
     }
   ]
 }
