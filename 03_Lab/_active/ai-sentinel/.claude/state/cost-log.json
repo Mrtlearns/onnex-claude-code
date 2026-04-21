@@ -45,12 +45,13 @@
     {
       "date": "2026-04-21",
       "tools": {
-        "Read": 5,
+        "Read": 30,
         "Bash": 73,
         "Edit": 14,
-        "Write": 2
+        "Write": 2,
+        "Glob": 4
       },
-      "total_calls": 94,
+      "total_calls": 123,
       "weight_total": 89
     }
   ]
