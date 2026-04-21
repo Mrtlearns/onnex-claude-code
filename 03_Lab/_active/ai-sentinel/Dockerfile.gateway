@@ -2,15 +2,19 @@
 # Binary is pre-built on the host with the installed Rust toolchain.
 # Build: cargo build --release --bin ai-sentinel-proxy
 # Then:  docker build -f Dockerfile.gateway -t ai-sentinel-proxy:latest .
+#
+# Requires ubuntu:24.04 (GLIBC 2.39) — binary built on Ubuntu 24.04 links
+# against GLIBC 2.38+; debian:bookworm-slim only ships GLIBC 2.36.
 
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Run as uid 65534 (nobody)
-RUN useradd -u 65534 -M -s /bin/false nobody 2>/dev/null || true
+# Run as uid 65534 (nobody) — ubuntu:24.04 has nobody at uid 65534
+RUN id nobody 2>/dev/null || useradd -u 65534 -M -s /bin/false nobody
 
 WORKDIR /app
 

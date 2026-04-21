@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: gateway-mvp
-status: "Phase 4 Planned — Gateway MVP"
-last_updated: "2026-04-20"
-last_activity: "2026-04-20 — Phase 4 planned: network-layer MITM proxy, 5-wave plan, 5 new crates"
+status: "Phase 4 Complete — Gateway MVP Smoke-Tested"
+last_updated: "2026-04-21"
+last_activity: "2026-04-21 — Phase 4 smoke tests all pass: classifier 21/21, non-LLM tunnel, LLM MITM cert verified, injection block 451+audit_id"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # AI-Sentinel — State
@@ -33,7 +33,7 @@ progress:
 | 1 | AgentSec Core Build | **Complete** | 100% |
 | 2 | Semantic Intent + Egress Inspection | **Complete** | 100% |
 | 3 | SDK + SaaS + Multi-tenant | **Complete** | 100% |
-| 4 | Gateway MVP (Network MITM Proxy) | **Build Verified** | 98% |
+| 4 | Gateway MVP (Network MITM Proxy) | **Complete** | 100% |
 
 ---
 
@@ -105,3 +105,4 @@ progress:
 | 2026-04-20 | Council: gateway vs sidecar architecture decision — gateway wins with 3 hard gates |
 | 2026-04-20 | Phase 4 planned: network-layer MITM proxy, 5 waves, 5 new crates, PLAN.md created |
 | 2026-04-20 | Phase 4 code complete: ai-sentinel-classifier, ai-sentinel-proxy, gateway.toml, Dockerfile.gateway, docker-compose.gateway.yml, test_gateway.sh |
+| 2026-04-21 | Phase 4 smoke tests pass: ring CryptoProvider init added, Dockerfile.gateway → ubuntu:24.04, all 5 tests pass on 10.10.110.36:8081 |
