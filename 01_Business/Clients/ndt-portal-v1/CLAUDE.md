@@ -90,6 +90,26 @@ Email / Portal → n8n ingestion → ndtv1-gateway
 
 ---
 
+## Autonomous Deployment (MANDATORY)
+
+Mr. T requires all build/deploy/push steps to be completed **autonomously without asking**. Never list `git push`, `docker build`, `npm run build`, or server deployment as "To-Do (MrT)" items. Execute them.
+
+**Manual deploy path** (CI/CD runner has 503 issues as of 2026-04-21 — GitLab runner polls but gitlab.botonomy.xyz backend returns 503):
+1. Build locally: `npx tsc --noEmit` (api) + `npm run build` (frontend)
+2. Push to git: `git push origin master` (from `D:\Code\Claude\` root)
+3. Copy changed files to server via base64 pipe (files owned by root — use `base64 -d | sudo tee`):
+   ```bash
+   cat local_file | base64 -w0 | ssh -i /c/Users/mrtma/.ssh/MrT_Personal_Key_ed25519 mrt@100.111.233.126 \
+     "ssh mrt@10.10.110.32 'base64 -d | sudo tee /opt/ndt-portal/path/to/file > /dev/null'"
+   ```
+4. Rebuild API image: `sudo docker build -t ndt-api:latest ./api/`
+5. Build frontend: `sudo npm run build` (in `/opt/ndt-portal/frontend/`) — reporter warning at end is benign, check dist mtime
+6. Restart API: `sudo docker compose up -d api`
+
+**Server paths:** `/opt/ndt-portal/` — files owned by root, all writes need `sudo tee` or `sudo base64 -d`.
+
+---
+
 ## Post-Build Verification
 1. Docker Compose stack starts clean
 2. n8n email ingestion workflow receives test message and triggers pipeline
