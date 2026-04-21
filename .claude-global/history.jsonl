@@ -1200,3 +1200,4 @@
 {"display":"/compact","pastedContents":{},"timestamp":1776744828682,"project":"D:\\Code\\Claude\\03_Lab\\_active\\AI-OS-POC","sessionId":"06c06e65-d779-46fd-83d2-40a410ba064b"}
 {"display":"/compact","pastedContents":{},"timestamp":1776748598548,"project":"D:\\Code\\Claude\\01_Business\\Clients\\ndt-portal-v1","sessionId":"ee3c4f73-77b8-438b-8186-5fb49594e122"}
 {"display":"for the UT process we are showing 82 customers. I need a download of this is .csv format (just a dump in this chat, not a development change)","pastedContents":{},"timestamp":1776748746726,"project":"D:\\Code\\Claude\\01_Business\\Clients\\ndt-portal-v1","sessionId":"ee3c4f73-77b8-438b-8186-5fb49594e122"}
+{"display":"can you write this as a csv to our files folder and call it UT_82_Customers_dump_20Apr.csv","pastedContents":{},"timestamp":1776750057970,"project":"D:\\Code\\Claude\\01_Business\\Clients\\ndt-portal-v1","sessionId":"ee3c4f73-77b8-438b-8186-5fb49594e122"}

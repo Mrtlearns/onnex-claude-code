@@ -1,0 +1,83 @@
+id,name,email,domain,hourly_rate,cscan_rate,technique_fee,env_fee_rate,min_charge,cscan_min_charge,delivery_fee,lead_time,has_env_fee,has_tech_fee,lot_pattern,misc_fee,sf_account_id,is_active,sort_order,notes,created_at
+cd471b86-0cb3-41af-9683-5f954ef99974,ABSOLUTE TECHNOLOGIES,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+fba0ba54-28b1-4242-a56c-4b1c9c48b3f4,ADVANCED STRUCTURAL TECH,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,0,,2026-04-17 14:45:56.909863+00
+7ad6ec3f-fcb9-4e5a-b361-948168e793c5,AEROFAB CORP,,,225,250,0,0.02,250,250,75,4-5 Days,t,f,min_enforced,,,t,0,,2026-04-17 14:45:56.909863+00
+655b80c3-83c6-49dc-afc7-c28480d8df7d,AERONOVA,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+f5c1fa3a-3a63-448b-b7ef-1c1d99f5d048,AIRCRAFT EXTRUSION,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+4115cc7a-cde0-4362-ab1e-dacc42252b34,AMERICAN HANDFORGE,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,0,"Pre-quoted aerospace forgings (Ti/SS, BMS 7-348 / AMS 4928). 13 fixed-price part numbers stored in custom_variables.price_list. Portal calculator not applicable — use price_list lookup.",2026-04-17 15:06:49.765393+00
+a066c509-05f2-43eb-895a-a1bbb4a35521,AXIAN TECHNOLOGY,,,225,250,150,0.02,250,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Pre-quoted small-diameter SS/Al/specialty round bar. 3 test configurations (LW only, LW+SW@12"", LW+SW@6""). 26 line items in custom_variables.price_list. Technique fee=$150, min=$250.",2026-04-17 15:06:49.765393+00
+36090038-402e-4f0a-832e-78478a7d40b3,BEL-AIR MACHINE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+1d9a9b95-b87b-4014-8fd6-631b28f5ab56,BLUE ORIGIN,,,250,250,150,0.02,250,250,N/A,4-5 Days,t,t,min_enforced,125.00,,t,0,"C-SCAN focused — fracture-critical aerospace parts. misc_fee=$125 is the C-SCAN FEE per lot (stacks on technique fee).",2026-04-17 15:06:49.737745+00
+bdad2a98-97a8-491b-b30e-5a830e7fbafc,BRALCO,,,250,250,0,0.02,225,250,N/A,4-5 Days,t,f,min_enforced,,,t,0,,2026-04-17 14:45:56.943259+00
+d3b41329-1ebb-456a-a44f-0512d62b2228,CALIFORNIA AMFORGE,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Placeholder — no pricing data in 2026 Excel. Rates are $225 standard defaults pending customer confirmation.",2026-04-17 16:03:28.340497+00
+fb41fc8d-ab58-4f6c-8036-1e5d4ce51c6b,CASTLE METALS,,,225,250,125,0.02,225,250,100,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+44ac23d7-6357-4c58-a8ea-7b2be05fffd7,CENTURY PRECISION,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+22a7e126-fc37-4dbe-9a24-a20bdb1bd642,COAST MANUFACTURING,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+1aea10f5-64be-4e6a-80b1-1772106248d8,CONNELLY MACHINE,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+42863cdb-0c35-49e4-a66a-d10e381498c8,CONTINOUS IMPROVEMENT,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+691530f5-d78c-4676-a59a-1d536bce0009,COULTER FORGE,,,250,275,150,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,450.00,,t,0,,2026-04-17 14:45:56.934754+00
+c237e9df-199f-46d1-a3d6-c630604ed8c8,CUTTER INNOVATIONS,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+2cc15eac-f81a-4efc-b188-b61d49c696c8,EARLE M. JORGENSON,,,225,250,125,0.02,250,250,100,4-5 Days,t,t,min_enforced,,,t,0,"Weight-based pricing. Per-lb rates: Class A=$0.12, Class AA=$0.14. Per-alloy premiums (Al=$0.15, Ti=$0.20, Ni=$0.16) not yet modeled.",2026-04-17 15:06:49.748613+00
+70f08173-bce5-46cc-b545-cf6c07e5bf8b,FALCON AEROSPACE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+514288a0-2098-40ee-9532-b36cdcc19c5b,FLIGHT METALS,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+208ef35b-fe9e-46a2-a297-9a52f1e10815,FRY STEEL,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,0,,2026-04-17 14:45:56.909863+00
+8256af05-821c-4d3b-9548-96f2f31120cc,HURLEN,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+6a677286-e658-4259-8df4-429346e2e0b4,JACQUET WEST,,,275,275,75,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.926559+00
+fc3e614b-bd9f-4df7-b5ea-e7fc3aaa1021,JOHNSON PRECISION,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+ea3dbe29-d7f1-41d3-9454-8acdad501036,KREMIN,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+319b52ed-af17-46ca-85a7-fe5e65bc60f1,LNP MACHINE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+08b28dc7-e533-4da2-848b-11a01ab19568,LNT MACHINE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+61cb5cb3-b9ae-415e-87cd-2549377992ad,MICHLIN METALS,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+6d80bf86-0e13-40fd-9698-983011be0d57,MILLER CNC,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+f66b03be-00ce-4684-9ace-5e5e57659c21,MINDRUM PRECISION,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+49d9b736-0e89-406a-92c5-41e9f4f83c3c,NYTRON,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+e46cda44-f120-4cd2-a91a-0fde34febe1c,PNEUDRALICS,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+1e4c770f-a2f3-4086-903f-05662828e2f8,PRECISION FLUID CONTROL,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+3a95811f-2c1c-4507-86f8-a89b47c54bc8,PROTOTEK,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+36fe5a10-e7b6-40d2-af9a-5907c2e6e850,RBC BEARING,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+15299226-49bf-4c5d-91a6-ed5af6e4da71,ROLLED ALLOYS,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,simple,,,t,0,"Weight-based pricing. Per-lb rates: Class A=$0.10, Class AA=$0.12.",2026-04-17 15:06:49.748613+00
+bca577b2-8a26-42f6-a211-378f3aede897,SIGMA AEROSPACE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+425b0080-3b7e-41ad-8968-1fd61817c288,SLICE OF STAINLESS,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+15b0d05f-2c3f-4c6b-aa70-1c381212c6b2,SPACE-LOK,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,0,,2026-04-17 14:45:56.909863+00
+ac86b3a7-9df6-4446-9f9f-c4880cff4815,SPECIALITY METALS,,,225,250,125,0.02,250,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Weight-based pricing. Covers SS and Ti. Per-lb rates: Class A=$0.12, Class AA=$0.14.",2026-04-17 15:06:49.748613+00
+bc4f897e-b90e-4b8c-bc63-ad3896b1b8f0,SUNSHINE METALS,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Placeholder — no pricing data in 2026 Excel. Rates are $225 standard defaults pending customer confirmation.",2026-04-17 16:03:28.340497+00
+24c92b6d-847b-4262-8e4b-377a37f0d1c4,TACKETT MACHINE,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+b9465e77-3acd-495f-b42d-f3fdeb0ee5ed,TECTON,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Placeholder — no pricing data in 2026 Excel. Rates are $225 standard defaults pending customer confirmation.",2026-04-17 16:03:28.340497+00
+239729ad-beda-4dc1-8000-7e625c11c939,TNT MACHINE,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+570824bb-05ae-47c1-a7fd-700187c1e294,TRABUCO PRECISION,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+3ac82b77-b8bd-4fbf-91a1-3f90fed424ec,TRI-TECH METALS,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+f2aea26d-3402-4ea5-a6ac-f319299b1ef0,TURBOTECH,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.901544+00
+7fc9aa06-1320-43ab-b1cf-8bafa2ecad50,UNIVERSAL METALS,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,0,"Weight-based pricing. Per-lb rates: Class A=$0.14, Class AA=$0.16. Tech fee varies by material type (SS=$0, Nickel=$125) — not modeled; has_tech_fee=false conservative default.",2026-04-17 15:06:49.748613+00
+d30b8b84-44bf-4101-b7d2-c7781e08c377,UREMET CORP,,,250,275,125,0.02,250,275,N/A,4-5 Days,t,t,min_enforced,,,t,0,,2026-04-17 14:45:56.918254+00
+ba0ed8a3-a65e-4e19-ad86-8a328b7528c1,VELOCITY PRECISION,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Placeholder — no pricing data in 2026 Excel. Rates are $225 standard defaults pending customer confirmation.",2026-04-17 16:03:28.340497+00
+a4531d2b-8bbd-4ff4-8897-bc75e4ab5a39,iLAM PRECISION,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,0,"Placeholder — no pricing data in 2026 Excel. Rates are $225 standard defaults pending customer confirmation.",2026-04-17 16:03:28.340497+00
+45dd5927-1cfc-4e52-a32a-ca36a90753b7,PREMCO,,premcoforge.com,225,250,0,0.02,225,250,No,4-5 Days,t,f,min_enforced,,00116000020EM1bAAG,t,1,"$0.13/LB over 6.00x6.00",2026-03-15 00:36:38.117795+00
+53630ce6-cb88-4b76-b16a-6af6584a96bb,ACTION INDUSTRIES,,actionindustries.com,225,250,125,0.02,225,250,$100,4-5 Days,f,t,min_enforced,,001G000001hCKvDIAW,t,2,,2026-03-15 00:36:38.117795+00
+beaa5d10-bf29-4926-9794-94b7f72f0d9e,ACUTEK US,,acutekus.com,225,275,125,0.02,225,275,$75,4-5 Days,t,t,min_enforced,,00116000021Xt3OAAS,t,3,,2026-03-15 00:36:38.117795+00
+d69662e0-581e-425a-8c43-50717d7b3c26,ALLOY METALS,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,4,Weight-based pricing for SS/Ti,2026-03-15 00:36:38.117795+00
+83d9d250-0661-428b-91df-2ea4a30def66,ALTEMP ALLOYS,,altempalloys.com,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,0013o00002W5U0OAAV,t,5,Weight-based pricing for SS/Ni,2026-03-15 00:36:38.117795+00
+32cff494-bbf7-4759-b2c6-c1cea5fa3c5c,AVIATION METALS,,,225,250,0,0.02,225,250,Varies,4-5 Days,t,f,simple,,,t,6,,2026-03-15 00:36:38.117795+00
+de965a07-a751-49a8-8572-c7aa6c9aa850,AXXIS CORP,,,225,250,125,0.02,225,250,$100,4-5 Days,t,t,min_enforced,,,t,7,,2026-03-15 00:36:38.117795+00
+2374cd9e-fee0-4da6-8a08-3eb372e1cca1,BLUELINE INDUSTRIES,,,225,250,75,0.02,250,250,No,4-5 Days,t,t,min_enforced,,,t,8,Fixed round bar price table,2026-03-15 00:36:38.117795+00
+220aaf56-728f-42d1-9723-4e643b165ca6,CALIFORNIA METALS,,,225,250,125,0.02,225,250,$100,4-5 Days,t,t,min_enforced,,,t,9,,2026-03-15 00:36:38.117795+00
+09023854-b319-40be-945e-1a8fb0565374,FALCON ENGINEERING,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,min_enforced,,,t,10,,2026-03-15 00:36:38.117795+00
+6bffb066-2b73-4859-9879-0a25ad0e7124,HUB METALS,,,225,250,0,0.02,225,250,No,4-5 Days,t,f,min_enforced,,,t,11,,2026-03-15 00:36:38.117795+00
+d882b88e-647a-47f1-b83f-dd5cdcd887ec,INDEPENDENT FORGE,,independentforge.com,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,0011L000028kKucQAE,t,12,,2026-03-15 00:36:38.117795+00
+1a59f44b-7736-4852-9fd2-1c75010dfc50,JR MACHINE,,,225,250,125,0.02,225,250,Varies,4-5 Days,t,t,min_enforced,,,t,13,,2026-03-15 00:36:38.117795+00
+033128dd-6c82-43f2-a747-f3e3e7289caf,LEADING EDGE,,,225,250,125,0.02,225,250,$100,4-5 Days,t,t,simple,,,t,14,,2026-03-15 00:36:38.117795+00
+d329bd03-bd51-424e-9b4b-b81a2fae5c9a,LEAN MANUFACTURING,,,225,250,200,0.02,225,250,N/A,4-5 Days,t,t,simple,,,t,15,,2026-03-15 00:36:38.117795+00
+2c382cbb-c0e0-4534-b6c1-4f5e278e5189,MAGNA TOOL,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,min_enforced,,,t,16,Weight-based pricing for SS/Ni,2026-03-15 00:36:38.117795+00
+87c931cf-cb6e-43c4-837c-00775b5f4ad8,MCNEELEY MFG,,,225,250,125,0.02,275,250,N/A,4-5 Days,t,t,simple,,,t,17,,2026-03-15 00:36:38.117795+00
+bd5a6b9e-0b90-42b6-9a5a-6a6b23f41de6,OLYMPIC AVIATION,,ctcoa.com,225,250,0,0.02,225,250,No,4-5 Days,t,f,min_enforced,,0013o00002cJSyDAAW,t,18,,2026-03-15 00:36:38.117795+00
+1344563a-5f20-48ac-8f3c-1d3518014244,PRECISION WATERJET,,,225,250,125,0.02,225,250,$100,4-5 Days,t,t,min_enforced,,,t,19,,2026-03-15 00:36:38.117795+00
+5eecb99e-2116-4f65-bb4a-ea2d1ebe3743,PROGRESSIVE ALLOY,,,225,250,125,0.02,225,250,Varies,4-5 Days,t,t,simple,,,t,20,,2026-03-15 00:36:38.117795+00
+d9da7492-6f7d-41e7-9869-ba3285e18990,Q&L METALS,,,225,250,125,0.02,225,250,Various,4-5 Days,t,t,simple,,,t,21,,2026-03-15 00:36:38.117795+00
+8521d4e2-f54c-42c6-95c0-5bf808a877cd,RAM ALLOYS,,ramalloys.com,225,250,125,0.02,225,250,Various,4-5 Days,t,t,simple,,001US00000UbpFTYAZ,t,22,,2026-03-15 00:36:38.117795+00
+c719e5c4-0ac0-4a42-87c1-416023763446,RED LION,,,225,250,125,0.02,225,250,Various,4-5 Days,t,t,min_enforced,,,t,23,"Pacific Metal Cutting: $75",2026-03-15 00:36:38.117795+00
+4fdbdb21-7147-476d-972c-038ab0cec897,RICKARD SPECIALTY,,,225,250,0,0.02,225,250,N/A,4-5 Days,t,f,simple,,,t,24,Weight-based pricing for SS/Ti,2026-03-15 00:36:38.117795+00
+3e005e64-fc5f-4a03-872c-d63f3583e8ff,SA AEROSPACE,,saaerospaceinc.com,225,250,125,0.02,225,250,$150,4-5 Days,t,t,simple,,001US00000at4B8YAI,t,25,,2026-03-15 00:36:38.117795+00
+a3d686e8-4a58-4ed0-8860-0264886a446c,SIERRA ALLOYS,,sierraalloys.com,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,simple,,0011600001q2ElgAAE,t,26,Weight-based pricing for SS/Ti,2026-03-15 00:36:38.117795+00
+cbf716f2-cd51-458a-aa9c-d680965b05c2,SUPERIOR HANDFORGE,,superiorforge.net,225,250,0,0.0,225,250,No,4-5 Days,f,f,min_enforced,,001G000001aGBtQIAW,t,27,"$0.13/LB over 6.00x6.00",2026-03-15 00:36:38.117795+00
+74518177-4a46-4aa5-9c66-74acb3d14c0d,TOOLCRAFT,,,225,250,125,0.02,225,250,N/A,4-5 Days,t,t,simple,,,t,28,,2026-03-15 00:36:38.117795+00
+37b1982c-b659-41ac-8dd3-92e555a8e1cc,TRITON ALLOYS,,tritonalloys.com,225,250,125,0.02,225,250,Varies,4-5 Days,t,t,min_enforced,,0013o00002eUIrMAAW,t,29,,2026-03-15 00:36:38.117795+00
+d2ca399e-1078-47c9-bf78-bf12a2d34e9d,TRUE STEEL,,,195,250,0,0.0,195,250,N/A,4-5 Days,f,f,simple,,,t,30,,2026-03-15 00:36:38.117795+00
