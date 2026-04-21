@@ -19,3 +19,4 @@ hex = { workspace = true }
 dashmap = { workspace = true }
 deadpool-redis = { workspace = true }
 sqlx = { workspace = true }
+blake3 = { workspace = true }
