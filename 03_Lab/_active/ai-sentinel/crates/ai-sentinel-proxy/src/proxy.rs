@@ -17,12 +17,10 @@ use crate::upstream;
 
 // ─── ProviderSignatures bridge ────────────────────────────────────────────────
 
-impl ProviderSignatures {
-    pub fn from_config(cfg: &ProvidersConfig) -> Self {
-        ProviderSignatures {
-            sni_exact: cfg.allowed_hosts.clone(),
-            url_path_prefixes: cfg.url_path_patterns.clone(),
-        }
+fn provider_sigs_from_config(cfg: &ProvidersConfig) -> ProviderSignatures {
+    ProviderSignatures {
+        sni_exact: cfg.allowed_hosts.clone(),
+        url_path_prefixes: cfg.url_path_patterns.clone(),
     }
 }
 
@@ -38,7 +36,7 @@ pub async fn run(cfg: GatewayConfig) -> Result<()> {
         CertGen::new(&ca_cert_pem, &ca_key_pem).context("initialising CertGen")?,
     );
 
-    let provider_sigs = Arc::new(ProviderSignatures::from_config(&cfg.providers));
+    let provider_sigs = Arc::new(provider_sigs_from_config(&cfg.providers));
 
     let listener = TcpListener::bind(&cfg.proxy.bind_addr)
         .await

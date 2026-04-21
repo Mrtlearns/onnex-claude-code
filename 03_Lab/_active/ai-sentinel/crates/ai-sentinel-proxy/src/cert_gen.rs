@@ -3,7 +3,10 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use dashmap::DashMap;
-use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair, SanType};
+use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType,
+    Ia5String, IsCa, KeyPair, SanType,
+};
 
 /// A generated leaf certificate cached until it expires.
 struct CachedCert {
@@ -24,18 +27,39 @@ pub struct CertGen {
 const CERT_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 impl CertGen {
-    /// Load the CA cert and key from PEM strings.
-    pub fn new(ca_cert_pem: &str, ca_key_pem: &str) -> Result<Self> {
+    /// Initialise CertGen from the CA's private key PEM.
+    ///
+    /// rcgen 0.13 cannot parse an existing CA cert from PEM (`from_ca_cert_der` was
+    /// added in 0.14). For Phase 4, the CA cert is generated from the provided key
+    /// with a fixed DN. The generated cert must be distributed to managed devices
+    /// via Ansible (`onnex-ca-deploy.yml`). Phase 5 will upgrade to rcgen 0.14 and
+    /// load the real Onnex CA cert from PEM.
+    ///
+    /// # Arguments
+    /// - `_ca_cert_pem`: retained for interface compatibility (Phase 5 will use it)
+    /// - `ca_key_pem`: the Onnex intermediate CA private key in PEM format
+    pub fn new(_ca_cert_pem: &str, ca_key_pem: &str) -> Result<Self> {
         let ca_key = KeyPair::from_pem(ca_key_pem)
             .context("failed to parse CA private key PEM")?;
 
-        let ca_params = CertificateParams::from_ca_cert_pem(ca_cert_pem)
-            .context("failed to parse CA certificate PEM")?;
+        // Build a CA cert from the key with the Onnex intermediate CA DN.
+        // TODO Phase 5: load from the real PEM file using rcgen 0.14 from_ca_cert_der.
+        let mut ca_params = CertificateParams::default();
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
 
-        // Reconstruct the CA Certificate with its key so we can sign leaf certs with it.
+        let mut dn = DistinguishedName::new();
+        dn.push(DnType::CommonName, "Onnex AI Sentinel Intermediate CA");
+        dn.push(DnType::OrganizationName, "Onnex");
+        dn.push(DnType::CountryName, "ZA");
+        ca_params.distinguished_name = dn;
+
+        let now = time::OffsetDateTime::now_utc();
+        ca_params.not_before = now;
+        ca_params.not_after = now + time::Duration::days(365);
+
         let ca_cert = ca_params
             .self_signed(&ca_key)
-            .context("failed to reconstruct CA certificate for signing")?;
+            .context("failed to generate CA certificate from key")?;
 
         Ok(CertGen {
             ca_cert,
@@ -45,16 +69,14 @@ impl CertGen {
     }
 
     /// Return a (cert_der, key_der) pair for `hostname`.
-    /// Generates a new leaf cert if none is cached or the cached cert has expired.
+    /// Returns cached cert if still valid; generates a new one otherwise.
     pub fn leaf_cert(&self, hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {
-        // Check cache first.
         if let Some(entry) = self.cache.get(hostname) {
             if entry.expires_at > Instant::now() {
                 return Ok((entry.cert_der.clone(), entry.key_der.clone()));
             }
         }
 
-        // Generate a fresh leaf cert.
         let (cert_der, key_der) = self.generate_leaf(hostname)?;
 
         self.cache.insert(
@@ -75,28 +97,23 @@ impl CertGen {
 
         let mut params = CertificateParams::default();
 
-        // Subject: CN=<hostname>
         let mut dn = DistinguishedName::new();
         dn.push(DnType::CommonName, hostname);
         params.distinguished_name = dn;
 
-        // SAN: DNS name matching the intercepted hostname.
-        // rcgen 0.13: SanType::DnsName wraps a String.
         params.subject_alt_names = vec![
-            SanType::DnsName(hostname.to_string()),
+            SanType::DnsName(
+                Ia5String::try_from(hostname.to_string())
+                    .map_err(|e| anyhow::anyhow!("invalid DNS name '{hostname}': {e:?}"))?,
+            ),
         ];
 
-        // Not a CA.
         params.is_ca = IsCa::NoCa;
 
-        // Validity: now through tomorrow.
-        // rcgen 0.13 uses time::OffsetDateTime for not_before / not_after.
         let now = time::OffsetDateTime::now_utc();
-        let tomorrow = now + time::Duration::hours(24);
         params.not_before = now;
-        params.not_after = tomorrow;
+        params.not_after = now + time::Duration::hours(24);
 
-        // Sign the leaf cert with the CA.
         let leaf_cert = params
             .signed_by(&leaf_key, &self.ca_cert, &self.ca_key)
             .context("failed to sign leaf certificate with CA")?;

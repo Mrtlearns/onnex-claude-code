@@ -15,12 +15,12 @@ pub fn network_session_id(
 ) -> String {
     let mut hasher = blake3::Hasher::new();
     match src_ip {
-        IpAddr::V4(ip) => hasher.update(&ip.octets()),
-        IpAddr::V6(ip) => hasher.update(&ip.octets()),
+        IpAddr::V4(ip) => { hasher.update(&ip.octets()); }
+        IpAddr::V6(ip) => { hasher.update(&ip.octets()); }
     }
     match dst_ip {
-        IpAddr::V4(ip) => hasher.update(&ip.octets()),
-        IpAddr::V6(ip) => hasher.update(&ip.octets()),
+        IpAddr::V4(ip) => { hasher.update(&ip.octets()); }
+        IpAddr::V6(ip) => { hasher.update(&ip.octets()); }
     }
     hasher.update(&src_port.to_be_bytes());
     hasher.update(&dst_port.to_be_bytes());
