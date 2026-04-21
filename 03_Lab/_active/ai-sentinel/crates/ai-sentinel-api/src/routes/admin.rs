@@ -6,6 +6,7 @@ use axum::{
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use subtle::ConstantTimeEq;
 use tracing::{info, warn};
 
 use crate::routes::AppState;
@@ -20,10 +21,15 @@ fn extract_bearer(headers: &HeaderMap) -> &str {
 
 fn check_admin_token(state: &AppState, token: &str) -> bool {
     match &state.config.admin_token {
-        Some(t) => t == token,
+        Some(t) => {
+            // Constant-time comparison to prevent timing oracle attacks.
+            t.as_bytes().ct_eq(token.as_bytes()).into()
+        }
         None => {
-            warn!("admin: no admin_token configured, allowing request");
-            true
+            // No admin token configured — reject all admin requests.
+            // This is the secure default; set AI_SENTINEL_ADMIN_TOKEN to enable admin API.
+            warn!("admin: no admin_token configured — rejecting request (set AI_SENTINEL_ADMIN_TOKEN)");
+            false
         }
     }
 }

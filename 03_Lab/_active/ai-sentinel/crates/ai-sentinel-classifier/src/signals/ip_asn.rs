@@ -5,10 +5,12 @@ use std::net::IpAddr;
 static KNOWN_LLM_CIDRS: &[&str] = &[
     // Anthropic (AS394161)
     "160.79.104.0/23",
-    // OpenAI (AS20473 / AS396982)
+    // OpenAI (AS20473)
     "23.98.80.0/20",
-    // Google AI (subset of Google ASN)
-    "34.0.0.0/8",
+    // Google AI APIs (AS15169 — specific subnets for generativelanguage.googleapis.com).
+    // 34.0.0.0/8 was previously used but covers the entire Google ASN (far too broad).
+    "34.96.0.0/20",
+    "34.104.0.0/22",
     "35.184.0.0/13",
 ];
 

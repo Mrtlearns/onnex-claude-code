@@ -7,6 +7,7 @@ use rcgen::{
     BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType,
     Ia5String, IsCa, KeyPair, SanType,
 };
+use tokio::sync::OnceCell;
 
 /// A generated leaf certificate cached until it expires.
 struct CachedCert {
@@ -17,10 +18,13 @@ struct CachedCert {
 
 /// Generates per-hostname leaf certificates signed by the Onnex CA.
 /// Caches generated certs for `CERT_TTL` to avoid regenerating on every connection.
+///
+/// TOCTOU-safe: uses `OnceCell` per-hostname so that concurrent requests for the
+/// same hostname only generate one key pair.
 pub struct CertGen {
     ca_cert: Certificate,
     ca_key: KeyPair,
-    cache: Arc<DashMap<String, CachedCert>>,
+    cache: Arc<DashMap<String, Arc<OnceCell<CachedCert>>>>,
 }
 
 /// Leaf cert validity window — 24 hours.
@@ -70,25 +74,43 @@ impl CertGen {
 
     /// Return a (cert_der, key_der) pair for `hostname`.
     /// Returns cached cert if still valid; generates a new one otherwise.
-    pub fn leaf_cert(&self, hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {
-        if let Some(entry) = self.cache.get(hostname) {
-            if entry.expires_at > Instant::now() {
-                return Ok((entry.cert_der.clone(), entry.key_der.clone()));
-            }
+    ///
+    /// Thread-safe: concurrent calls for the same hostname collapse into a single
+    /// key-pair generation via `OnceCell`.
+    pub async fn leaf_cert(&self, hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {
+        let cell = self
+            .cache
+            .entry(hostname.to_string())
+            .or_insert_with(|| Arc::new(OnceCell::new()))
+            .clone();
+
+        let cached = cell
+            .get_or_try_init(|| async {
+                let (cert_der, key_der) = self.generate_leaf(hostname)?;
+                Ok::<CachedCert, anyhow::Error>(CachedCert {
+                    cert_der,
+                    key_der,
+                    expires_at: Instant::now() + CERT_TTL,
+                })
+            })
+            .await?;
+
+        // If expired, evict and recurse once.
+        if cached.expires_at <= Instant::now() {
+            self.cache.remove(hostname);
+            return Box::pin(self.leaf_cert(hostname)).await;
         }
 
-        let (cert_der, key_der) = self.generate_leaf(hostname)?;
+        Ok((cached.cert_der.clone(), cached.key_der.clone()))
+    }
 
-        self.cache.insert(
-            hostname.to_string(),
-            CachedCert {
-                cert_der: cert_der.clone(),
-                key_der: key_der.clone(),
-                expires_at: Instant::now() + CERT_TTL,
-            },
-        );
-
-        Ok((cert_der, key_der))
+    /// Drop all expired cache entries.
+    /// Intended to be called periodically from a background task.
+    pub fn evict_expired(&self) {
+        let now = Instant::now();
+        self.cache.retain(|_, cell| {
+            cell.get().map(|c| c.expires_at > now).unwrap_or(true)
+        });
     }
 
     fn generate_leaf(&self, hostname: &str) -> Result<(Vec<u8>, Vec<u8>)> {

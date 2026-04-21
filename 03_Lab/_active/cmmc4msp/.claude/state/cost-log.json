@@ -21,13 +21,13 @@
     {
       "date": "2026-04-21",
       "tools": {
-        "Bash": 2,
-        "Read": 9,
-        "Grep": 3,
-        "Edit": 3
+        "Bash": 3,
+        "Read": 13,
+        "Grep": 5,
+        "Edit": 6
       },
-      "total_calls": 17,
-      "weight_total": 5
+      "total_calls": 27,
+      "weight_total": 9
     }
   ]
 }

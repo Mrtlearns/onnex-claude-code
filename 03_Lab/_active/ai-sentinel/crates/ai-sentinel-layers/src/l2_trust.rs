@@ -1,8 +1,10 @@
 use async_trait::async_trait;
+use dashmap::DashMap;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use hex;
 use chrono::Utc;
+use std::sync::Arc;
 use tracing::debug;
 
 use ai_sentinel_core::{
@@ -15,12 +17,16 @@ const REPLAY_WINDOW_SECS: i64 = 60;
 
 pub struct L2Trust {
     trust_secret: Option<String>,
+    /// Process-level fallback replay cache: token_key -> expiry_timestamp.
+    /// Always checked in addition to session-store tier when available.
+    replay_cache: Arc<DashMap<String, i64>>,
 }
 
 impl L2Trust {
     pub fn new(config: &AppConfig) -> Self {
         L2Trust {
             trust_secret: config.trust_secret.clone(),
+            replay_cache: Arc::new(DashMap::new()),
         }
     }
 
@@ -84,15 +90,27 @@ impl Layer for L2Trust {
 
         match self.validate_token(token, secret) {
             Ok((agent_id, timestamp)) => {
-                // Check replay: has this (agent_id, timestamp) been seen?
+                // Bind: token's agent_id must match caller_context.caller_id when present.
+                // caller_id is a String; treat empty as "not present".
+                let caller_id = &req.caller_context.caller_id;
+                if !caller_id.is_empty() && caller_id != &agent_id {
+                    return Ok(LayerResult::Reject {
+                        code: "TRUST_AGENT_MISMATCH".to_string(),
+                        reason: format!(
+                            "token agent_id '{}' does not match caller_id '{}'",
+                            agent_id, caller_id
+                        ),
+                        severity: Severity::High,
+                    });
+                }
+
+                let key = format!("{}:{}", agent_id, timestamp);
+                let now = Utc::now().timestamp();
+
+                // Tier 1: session-store replay check (if session available).
                 if let Some(ref session) = ctx.session {
                     if let Ok(Some(mut state)) = session.load().await {
-                        let key = format!("{}:{}", agent_id, timestamp);
-                        let now = Utc::now().timestamp();
-
-                        // Evict expired entries
                         state.seen_trust_tokens.retain(|_, expiry| *expiry > now);
-
                         if state.seen_trust_tokens.contains_key(&key) {
                             return Ok(LayerResult::Reject {
                                 code: "TRUST_REPLAY".to_string(),
@@ -100,12 +118,22 @@ impl Layer for L2Trust {
                                 severity: Severity::High,
                             });
                         }
-
-                        // Record this token as seen
-                        state.seen_trust_tokens.insert(key, now + REPLAY_WINDOW_SECS);
+                        state.seen_trust_tokens.insert(key.clone(), now + REPLAY_WINDOW_SECS);
                         let _ = session.save(&state).await;
                     }
                 }
+
+                // Tier 2: process-level fallback replay cache (always checked).
+                self.replay_cache.retain(|_, expiry| *expiry > now);
+                if self.replay_cache.contains_key(&key) {
+                    return Ok(LayerResult::Reject {
+                        code: "TRUST_REPLAY".to_string(),
+                        reason: "Trust token replay detected (process cache)".to_string(),
+                        severity: Severity::High,
+                    });
+                }
+                self.replay_cache.insert(key, now + REPLAY_WINDOW_SECS);
+
                 debug!("L2Trust: trust chain validated for agent {}", agent_id);
                 Ok(LayerResult::Pass)
             }

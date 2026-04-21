@@ -134,17 +134,9 @@ impl Layer for L4Tools {
             }
         }
 
-        // 5. Manifest allowed_tools check (caller-provided)
-        if !manifest.allowed_tools.is_empty() {
-            let allowed = manifest.allowed_tools.iter().any(|t| t == tool_name || t == "*");
-            if !allowed {
-                return Ok(LayerResult::Reject {
-                    code: "TOOL_NOT_AUTHORIZED".to_string(),
-                    reason: format!("Tool '{}' not in caller's allowed_tools list", tool_name),
-                    severity: Severity::Medium,
-                });
-            }
-        }
+        // NOTE: Caller-supplied manifest.allowed_tools is intentionally NOT checked here.
+        // A caller cannot authorize itself — authorization is enforced via server-side
+        // RBAC roles (step 3) only.
 
         debug!("L4: tool '{}' authorized", tool_name);
         Ok(LayerResult::Pass)

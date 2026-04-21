@@ -36,4 +36,5 @@ AI_SENTINEL_RATE_MAX_TOKENS_PER_REQUEST=100000
 AI_SENTINEL_PRESIDIO_URL=http://presidio:3000
 
 # DB password for docker-compose postgres service
-AI_SENTINEL_DB_PASSWORD=sentinel_dev
+# SECURITY: Change this before any deployment. Never use sentinel_dev in production.
+AI_SENTINEL_DB_PASSWORD=<CHANGE_ME_BEFORE_DEPLOY>

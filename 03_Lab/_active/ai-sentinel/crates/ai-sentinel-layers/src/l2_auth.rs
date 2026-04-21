@@ -48,9 +48,8 @@ impl L2Auth {
 
     fn validate_api_key(&self, key: &str) -> bool {
         if self.api_key_hashes.is_empty() {
-            // No API keys configured — allow all (dev mode)
-            debug!("L2Auth: no API keys configured, allowing all");
-            return true;
+            // Fail-closed: no API keys configured means no key can be valid.
+            return false;
         }
         let hash = Self::hash_key(key);
         self.api_key_hashes.iter().any(|h| h == &hash)
@@ -68,10 +67,6 @@ impl Layer for L2Auth {
     async fn check(&self, req: &CheckRequest, _ctx: &mut LayerContext) -> Result<LayerResult, LayerError> {
         // Check API key hash
         if let Some(ref key_hash) = req.caller_context.api_key_hash {
-            if self.api_key_hashes.is_empty() {
-                // Dev mode — no keys configured
-                return Ok(LayerResult::Pass);
-            }
             if self.api_key_hashes.iter().any(|h| h == key_hash) {
                 return Ok(LayerResult::Pass);
             }
@@ -86,10 +81,16 @@ impl Layer for L2Auth {
             return Ok(LayerResult::Pass);
         }
 
-        // If no API keys configured, allow through in dev mode
+        // Fail-closed: if no auth methods are configured AND no credentials provided, reject.
+        // To enable dev mode, explicitly set api_keys = [] AND jwt_secret = none AND
+        // add a dedicated dev_mode = true config flag (not yet implemented).
         if self.api_key_hashes.is_empty() && self.jwt_secret.is_none() {
-            debug!("L2Auth: dev mode — no credentials configured, allowing");
-            return Ok(LayerResult::Pass);
+            debug!("L2Auth: no authentication configured — rejecting");
+            return Ok(LayerResult::Reject {
+                code: "AUTH_NOT_CONFIGURED".to_string(),
+                reason: "No authentication configured — set AI_SENTINEL_API_KEYS or AI_SENTINEL_JWT_SECRET".to_string(),
+                severity: Severity::Critical,
+            });
         }
 
         Ok(LayerResult::Reject {

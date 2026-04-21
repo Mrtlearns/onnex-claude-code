@@ -10,9 +10,8 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() -> Result<()> {
     // rustls requires exactly one crypto provider to be installed before any TLS usage.
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("failed to install ring CryptoProvider");
+    // Ignore failure — already installed is fine (e.g. in tests/hot-reload scenarios).
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
