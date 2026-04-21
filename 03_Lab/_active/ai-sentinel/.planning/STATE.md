@@ -33,7 +33,7 @@ progress:
 | 1 | AgentSec Core Build | **Complete** | 100% |
 | 2 | Semantic Intent + Egress Inspection | **Complete** | 100% |
 | 3 | SDK + SaaS + Multi-tenant | **Complete** | 100% |
-| 4 | Gateway MVP (Network MITM Proxy) | **In Progress** | 0% |
+| 4 | Gateway MVP (Network MITM Proxy) | **Code Complete — Verify on Build VM** | 95% |
 
 ---
 
@@ -104,3 +104,4 @@ progress:
 | 2026-03-25 | Phase 3 complete: Python SDK, white-label profiles, L3 threshold tuned, 22/22 tests |
 | 2026-04-20 | Council: gateway vs sidecar architecture decision — gateway wins with 3 hard gates |
 | 2026-04-20 | Phase 4 planned: network-layer MITM proxy, 5 waves, 5 new crates, PLAN.md created |
+| 2026-04-20 | Phase 4 code complete: ai-sentinel-classifier, ai-sentinel-proxy, gateway.toml, Dockerfile.gateway, docker-compose.gateway.yml, test_gateway.sh |

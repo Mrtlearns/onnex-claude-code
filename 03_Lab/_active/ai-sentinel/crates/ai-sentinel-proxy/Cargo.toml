@@ -31,3 +31,5 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 hex = { workspace = true }
 dashmap = { workspace = true }
+regex = { workspace = true }
+time = { version = "0.3", features = ["std"] }

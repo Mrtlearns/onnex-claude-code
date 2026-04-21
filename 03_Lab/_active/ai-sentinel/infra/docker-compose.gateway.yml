@@ -1,0 +1,35 @@
+name: ai-sentinel-gateway
+
+services:
+  ai-sentinel-gateway:
+    image: ai-sentinel-proxy:latest
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # CA certs — read-only. Keys MUST be in YubiHSM or air-gapped storage.
+      # Mount from secure location; never commit key material to repo.
+      - ${ONNEX_CERT_DIR:-/certs}:/certs:ro
+      - ./config/gateway.toml:/config/gateway.toml:ro
+    environment:
+      CONFIG_PATH: /config/gateway.toml
+      RUST_LOG: ${RUST_LOG:-info}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "kill -0 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Redis for Phase 5 session persistence (optional in Phase 4)
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

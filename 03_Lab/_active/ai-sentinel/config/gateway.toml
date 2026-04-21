@@ -1,0 +1,40 @@
+# AI-Sentinel Gateway Configuration — Phase 4 (Explicit Proxy Mode)
+# Phase 4: HTTP CONNECT proxy on port 8080
+# Phase 6 (future): transparent iptables REDIRECT mode on port 8443
+
+[proxy]
+bind_addr = "0.0.0.0:8080"
+# fail_open = false: reject on pipeline error (secure default)
+# Set to true only with written justification and approval
+fail_open = false
+
+[tls]
+# Onnex intermediate CA — NEVER commit keys to repo
+# Mount as read-only volume in docker-compose.gateway.yml
+ca_cert = "/certs/onnex-intermediate.crt"
+ca_key  = "/certs/onnex-intermediate.key"
+
+[providers]
+# SNI hostnames that trigger LLM traffic interception
+allowed_hosts = [
+  "api.anthropic.com",
+  "api.openai.com",
+  "api.openai.azure.com",
+  "generativelanguage.googleapis.com",
+  "api.groq.com",
+  "api.mistral.ai",
+  "api.cohere.com",
+  "api.together.xyz",
+  "api.perplexity.ai",
+  "openrouter.ai",
+]
+
+# URL path prefixes that confirm LLM API traffic (Signal 2 fallback)
+url_path_patterns = [
+  "/v1/messages",
+  "/v1/chat/completions",
+  "/v1/completions",
+  "/v1/generateContent",
+  "/v1/streamGenerateContent",
+  "/openai/deployments",
+]
