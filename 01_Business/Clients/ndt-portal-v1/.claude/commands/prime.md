@@ -27,6 +27,7 @@ Read the following files in order:
 8. `context/strategy.md` — THIS project's specific strategy
 9. `context/current-data.md` — current metrics and state
 10. `context/architecture.md` — current system architecture
+11. `.claude/skills/db-ssh-access/SKILL.md` — **MUST READ before any DB/SSH work**: exact working pattern for SSH→Docker→PostgreSQL (credentials, container name, quoting rules, copy-paste templates)
 
 **Also read if relevant to current work:**
 - `context/TELOS/NARRATIVES.md` — pitches and talking points (for sales/comms work)
@@ -68,3 +69,21 @@ If you notice:
 - Uncommitted work in git
 
 ...mention it briefly. Don't lecture, just note it.
+
+---
+
+## Step 6: Reference Files Available
+
+Flag these to Mr. T if the session involves DB or schema work:
+
+| File | Purpose | When to use |
+|------|---------|-------------|
+| `files/ndtportal_schema_dump.sql` | Full PostgreSQL DDL snapshot (all schemas, tables, functions, indexes) | Before writing migrations, checking column names, understanding table structure — avoids live DB round-trips |
+| `.claude/skills/db-ssh-access/SKILL.md` | SSH→Docker→psql lean-path | Any live DB query via SSH |
+
+**Schema currency:** The `ndtportal_schema_dump.sql` reflects the DB state at time of last dump. If migrations have been added since the last session, re-dump with:
+```bash
+ssh -i /c/Users/mrtma/.ssh/MrT_Personal_Key_ed25519 mrt@100.111.233.126 \
+  "ssh mrt@10.10.110.32 'docker exec ndt-portal-postgres-1 pg_dump -U ndtapp -d ndtportal --schema-only --no-owner --no-acl 2>&1'" \
+  > files/ndtportal_schema_dump.sql
+```
