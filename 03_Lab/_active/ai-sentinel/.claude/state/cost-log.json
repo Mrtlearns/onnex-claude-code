@@ -46,12 +46,12 @@
       "date": "2026-04-21",
       "tools": {
         "Read": 2,
-        "Bash": 24,
-        "Edit": 7,
-        "Write": 1
+        "Bash": 56,
+        "Edit": 8,
+        "Write": 2
       },
-      "total_calls": 34,
-      "weight_total": 32
+      "total_calls": 68,
+      "weight_total": 66
     }
   ]
 }
