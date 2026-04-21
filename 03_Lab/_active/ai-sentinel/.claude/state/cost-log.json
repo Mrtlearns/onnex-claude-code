@@ -51,10 +51,10 @@
         "Write": 5,
         "Glob": 8,
         "Grep": 12,
-        "Agent": 2
+        "Agent": 3
       },
-      "total_calls": 249,
-      "weight_total": 153
+      "total_calls": 250,
+      "weight_total": 163
     }
   ]
 }
