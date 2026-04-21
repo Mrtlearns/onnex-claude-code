@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Calculator, Users, Settings, BookOpen } from 'lucide-react'
+import { Calculator, Users, Settings, BookOpen, FlaskConical } from 'lucide-react'
 import UtCalculatorTab from './UtCalculatorTab'
 import UtCustomersTab from './UtCustomersTab'
 import UtSettingsTab from './UtSettingsTab'
 import RuleSetEditor from './rules/RuleSetEditor'
+import UtPipelineTesterTab from './UtPipelineTesterTab'
 import { useUtSettings } from '@/lib/ut/hooks/useUtSettings'
 import { useUtCustomers } from '@/lib/ut/hooks/useUtCustomers'
 import { useUtMaterials } from '@/lib/ut/hooks/useUtMaterials'
@@ -32,6 +33,7 @@ export default function UtApp() {
           <TabsTrigger value="customers"><Users className="h-3.5 w-3.5 mr-1.5" />Customers</TabsTrigger>
           <TabsTrigger value="settings"><Settings className="h-3.5 w-3.5 mr-1.5" />Settings</TabsTrigger>
           <TabsTrigger value="rules"><BookOpen className="h-3.5 w-3.5 mr-1.5" />Rules</TabsTrigger>
+          <TabsTrigger value="tester"><FlaskConical className="h-3.5 w-3.5 mr-1.5" />Pipeline Tester</TabsTrigger>
         </TabsList>
         <TabsContent value="calculator" className="mt-4">
           <UtCalculatorTab customers={customers} materials={materials} settings={settings} />
@@ -45,6 +47,9 @@ export default function UtApp() {
         </TabsContent>
         <TabsContent value="rules" className="mt-4">
           <RuleSetEditor initialRuleSetId={selectedRuleSetId} />
+        </TabsContent>
+        <TabsContent value="tester" className="mt-4">
+          <UtPipelineTesterTab />
         </TabsContent>
       </Tabs>
     </div>

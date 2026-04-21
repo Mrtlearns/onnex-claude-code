@@ -25,7 +25,8 @@ import rbacRouter from './routes/rbac';
 import feedbackRouter from './routes/feedback';
 import inboxRouter from './routes/inbox';
 import diagramAnalysesRouter from './routes/diagram-analyses';
-import emailChecksRouter from './routes/email-checks';
+import emailChecksRouter from './routes/email-checks'
+import pipelineTesterRouter from './routes/pipeline-tester';
 
 const app = express();
 const PORT = process.env.PORT ?? 3100;
@@ -71,6 +72,7 @@ app.use('/inbox', inboxRouter);                      // Email inbox quote pipeli
 app.use('/api/inbox', inboxRouter);                  // n8n internal calls include /api prefix
 app.use('/diagram-analyses', diagramAnalysesRouter); // Central LLM analysis store
 app.use('/email-checks', emailChecksRouter);         // Email check settings CRUD
+app.use('/pipeline-tester', pipelineTesterRouter);   // Dev-only: per-step pipeline testing
 
 // 404
 app.use((_req, res) => {
