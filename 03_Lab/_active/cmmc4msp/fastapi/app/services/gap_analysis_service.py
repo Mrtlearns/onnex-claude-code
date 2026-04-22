@@ -43,9 +43,10 @@ async def run_gap_analysis(
         # Fetch control info + objectives
         control = await conn.fetchrow(
             """
-            SELECT cd.nist_id, cd.requirement_text
+            SELECT cd.nist_id, cd.requirement_text, p.cmmc_level
             FROM program_controls pc
             JOIN control_definitions cd ON pc.control_definition_id = cd.id
+            JOIN programs p ON pc.program_id = p.id
             WHERE pc.id = $1
             """,
             program_control_id,
@@ -126,7 +127,9 @@ async def run_gap_analysis(
             for r in cross_artifacts
         ) or "No related cross-control evidence found."
 
-        prompt = f"""You are a CMMC Level 2 compliance gap analyst.
+        cmmc_level = control.get("cmmc_level", 2)
+        nist_std = "NIST SP 800-171 Rev 2" if cmmc_level == 2 else "NIST SP 800-172"
+        prompt = f"""You are a CMMC Level {cmmc_level} compliance gap analyst ({nist_std}).
 
 CONTROL: {control['nist_id']} — {control['requirement_text']}
 

@@ -32,6 +32,7 @@ class OnboardRequest(BaseModel):
     user_count: Optional[int] = None
     na_control_ids: List[str] = []
     msp_id: Optional[uuid.UUID] = None
+    cmmc_level: int = 2
 
 
 def _slugify(name: str) -> str:
@@ -152,20 +153,29 @@ async def onboard_org(
             "na_control_ids": body.na_control_ids,
         }
 
+        cmmc_level = body.cmmc_level if body.cmmc_level in (2, 3) else 2
+        initial_sprs = 110 if cmmc_level == 2 else None
+
         await conn.execute(
             """
             INSERT INTO programs (
-                id, org_id, name, system_name, status, current_phase
+                id, org_id, name, system_name, status, current_phase,
+                cmmc_level, sprs_score
             )
-            VALUES ($1, $2, $3, $4, 'scoping', '1')
+            VALUES ($1, $2, $3, $4, 'scoping', '1', $5, $6)
             """,
             program_id,
             org_id,
             f"{body.org_name} CMMC Program",
             body.system_name,
+            cmmc_level,
+            initial_sprs,
         )
 
-        # Seed all 110 controls for this program; mark N/A where specified
+        # Seed controls for this program:
+        # Level 2 → 110 controls (cmmc_level = 2)
+        # Level 3 → 145 controls (cmmc_level IN (2, 3))
+        # N/A list applies only to L2 controls for L3 programs too.
         await conn.execute(
             """
             INSERT INTO program_controls (
@@ -178,10 +188,13 @@ async def onboard_org(
                 'not_yet_assessed',
                 NOT (cd.nist_id = ANY($2::text[]))
             FROM control_definitions cd
-            WHERE cd.parent_control_id IS NULL AND cd.is_objective = false
+            WHERE cd.parent_control_id IS NULL
+              AND cd.is_objective = false
+              AND cd.cmmc_level <= $3
             """,
             program_id,
             body.na_control_ids,
+            cmmc_level,
         )
 
     # Trigger n8n onboard workflow (fire-and-forget)

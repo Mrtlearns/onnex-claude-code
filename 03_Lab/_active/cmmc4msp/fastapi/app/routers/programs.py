@@ -25,6 +25,9 @@ def _row_to_program(row: asyncpg.Record) -> dict:
         "sprs_score": row.get("sprs_score"),
         "far_above_score": row.get("far_above_score"),
         "current_phase": row.get("current_phase"),
+        "cmmc_level": row.get("cmmc_level", 2),
+        "show_l3_preview": row.get("show_l3_preview", False),
+        "readiness_pct": row.get("readiness_pct"),
         "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
     }
 
@@ -122,17 +125,23 @@ async def create_program(
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
+    cmmc_level = body.cmmc_level if hasattr(body, "cmmc_level") and body.cmmc_level in (2, 3) else 2
+    initial_sprs = 110 if cmmc_level == 2 else None
+
     program_id = uuid.uuid4()
     row = await conn.fetchrow(
         """
-        INSERT INTO programs (id, org_id, name, system_name, status, sprs_score, far_above_score)
-        VALUES ($1, $2, $3, $4, 'scoping', 110, 0)
+        INSERT INTO programs (id, org_id, name, system_name, status,
+                              sprs_score, far_above_score, cmmc_level)
+        VALUES ($1, $2, $3, $4, 'scoping', $5, 0, $6)
         RETURNING *
         """,
         program_id,
         body.org_id,
         body.name,
         body.system_name,
+        initial_sprs,
+        cmmc_level,
     )
     return _row_to_program(row)
 
@@ -269,6 +278,105 @@ async def get_freshness_report(
             "no_evidence": sum(1 for r in rows if r["freshness_status"] == "no_evidence"),
         },
     }
+
+
+class L3PreviewToggle(BaseModel):
+    enabled: bool
+
+
+@router.patch("/{program_id}/l3-preview")
+async def toggle_l3_preview(
+    program_id: str,
+    body: L3PreviewToggle,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> dict:
+    """Toggle the Level 3 advisory overlay for Level 2 programs.
+    Returns 400 if called on a Level 3 program (no toggle needed — L3 is the target).
+    """
+    try:
+        uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    program = await conn.fetchrow(
+        "SELECT id, org_id, cmmc_level FROM programs WHERE id = $1", uid
+    )
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    require_same_org(str(program["org_id"]), user)
+
+    if program["cmmc_level"] == 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Level 3 programs cannot toggle the L3 preview — Level 3 is the certification target.",
+        )
+
+    await conn.execute(
+        "UPDATE programs SET show_l3_preview = $1, updated_at = NOW() WHERE id = $2",
+        body.enabled,
+        uid,
+    )
+    return {"program_id": program_id, "show_l3_preview": body.enabled}
+
+
+@router.get("/{program_id}/l3-preview-controls")
+async def get_l3_preview_controls(
+    program_id: str,
+    request: Request,
+    conn: asyncpg.Connection = Depends(get_db),
+    user: dict = Depends(get_current_user),
+) -> list[dict]:
+    """Return Level 3 control definitions for the advisory overlay.
+    Only valid for Level 2 programs with show_l3_preview = TRUE.
+    These controls are NOT seeded as program_controls — they're advisory only.
+    """
+    try:
+        uid = uuid.UUID(program_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid program_id")
+
+    program = await conn.fetchrow(
+        "SELECT id, org_id, cmmc_level, show_l3_preview FROM programs WHERE id = $1", uid
+    )
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    require_same_org(str(program["org_id"]), user)
+
+    if program["cmmc_level"] == 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Level 3 programs have L3 controls in their program_controls — use the standard controls endpoint.",
+        )
+
+    rows = await conn.fetch(
+        """
+        SELECT id, nist_id, cmmc_id, family, family_abbrev,
+               requirement_text, acceptable_proof_guidance, cmmc_level
+        FROM control_definitions
+        WHERE cmmc_level = 3
+          AND is_objective = FALSE
+        ORDER BY nist_id
+        """,
+    )
+
+    return [
+        {
+            "id": str(r["id"]),
+            "nist_id": r["nist_id"],
+            "cmmc_id": r["cmmc_id"],
+            "family": r["family"],
+            "family_abbrev": r["family_abbrev"],
+            "requirement_text": r["requirement_text"],
+            "acceptable_proof_guidance": r["acceptable_proof_guidance"],
+            "cmmc_level": r["cmmc_level"],
+            "advisory_status": "not_in_scope_for_l2",
+        }
+        for r in rows
+    ]
 
 
 # ── AI Sweep ──────────────────────────────────────────────────────────────────

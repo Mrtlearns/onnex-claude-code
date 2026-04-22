@@ -91,7 +91,7 @@
           300
         ],
         "parameters": {
-          "query": "SELECT cd.nist_id, cd.requirement_text, cd.assessment_objective, cd.acceptable_proof_guidance, cd.cmmc_id, pc.program_id FROM control_definitions cd JOIN program_controls pc ON pc.control_definition_id = cd.id WHERE pc.id='{{ $('Webhook').first().json.body.program_control_id }}'::uuid",
+          "query": "SELECT cd.nist_id, cd.requirement_text, cd.assessment_objective, cd.acceptable_proof_guidance, cd.cmmc_id, pc.program_id, p.cmmc_level FROM control_definitions cd JOIN program_controls pc ON pc.control_definition_id = cd.id JOIN programs p ON pc.program_id = p.id WHERE pc.id='{{ $('Webhook').first().json.body.program_control_id }}'::uuid",
           "operation": "executeQuery",
           "additionalFields": {}
         },
@@ -112,7 +112,7 @@
           300
         ],
         "parameters": {
-          "jsCode": "const control = $('Fetch Control Details').first().json;\nconst extractResponse = $('Extract Text via FastAPI').first().json;\nconst extracted = extractResponse.extracted_text || '';\nconst artifact_id = $('Webhook').first().json.body.artifact_id;\nconst program_control_id = $('Webhook').first().json.body.program_control_id;\n\nconst prompt = `CONTROL ID: ${control.cmmc_id}\\n\\nCONTROL REQUIREMENT: ${control.requirement_text}\\n\\nASSESSMENT OBJECTIVE: ${control.assessment_objective || 'Not specified'}\\n\\nACCEPTABLE PROOF CRITERIA:\\n${control.acceptable_proof_guidance || 'Review against NIST SP 800-171 requirements'}\\n\\nSUBMITTED ARTIFACT CONTENT:\\n${extracted.substring(0, 8000)}\\n\\nAssess whether this artifact satisfies the control requirement. Respond ONLY with this JSON structure, no other text:\\n{\"verdict\":\"pass|partial|fail\",\"confidence\":0.0,\"rationale\":\"explanation\",\"gaps\":[\"gap1\"]}`;\n\nreturn [{\n  json: {\n    prompt,\n    control_id: control.nist_id,\n    program_id: control.program_id,\n    artifact_id,\n    program_control_id,\n    extracted_text: extracted\n  }\n}];"
+          "jsCode": "const control = $('Fetch Control Details').first().json;\nconst extractResponse = $('Extract Text via FastAPI').first().json;\nconst extracted = extractResponse.extracted_text || '';\nconst artifact_id = $('Webhook').first().json.body.artifact_id;\nconst program_control_id = $('Webhook').first().json.body.program_control_id;\n\nconst cmmcLevel = control.cmmc_level || 2;\nconst nistStd = cmmcLevel === 2 ? 'NIST SP 800-171 Rev 2' : 'NIST SP 800-172';\nconst systemContent = `You are a CMMC Level ${cmmcLevel} compliance assessor with expertise in ${nistStd}. Assess whether submitted evidence artifacts satisfy the given security control requirement. Be precise, objective, and thorough. Always respond with valid JSON only.`;\n\nconst proofGuidance = control.acceptable_proof_guidance || `Review against ${nistStd} requirements`;\n\nconst prompt = `CONTROL ID: ${control.cmmc_id}\n\nCONTROL REQUIREMENT: ${control.requirement_text}\n\nASSESSMENT OBJECTIVE: ${control.assessment_objective || 'Not specified'}\n\nACCEPTABLE PROOF CRITERIA:\n${proofGuidance}\n\nSUBMITTED ARTIFACT CONTENT:\n${extracted.substring(0, 8000)}\n\nAssess whether this artifact satisfies the control requirement. Respond ONLY with this JSON structure, no other text:\n{\"verdict\":\"pass|partial|fail\",\"confidence\":0.0,\"rationale\":\"explanation\",\"gaps\":[\"gap1\"]}`;\n\nreturn [{\n  json: {\n    prompt,\n    systemContent,\n    control_id: control.nist_id,\n    program_id: control.program_id,\n    artifact_id,\n    program_control_id,\n    extracted_text: extracted\n  }\n}];"
         },
         "typeVersion": 1
       },
@@ -132,7 +132,7 @@
           "sendBody": true,
           "requestMethod": "POST",
           "jsonParameters": true,
-          "bodyParametersJson": "={{ JSON.stringify({ model: 'openrouter/auto', max_tokens: 2000, messages: [{ role: 'system', content: 'You are a CMMC Level 2 compliance assessor with expertise in NIST SP 800-171 Rev 2. Assess whether submitted evidence artifacts satisfy the given security control requirement. Be precise, objective, and thorough. Always respond with valid JSON only.' }, { role: 'user', content: $json.prompt }] }) }}",
+          "bodyParametersJson": "={{ JSON.stringify({ model: 'openrouter/auto', max_tokens: 2000, messages: [{ role: 'system', content: $json.systemContent }, { role: 'user', content: $json.prompt }] }) }}",
           "headerParametersJson": "={{ JSON.stringify({\"Authorization\": \"Bearer \" + $env.OPENROUTER_API_KEY, \"content-type\": \"application/json\"}) }}"
         },
         "typeVersion": 1

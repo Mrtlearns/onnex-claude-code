@@ -15,7 +15,7 @@ export const DOMAIN_ABBREVS: Record<string, string> = {
   SI: 'System & Information Integrity',
 }
 
-export const PHASE_CONFIG = [
+const L2_PHASES = [
   {
     phase: '1', label: 'Boundary & Physical', controls: 17, points: 37,
     description: 'Establish your CUI boundary: physical access controls, network segmentation, and media protection. These 17 controls define who and what can reach your controlled environment.',
@@ -42,6 +42,25 @@ export const PHASE_CONFIG = [
     unlocks: 'CMMC Level 2 certification readiness',
   },
 ]
+
+export const PHASE_CONFIG_BY_LEVEL: Record<2 | 3, typeof L2_PHASES> = {
+  2: L2_PHASES,
+  3: [
+    ...L2_PHASES.map((p, i) =>
+      i === 4
+        ? { ...p, unlocks: 'Phase 6 — NIST SP 800-172 enhanced security requirements' }
+        : p
+    ),
+    {
+      phase: '6', label: 'Enhanced Security (L3)', controls: 35, points: 0,
+      description: 'NIST SP 800-172 enhanced requirements covering advanced access control, threat intelligence, supply chain risk, penetration testing, and system integrity verification.',
+      unlocks: 'CMMC Level 3 DIBCAC assessment eligibility',
+    },
+  ],
+}
+
+// Backward-compatible alias — defaults to Level 2 phases
+export const PHASE_CONFIG = PHASE_CONFIG_BY_LEVEL[2]
 
 export function getSPRSColor(score: number): string {
   if (score < 0) return 'text-red-600'

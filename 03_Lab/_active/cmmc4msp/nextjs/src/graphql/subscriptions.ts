@@ -8,6 +8,9 @@ export const SUBSCRIBE_PROGRAM_DASHBOARD = gql`
       far_above_score
       current_phase
       status
+      cmmc_level
+      show_l3_preview
+      readiness_pct
     }
   }
 `

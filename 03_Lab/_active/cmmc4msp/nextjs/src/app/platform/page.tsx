@@ -66,7 +66,7 @@ export default function PlatformOverview() {
         <KpiCard label="MSP Accounts" value={msps.length} sub="Active partners" />
         <KpiCard label="Client Orgs" value={totalOrgs} sub="Across all MSPs" />
         <KpiCard label="System Status" value="Operational" color="text-emerald-600" sub="All services healthy" />
-        <KpiCard label="Platform" value="CMMC4MSP" sub="Level 2 Compliance OS" />
+        <KpiCard label="Platform" value="CMMC4MSP" sub="Compliance OS" />
       </div>
 
       {/* MSP list */}

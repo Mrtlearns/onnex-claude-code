@@ -105,12 +105,13 @@ function ClientUserView({ userId, orgSlug, program, programId }: {
   programId: string
 }) {
   const currentPhase = program?.current_phase ?? '1'
+  const clientCmmcLevel = program?.cmmc_level ?? 2
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-gray-900">My Dashboard</h1>
         <p className="text-sm text-gray-500">
-          {program?.name ?? 'CMMC Level 2'} — Phase {currentPhase} of 5
+          {program?.name ?? `CMMC Level ${clientCmmcLevel}`} — Phase {currentPhase} of {clientCmmcLevel === 3 ? 6 : 5}
         </p>
       </div>
 
@@ -211,8 +212,23 @@ export default function DashboardPage({ params }: DashboardProps) {
     return <ClientUserView userId={user?.id} orgSlug={orgSlug} program={liveProgram} programId={programId ?? ''} />
   }
 
-  const sprsScore = liveProgram?.sprs_score ?? 0
+  const sprsScore = liveProgram?.sprs_score ?? null
+  const readinessPct = liveProgram?.readiness_pct ?? null
+  const cmmcLevel: 2 | 3 = (liveProgram?.cmmc_level ?? 2) as 2 | 3
+  const showL3Preview: boolean = liveProgram?.show_l3_preview ?? false
   const currentPhase = liveProgram?.current_phase ?? '1'
+  const totalPhases = cmmcLevel === 3 ? 6 : 5
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
+  async function toggleL3Preview() {
+    if (!programId) return
+    await fetch(`${API_URL}/api/programs/${programId}/l3-preview`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !showL3Preview }),
+    })
+    // Hasura subscription will update liveProgram automatically
+  }
 
   return (
     <div className="space-y-6">
@@ -220,7 +236,7 @@ export default function DashboardPage({ params }: DashboardProps) {
         <div>
           <h1 className="text-xl font-bold text-gray-900">{org.name}</h1>
           <p className="text-sm text-gray-500">
-            CMMC Level 2 Dashboard — Phase {currentPhase} of 5
+            CMMC Level {cmmcLevel} Dashboard — Phase {currentPhase} of {totalPhases}
           </p>
         </div>
         {/* MSP/super_admin quick-nav back to portfolio */}
@@ -239,6 +255,24 @@ export default function DashboardPage({ params }: DashboardProps) {
         <MspActionsPanel orgSlug={orgSlug} />
       )}
 
+      {/* L3 advisory toggle — Level 2 programs only, MSP/admin roles */}
+      {cmmcLevel === 2 && (role === 'msp_admin' || role === 'super_admin' || role === 'client_admin') && (
+        <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${showL3Preview ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+          <div>
+            <p className="text-sm font-medium text-gray-800">Level 3 Advisory Preview</p>
+            <p className="text-xs text-gray-500">Show 35 additional NIST SP 800-172 requirements as read-only advisory on Controls page</p>
+          </div>
+          <button
+            onClick={toggleL3Preview}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${showL3Preview ? 'bg-amber-500' : 'bg-gray-300'}`}
+            role="switch"
+            aria-checked={showL3Preview}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showL3Preview ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+      )}
+
       {/* Personal welcome panel — shown to client_admin, msp_admin, super_admin */}
       {programId && (
         <PersonalWelcomePanel programId={programId} currentPhase={currentPhase} orgSlug={orgSlug} />
@@ -254,12 +288,25 @@ export default function DashboardPage({ params }: DashboardProps) {
           </p>
         </Link>
         <Link href={`/${orgSlug}/controls`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
-          <p className="text-xs text-gray-500 uppercase tracking-wider">SPRS Score</p>
-          <p className={`text-2xl font-bold mt-1 ${
-            sprsScore < 0 ? 'text-red-600' : sprsScore < 70 ? 'text-amber-500' : 'text-green-600'
-          }`}>
-            {sprsScore}
-          </p>
+          {cmmcLevel === 2 ? (
+            <>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">SPRS Score</p>
+              <p className={`text-2xl font-bold mt-1 ${
+                (sprsScore ?? 0) < 0 ? 'text-red-600' : (sprsScore ?? 0) < 70 ? 'text-amber-500' : 'text-green-600'
+              }`}>
+                {sprsScore ?? '—'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500 uppercase tracking-wider">Readiness</p>
+              <p className={`text-2xl font-bold mt-1 ${
+                (readinessPct ?? 0) < 50 ? 'text-red-600' : (readinessPct ?? 0) < 80 ? 'text-amber-500' : 'text-green-600'
+              }`}>
+                {readinessPct ?? 0}%
+              </p>
+            </>
+          )}
         </Link>
         <Link href={`/${orgSlug}/tasks`} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Open Assignments</p>
@@ -276,16 +323,42 @@ export default function DashboardPage({ params }: DashboardProps) {
       {/* Main grid */}
       <div className="grid grid-cols-3 gap-6">
         <div className="bg-white border border-gray-200 rounded-lg p-5 flex flex-col items-center">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 self-start">Live SPRS Score</h2>
-          <SPRSGauge score={sprsScore} />
-          <p className="text-xs text-gray-400 mt-3 text-center">
-            FAR Above score: {liveProgram?.far_above_score ?? 0}
-          </p>
+          {cmmcLevel === 2 ? (
+            <>
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 self-start">Live SPRS Score</h2>
+              <SPRSGauge score={sprsScore ?? 0} />
+              <p className="text-xs text-gray-400 mt-3 text-center">
+                FAR Above score: {liveProgram?.far_above_score ?? 0}
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 self-start">DIBCAC Readiness</h2>
+              <div className="flex flex-col items-center justify-center flex-1 py-4">
+                <div className="relative w-28 h-28">
+                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" strokeWidth="3" />
+                    <circle
+                      cx="18" cy="18" r="15.9" fill="none"
+                      stroke={(readinessPct ?? 0) >= 80 ? '#22c55e' : (readinessPct ?? 0) >= 50 ? '#f59e0b' : '#ef4444'}
+                      strokeWidth="3"
+                      strokeDasharray={`${(readinessPct ?? 0)} 100`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-gray-900">{readinessPct ?? 0}%</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-3 text-center">DIBCAC Assessment Target</p>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <h2 className="text-sm font-semibold text-gray-700 mb-4">Phase Progress</h2>
-          <PhaseProgress programControls={programControls} currentPhase={currentPhase} orgSlug={orgSlug} />
+          <PhaseProgress programControls={programControls} currentPhase={currentPhase} orgSlug={orgSlug} cmmcLevel={cmmcLevel} />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-5">

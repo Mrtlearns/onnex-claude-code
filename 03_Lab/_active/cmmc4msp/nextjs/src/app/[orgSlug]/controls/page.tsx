@@ -16,6 +16,7 @@ import {
   MagnifyingGlassIcon,
   PaperAirplaneIcon,
   XMarkIcon,
+  ShieldExclamationIcon,
 } from '@heroicons/react/24/outline'
 
 interface ControlsPageProps {
@@ -66,7 +67,25 @@ export default function ControlsPage({ params }: ControlsPageProps) {
 
   const org = orgData?.orgs?.[0]
   const orgId = org?.id
-  const programId = org?.programs?.[0]?.id
+  const program = org?.programs?.[0]
+  const programId = program?.id
+  const showL3Preview = program?.show_l3_preview === true && program?.cmmc_level === 2
+
+  const [l3Controls, setL3Controls] = useState<any[]>([])
+  const [l3Loading, setL3Loading] = useState(false)
+
+  useEffect(() => {
+    if (!showL3Preview || !programId) {
+      setL3Controls([])
+      return
+    }
+    setL3Loading(true)
+    fetch(`${API}/api/programs/${programId}/l3-preview-controls`)
+      .then((r) => r.json())
+      .then((data) => setL3Controls(data.controls || []))
+      .catch(() => setL3Controls([]))
+      .finally(() => setL3Loading(false))
+  }, [showL3Preview, programId, API])
 
   const { data, loading } = useQuery(GET_PROGRAM_CONTROLS_UNFILTERED, {
     variables: { programId },
@@ -314,6 +333,54 @@ export default function ControlsPage({ params }: ControlsPageProps) {
           </tbody>
         </table>
       </div>
+
+      {/* L3 Advisory Section — read-only, never affects L2 score */}
+      {showL3Preview && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldExclamationIcon className="w-5 h-5 text-amber-500" />
+            <h2 className="text-base font-semibold text-gray-800">Also Required for CMMC Level 3</h2>
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Advisory Only — Not in L2 Scope</span>
+          </div>
+          <p className="text-sm text-gray-500 mb-3">
+            These 35 NIST SP 800-172 enhanced requirements would be needed if this client pursues Level 3. They do not affect the current SPRS score or any Level 2 deliverables.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg overflow-hidden">
+            {l3Loading ? (
+              <div className="p-6 text-center text-sm text-gray-400 animate-pulse">Loading Level 3 controls…</div>
+            ) : l3Controls.length === 0 ? (
+              <div className="p-6 text-center text-sm text-gray-400">No Level 3 controls found.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-amber-100 border-b border-amber-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-amber-800 w-24">NIST ID</th>
+                    <th className="px-4 py-3 text-left font-medium text-amber-800 w-16">Family</th>
+                    <th className="px-4 py-3 text-left font-medium text-amber-800">Requirement</th>
+                    <th className="px-4 py-3 text-left font-medium text-amber-800 w-32">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-100">
+                  {l3Controls.map((c: any) => (
+                    <tr key={c.nist_id} className="hover:bg-amber-100/50 transition-colors">
+                      <td className="px-4 py-3 font-mono text-amber-900 font-medium text-xs">{c.nist_id}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-medium bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">{c.family_abbrev}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 max-w-xs">
+                        <span className="line-clamp-2">{c.requirement_text}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">L3 Only — Not in Scope</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Floating action bar */}
       {canAssign && selectedIds.size > 0 && (

@@ -27,7 +27,13 @@ async def run_program_sweep(
             "UPDATE program_sweeps SET status='running' WHERE id=$1", sweep_id
         )
         try:
-            # 1. Fetch non-fully-implemented controls (up to MAX_CONTROLS)
+            # 1. Fetch program level then controls
+            program_row = await conn.fetchrow(
+                "SELECT cmmc_level FROM programs WHERE id = $1", program_id
+            )
+            cmmc_level = program_row["cmmc_level"] if program_row else 2
+            nist_std = "NIST SP 800-171 Rev 2" if cmmc_level == 2 else "NIST SP 800-172"
+
             controls = await conn.fetch(
                 """
                 SELECT pc.id, pc.status, cd.nist_id, cd.requirement_text,
@@ -67,7 +73,7 @@ async def run_program_sweep(
                     f"- {c['nist_id']} (status={c['status']}, artifacts={c['artifact_count']}){gap_info}: {(c['requirement_text'] or '')[:120]}"
                 )
 
-            prompt = f"""You are a CMMC Level 2 compliance advisor. Analyze these {len(controls)} controls that are NOT yet fully implemented.
+            prompt = f"""You are a CMMC Level {cmmc_level} compliance advisor ({nist_std}). Analyze these {len(controls)} controls that are NOT yet fully implemented.
 
 Controls:
 {chr(10).join(control_summaries)}

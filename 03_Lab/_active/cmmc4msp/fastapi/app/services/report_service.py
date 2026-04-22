@@ -479,7 +479,8 @@ async def generate_sprs_xlsx(
     # Title banner
     ws1.merge_cells("A1:B1")
     title_cell = ws1["A1"]
-    title_cell.value = "DoD CMMC Level 2 — SPRS Self-Assessment Summary"
+    cmmc_level = program.get("cmmc_level", 2)
+    title_cell.value = f"DoD CMMC Level {cmmc_level} — {'SPRS Self-Assessment' if cmmc_level == 2 else 'Readiness'} Summary"
     title_cell.font = Font(bold=True, size=14, color=WHITE)
     title_cell.fill = fill(NAVY)
     title_cell.alignment = center()
@@ -707,7 +708,9 @@ async def generate_audit_package_zip(
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
 
         # ── README ──────────────────────────────────────────────────────────
-        readme = f"""CMMC Level 2 Audit Package
+        _lvl = program.get("cmmc_level", 2)
+        _ctrl_count = 110 if _lvl == 2 else 145
+        readme = f"""CMMC Level {_lvl} Audit Package
 Organization: {program['org_name']}
 System: {program.get('system_name') or program['name']}
 CAGE Code: {program.get('org_cage_code') or 'N/A'}
@@ -715,7 +718,7 @@ Generated: {datetime.utcnow().strftime('%B %d, %Y at %H:%M UTC')}
 
 CONTENTS
 --------
-SSP.pdf                  — System Security Plan (all 110 controls)
+SSP.pdf                  — System Security Plan (all {_ctrl_count} controls)
 POAM.pdf                 — Plan of Action & Milestones (open items)
 SPRS_Summary.xlsx        — SPRS score breakdown (submit score to PIEE)
 manifest.csv             — Full control inventory with status and evidence
@@ -966,7 +969,8 @@ async def _generate_sprs_bytes(program_id: str, program, controls) -> bytes:
 
     ws1.merge_cells("A1:B1")
     c = ws1["A1"]
-    c.value = "DoD CMMC Level 2 — SPRS Self-Assessment Summary"
+    _cmmc_level = program.get("cmmc_level", 2)
+    c.value = f"DoD CMMC Level {_cmmc_level} — {'SPRS Self-Assessment' if _cmmc_level == 2 else 'Readiness'} Summary"
     c.font = Font(bold=True, size=14, color=WHITE)
     c.fill = _fill(NAVY)
     c.alignment = _center()

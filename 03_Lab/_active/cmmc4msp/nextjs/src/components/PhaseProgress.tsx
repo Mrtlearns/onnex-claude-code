@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { PHASE_CONFIG } from '@/lib/constants'
+import { PHASE_CONFIG_BY_LEVEL } from '@/lib/constants'
 import { ProgramControl } from '@/lib/types'
 import { CheckCircleIcon, LockClosedIcon } from '@heroicons/react/24/solid'
 
@@ -8,12 +8,14 @@ interface PhaseProgressProps {
   programControls: ProgramControl[]
   currentPhase: string
   orgSlug?: string
+  cmmcLevel?: 2 | 3
 }
 
-export function PhaseProgress({ programControls, currentPhase, orgSlug }: PhaseProgressProps) {
+export function PhaseProgress({ programControls, currentPhase, orgSlug, cmmcLevel = 2 }: PhaseProgressProps) {
+  const phaseConfig = PHASE_CONFIG_BY_LEVEL[cmmcLevel]
   return (
     <div className="space-y-3">
-      {PHASE_CONFIG.map((p) => {
+      {phaseConfig.map((p) => {
         const phaseControls = programControls.filter(
           (pc) => pc.control_definition?.far_above_phase === p.phase && pc.is_applicable
         )

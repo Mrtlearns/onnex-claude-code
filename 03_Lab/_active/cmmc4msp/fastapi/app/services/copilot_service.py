@@ -30,7 +30,7 @@ async def build_context(
         """
         SELECT cd.nist_id, cd.requirement_text, cd.assessment_objective,
                cd.acceptable_proof_guidance, pc.status, pc.implementation_notes,
-               p.name AS program_name, o.name AS org_name
+               p.name AS program_name, p.cmmc_level, o.name AS org_name
         FROM program_controls pc
         JOIN control_definitions cd ON pc.control_definition_id = cd.id
         JOIN programs p ON pc.program_id = p.id
@@ -122,9 +122,11 @@ async def build_context(
 
     context_text = "\n\n".join(context_parts)
 
+    cmmc_level = control.get("cmmc_level", 2)
+    nist_std = "NIST SP 800-171 Rev 2" if cmmc_level == 2 else "NIST SP 800-172"
     system_prompt = (
-        f"You are a CMMC Level 2 compliance advisor for {control['org_name']}, "
-        f"an organization pursuing NIST SP 800-171 compliance. "
+        f"You are a CMMC Level {cmmc_level} compliance advisor for {control['org_name']}, "
+        f"an organization pursuing {nist_std} compliance. "
         f"You are assisting with control {control['nist_id']}: {control['requirement_text']}.\n\n"
         "IMPORTANT RULES:\n"
         "- Only make claims grounded in the provided context. Do not invent requirements.\n"

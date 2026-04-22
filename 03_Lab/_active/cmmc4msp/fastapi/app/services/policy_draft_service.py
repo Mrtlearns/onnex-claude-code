@@ -32,7 +32,7 @@ async def build_policy_context(
         SELECT cd.nist_id, cd.requirement_text, cd.assessment_objective,
                cd.acceptable_proof_guidance, cd.is_objective,
                pc.implementation_notes, pc.program_id,
-               p.name AS program_name, p.system_name,
+               p.name AS program_name, p.system_name, p.cmmc_level,
                o.id AS org_id, o.name AS org_name, o.cage_code
         FROM program_controls pc
         JOIN control_definitions cd ON pc.control_definition_id = cd.id
@@ -96,7 +96,9 @@ def _build_prompt(ctx: dict) -> str:
     )
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    return f"""You are a CMMC Level 2 compliance policy writer. Generate a complete, professionally written policy document.
+    cmmc_level = ctrl.get("cmmc_level", 2)
+    nist_std = "NIST SP 800-171 Rev 2" if cmmc_level == 2 else "NIST SP 800-172"
+    return f"""You are a CMMC Level {cmmc_level} compliance policy writer targeting {nist_std}. Generate a complete, professionally written policy document.
 
 ORGANIZATION:
 - Name: {ctrl['org_name']}

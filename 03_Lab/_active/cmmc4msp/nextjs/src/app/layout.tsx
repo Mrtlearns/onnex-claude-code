@@ -12,7 +12,7 @@ const Providers = dynamic(
 
 export const metadata: Metadata = {
   title: 'CMMC Compliance OS',
-  description: 'CMMC Level 2 Compliance Management Platform',
+  description: 'CMMC Compliance Management Platform',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

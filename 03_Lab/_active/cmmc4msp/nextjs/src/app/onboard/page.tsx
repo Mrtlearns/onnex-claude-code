@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { ChevronRightIcon, ChevronLeftIcon } from '@heroicons/react/24/outline'
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
 const STEPS = [
+  'Cert Level',
   'Org Details',
   'System Scoping',
   'N/A Controls',
@@ -22,6 +23,7 @@ const COMMON_EXCLUSIONS = [
 ]
 
 interface FormData {
+  cmmcLevel: 2 | 3
   orgName: string
   cageCode: string
   contactName: string
@@ -35,6 +37,7 @@ interface FormData {
 }
 
 const initialForm: FormData = {
+  cmmcLevel: 2,
   orgName: '',
   cageCode: '',
   contactName: '',
@@ -51,7 +54,7 @@ export default function OnboardPage() {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(initialForm)
   const [submitting, setSubmitting] = useState(false)
-  const [submitResult, setSubmitResult] = useState<{ slug: string; orgName: string } | null>(null)
+  const [submitResult, setSubmitResult] = useState<{ slug: string; orgName: string; cmmcLevel: 2 | 3 } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
@@ -71,11 +74,11 @@ export default function OnboardPage() {
 
   const validateStep = (): boolean => {
     const errs: Partial<Record<keyof FormData, string>> = {}
-    if (step === 1) {
+    if (step === 2) {
       if (!form.orgName.trim()) errs.orgName = 'Organization name is required'
       if (!form.contactEmail.trim()) errs.contactEmail = 'Contact email is required'
     }
-    if (step === 2) {
+    if (step === 3) {
       if (!form.systemName.trim()) errs.systemName = 'System name is required'
     }
     setErrors(errs)
@@ -94,6 +97,7 @@ export default function OnboardPage() {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.cmmc4msp.on-nex.us'
       const payload = {
+        cmmc_level: form.cmmcLevel,
         org_name: form.orgName,
         cage_code: form.cageCode || null,
         primary_contact_name: form.contactName || null,
@@ -117,7 +121,7 @@ export default function OnboardPage() {
         throw new Error(body.detail || 'Onboarding failed')
       }
       const data = await res.json()
-      setSubmitResult({ slug: data.org_slug, orgName: form.orgName })
+      setSubmitResult({ slug: data.org_slug, orgName: form.orgName, cmmcLevel: form.cmmcLevel })
     } catch (err: any) {
       setSubmitError(err.message || 'An error occurred')
     } finally {
@@ -131,7 +135,7 @@ export default function OnboardPage() {
         <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Client Onboarded!</h1>
         <p className="text-gray-500 mb-8">
-          {submitResult.orgName} has been created with 110 CMMC controls auto-seeded.
+          {submitResult.orgName} has been created with {submitResult.cmmcLevel === 3 ? '145' : '110'} CMMC Level {submitResult.cmmcLevel} controls auto-seeded.
         </p>
         <Link
           href={`/${submitResult.slug}/dashboard`}
@@ -148,7 +152,7 @@ export default function OnboardPage() {
     <div className="max-w-2xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Onboard New Client</h1>
       <p className="text-sm text-gray-500 mb-8">
-        Set up a new defense contractor organization for CMMC Level 2 compliance.
+        Set up a new defense contractor organization for CMMC compliance.
       </p>
 
       {/* Progress bar */}
@@ -194,8 +198,54 @@ export default function OnboardPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        {/* Step 1: Org Details */}
+        {/* Step 1: Certification Level */}
         {step === 1 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-800">Certification Target</h2>
+            <p className="text-sm text-gray-500">Select the CMMC certification level this client is pursuing. This drives control scope, scoring method, and all deliverables.</p>
+            <div className="space-y-3">
+              {([
+                {
+                  level: 2 as const,
+                  title: 'CMMC Level 2',
+                  subtitle: 'NIST SP 800-171 Rev 2 · 110 controls · SPRS scored',
+                  detail: 'Self-assessment or C3PAO third-party assessment. Required for most DoD contracts handling CUI.',
+                },
+                {
+                  level: 3 as const,
+                  title: 'CMMC Level 3',
+                  subtitle: 'NIST SP 800-172 · 145 controls · DIBCAC government assessment',
+                  detail: 'Government-led assessment by DCSA. Required for contracts involving highest priority programs. Includes all Level 2 requirements plus 35 enhanced controls.',
+                },
+              ] as const).map(({ level, title, subtitle, detail }) => (
+                <label
+                  key={level}
+                  className={`flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    form.cmmcLevel === level
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cmmcLevel"
+                    checked={form.cmmcLevel === level}
+                    onChange={() => setForm((f) => ({ ...f, cmmcLevel: level }))}
+                    className="mt-1 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <p className="font-semibold text-gray-900">{title}</p>
+                    <p className="text-sm text-blue-700 font-medium mt-0.5">{subtitle}</p>
+                    <p className="text-sm text-gray-500 mt-1">{detail}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Org Details */}
+        {step === 2 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-800">Organization Details</h2>
             <div>
@@ -261,8 +311,8 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* Step 2: System Scoping */}
-        {step === 2 && (
+        {/* Step 3: System Scoping */}
+        {step === 3 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-800">System Scoping</h2>
             <div>
@@ -316,8 +366,8 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* Step 3: N/A Controls */}
-        {step === 3 && (
+        {/* Step 4: N/A Controls */}
+        {step === 4 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-800">Mark Non-Applicable Controls</h2>
             <p className="text-sm text-gray-500">
@@ -352,11 +402,16 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* Step 4: Review */}
-        {step === 4 && (
+        {/* Step 5: Review */}
+        {step === 5 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-800">Review</h2>
             <div className="space-y-3 text-sm">
+              <div className="bg-blue-50 rounded-lg p-4 space-y-1 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Certification Target</p>
+                <p className="text-base font-bold text-blue-900">CMMC Level {form.cmmcLevel}</p>
+                <p className="text-xs text-blue-700">{form.cmmcLevel === 2 ? 'NIST SP 800-171 Rev 2 · 110 controls · SPRS scored' : 'NIST SP 800-172 · 145 controls · DIBCAC assessment'}</p>
+              </div>
               <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                 <h3 className="font-medium text-gray-700">Organization</h3>
                 <dl className="space-y-1">
@@ -419,13 +474,12 @@ export default function OnboardPage() {
           </div>
         )}
 
-        {/* Step 5: Submit */}
-        {step === 5 && (
+        {/* Step 6: Submit */}
+        {step === 6 && (
           <div className="text-center space-y-4">
             <h2 className="text-lg font-semibold text-gray-800">Ready to Onboard</h2>
             <p className="text-sm text-gray-500">
-              Clicking submit will create the organization, seed all 110 CMMC controls, and set up
-              the initial program. This takes a few seconds.
+              Clicking submit will create the organization, seed all {form.cmmcLevel === 3 ? '145' : '110'} CMMC Level {form.cmmcLevel} controls, and set up the initial program. This takes a few seconds.
             </p>
             {submitError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">

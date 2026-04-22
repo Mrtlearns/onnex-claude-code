@@ -36,9 +36,12 @@ export interface Program {
   name: string
   status: ProgramStatus
   system_name?: string
-  sprs_score: number
+  sprs_score: number | null
   far_above_score: number
   current_phase: string
+  cmmc_level: 2 | 3
+  show_l3_preview: boolean
+  readiness_pct: number | null
   created_at: string
   org?: Org
 }

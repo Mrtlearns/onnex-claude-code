@@ -14,6 +14,8 @@ export const GET_ORGS = gql`
         far_above_score
         current_phase
         status
+        cmmc_level
+        readiness_pct
       }
     }
   }
@@ -38,6 +40,9 @@ export const GET_ORG_BY_SLUG = gql`
         current_phase
         status
         system_name
+        cmmc_level
+        show_l3_preview
+        readiness_pct
         created_at
       }
     }
@@ -54,6 +59,9 @@ export const GET_PROGRAM_DASHBOARD = gql`
       current_phase
       status
       system_name
+      cmmc_level
+      show_l3_preview
+      readiness_pct
     }
     program_controls_aggregate(where: { program_id: { _eq: $programId } }) {
       aggregate {
@@ -319,6 +327,8 @@ export const GET_ADMIN_ORGS = gql`
         sprs_score
         current_phase
         status
+        cmmc_level
+        readiness_pct
       }
     }
   }

@@ -31,7 +31,7 @@
         300
       ],
       "parameters": {
-        "query": "SELECT pc.status, pc.is_applicable, cd.dod_score_value, cd.nist_id, cd.far_above_phase FROM program_controls pc JOIN control_definitions cd ON pc.control_definition_id = cd.id WHERE pc.program_id = '{{ $json.body.program_id }}'::uuid AND cd.is_objective = false",
+        "query": "SELECT pc.status, pc.is_applicable, cd.dod_score_value, cd.nist_id, cd.far_above_phase, p.cmmc_level FROM program_controls pc JOIN control_definitions cd ON pc.control_definition_id = cd.id JOIN programs p ON pc.program_id = p.id WHERE pc.program_id = '{{ $json.body.program_id }}'::uuid AND cd.is_objective = false",
         "operation": "executeQuery",
         "additionalFields": {}
       },
@@ -52,7 +52,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "const rows = $input.all().map(r => r.json);\nconst program_id = $('Webhook').first().json.body.program_id;\n\nlet sprs = 110;\nlet ssp_done = true;\n\nfor (const r of rows) {\n  if (!r.is_applicable) continue;\n  if (r.nist_id === '3.12.4' && r.status !== 'fully_implemented') {\n    ssp_done = false;\n  }\n  if (r.status !== 'fully_implemented' && r.dod_score_value) {\n    sprs -= Number(r.dod_score_value);\n  }\n}\n\nif (!ssp_done) {\n  sprs = -203;\n}\n\n// FAR & Above cumulative score by phase\n// Phase scores represent controls completed per phase\nconst phaseScores = { 1: 37, 2: 32, 3: 34, 4: 37, 5: 47 };\nlet far_above_score = 0;\n\nfor (let p = 1; p <= 5; p++) {\n  const phaseRows = rows.filter(r => String(r.far_above_phase) === String(p) && r.is_applicable);\n  if (!phaseRows.length) continue;\n  const allDone = phaseRows.every(r => r.status === 'fully_implemented');\n  if (allDone) {\n    far_above_score += phaseScores[p];\n  } else {\n    break;\n  }\n}\n\nreturn [{\n  json: {\n    sprs_score: Math.max(-203, Math.min(110, sprs)),\n    far_above_score,\n    program_id\n  }\n}];"
+        "jsCode": "const rows = $input.all().map(r => r.json);\nconst program_id = $('Webhook').first().json.body.program_id;\nconst cmmc_level = rows.length > 0 ? (rows[0].cmmc_level || 2) : 2;\n\nif (cmmc_level === 3) {\n  // Level 3: readiness percentage (no SPRS \u2014 DIBCAC assessment)\n  const applicable = rows.filter(r => r.is_applicable);\n  const done = applicable.filter(r => r.status === 'fully_implemented');\n  const readiness_pct = applicable.length > 0\n    ? Math.round((done.length / applicable.length) * 100)\n    : 0;\n  return [{ json: { sprs_score: null, far_above_score: null, readiness_pct, program_id, cmmc_level } }];\n}\n\n// Level 2: standard SPRS scoring\nlet sprs = 110;\nlet ssp_done = true;\n\nfor (const r of rows) {\n  if (!r.is_applicable) continue;\n  if (r.nist_id === '3.12.4' && r.status !== 'fully_implemented') {\n    ssp_done = false;\n  }\n  if (r.status !== 'fully_implemented' && r.dod_score_value) {\n    sprs -= Number(r.dod_score_value);\n  }\n}\n\nif (!ssp_done) {\n  sprs = -203;\n}\n\nconst phaseScores = { 1: 37, 2: 32, 3: 34, 4: 37, 5: 47 };\nlet far_above_score = 0;\n\nfor (let p = 1; p <= 5; p++) {\n  const phaseRows = rows.filter(r => String(r.far_above_phase) === String(p) && r.is_applicable);\n  if (!phaseRows.length) continue;\n  const allDone = phaseRows.every(r => r.status === 'fully_implemented');\n  if (allDone) {\n    far_above_score += phaseScores[p];\n  } else {\n    break;\n  }\n}\n\nreturn [{ json: { sprs_score: Math.max(-203, Math.min(110, sprs)), far_above_score, readiness_pct: null, program_id, cmmc_level } }];"
       },
       "typeVersion": 1
     },
@@ -65,7 +65,7 @@
         300
       ],
       "parameters": {
-        "query": "UPDATE programs SET sprs_score={{ $json.sprs_score }}::integer, far_above_score={{ $json.far_above_score }}::integer, updated_at=NOW() WHERE id='{{ $json.program_id }}'::uuid RETURNING sprs_score::text, far_above_score::text",
+        "query": "UPDATE programs SET sprs_score = CASE WHEN {{ $json.cmmc_level }} = 3 THEN NULL ELSE {{ $json.sprs_score }}::integer END, far_above_score = CASE WHEN {{ $json.cmmc_level }} = 3 THEN NULL ELSE {{ $json.far_above_score }}::integer END, readiness_pct = CASE WHEN {{ $json.cmmc_level }} = 3 THEN {{ $json.readiness_pct }}::smallint ELSE readiness_pct END, updated_at = NOW() WHERE id = '{{ $json.program_id }}'::uuid RETURNING sprs_score::text, far_above_score::text, readiness_pct::text",
         "operation": "executeQuery",
         "additionalFields": {}
       },

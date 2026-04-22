@@ -1,14 +1,27 @@
-"""SPRS and FAR & Above score calculation service."""
+"""SPRS and FAR & Above score calculation service.
+
+Level 2: SPRS scoring (−203 to 110) per DoD methodology.
+Level 3: Readiness percentage (0–100) — no SPRS for DIBCAC-assessed programs.
+"""
 import asyncpg
 
-# The SSP control — if not implemented, SPRS floors to -203
-SPRS_SSP_CONTROL_NIST_ID = "3.12.4"
-
-# Maximum SPRS score per DoD methodology
-SPRS_MAX = 110
-
-# Phase gate score allocations (cumulative sum = 187, capped at 110 in SPRS)
-_PHASE_SCORES: dict[int, int] = {1: 37, 2: 32, 3: 34, 4: 37, 5: 47}
+# Per-level configuration
+LEVEL_CONFIG: dict[int, dict] = {
+    2: {
+        "scoring_type": "sprs",
+        "max_score": 110,
+        "floor_score": -203,
+        "ssp_control": "3.12.4",
+        "phase_scores": {1: 37, 2: 32, 3: 34, 4: 37, 5: 47},
+    },
+    3: {
+        "scoring_type": "readiness_pct",
+        "max_score": None,
+        "floor_score": None,
+        "ssp_control": "3.12.4",
+        "phase_scores": {},
+    },
+}
 
 
 async def calculate_and_save_sprs(
@@ -16,11 +29,18 @@ async def calculate_and_save_sprs(
     conn: asyncpg.Connection,
 ) -> dict:
     """
-    Calculate SPRS and FAR & Above scores from current program_controls state
-    and persist both values back to the programs table.
+    Calculate scores from current program_controls state and persist to programs.
 
-    Returns {"sprs_score": int, "far_above_score": int}.
+    Level 2 → {"sprs_score": int, "far_above_score": int}
+    Level 3 → {"readiness_pct": int, "sprs_score": None, "far_above_score": 0}
     """
+    program_row = await conn.fetchrow(
+        "SELECT cmmc_level FROM programs WHERE id = $1",
+        program_id,
+    )
+    cmmc_level = program_row["cmmc_level"] if program_row else 2
+    cfg = LEVEL_CONFIG[cmmc_level]
+
     rows = await conn.fetch(
         """
         SELECT
@@ -28,7 +48,8 @@ async def calculate_and_save_sprs(
             pc.is_applicable,
             cd.dod_score_value,
             cd.nist_id,
-            cd.far_above_phase
+            cd.far_above_phase,
+            cd.cmmc_level AS control_level
         FROM program_controls pc
         JOIN control_definitions cd ON pc.control_definition_id = cd.id
         WHERE pc.program_id = $1
@@ -37,23 +58,34 @@ async def calculate_and_save_sprs(
         program_id,
     )
 
-    sprs_score = SPRS_MAX
+    if cmmc_level == 3:
+        return await _calculate_readiness(program_id, rows, cfg, conn)
+    return await _calculate_sprs(program_id, rows, cfg, conn)
+
+
+async def _calculate_sprs(
+    program_id: str,
+    rows: list,
+    cfg: dict,
+    conn: asyncpg.Connection,
+) -> dict:
+    """SPRS calculation for Level 2 programs — unchanged DoD methodology."""
+    sprs_score = cfg["max_score"]
     ssp_implemented = True
 
     for row in rows:
         if not row["is_applicable"]:
             continue
 
-        if row["nist_id"] == SPRS_SSP_CONTROL_NIST_ID:
+        if row["nist_id"] == cfg["ssp_control"]:
             if row["status"] != "fully_implemented":
                 ssp_implemented = False
 
         if row["status"] != "fully_implemented" and row["dod_score_value"]:
             sprs_score -= row["dod_score_value"]
 
-    # If SSP control is not implemented, SPRS is pegged to -203
     if not ssp_implemented:
-        sprs_score = -203
+        sprs_score = cfg["floor_score"]
 
     # FAR & Above: phase-gated — stop accumulating at first incomplete phase
     far_score = 0
@@ -65,21 +97,18 @@ async def calculate_and_save_sprs(
             if r["far_above_phase"] == phase_str and r["is_applicable"]
         ]
         if not phase_rows:
-            # No controls in this phase; skip but don't break
             continue
 
-        phase_complete = all(
-            r["status"] == "fully_implemented" for r in phase_rows
-        )
+        phase_complete = all(r["status"] == "fully_implemented" for r in phase_rows)
         if phase_complete:
-            far_score += _PHASE_SCORES[phase_num]
+            far_score += cfg["phase_scores"][phase_num]
         else:
-            break  # Phase gate: stop counting at first incomplete phase
+            break
 
     await conn.execute(
         """
         UPDATE programs
-        SET sprs_score = $1, far_above_score = $2, updated_at = NOW()
+        SET sprs_score = $1, far_above_score = $2, readiness_pct = NULL, updated_at = NOW()
         WHERE id = $3
         """,
         sprs_score,
@@ -88,3 +117,29 @@ async def calculate_and_save_sprs(
     )
 
     return {"sprs_score": sprs_score, "far_above_score": far_score}
+
+
+async def _calculate_readiness(
+    program_id: str,
+    rows: list,
+    cfg: dict,
+    conn: asyncpg.Connection,
+) -> dict:
+    """Readiness percentage for Level 3 programs (no SPRS methodology)."""
+    applicable = [r for r in rows if r["is_applicable"]]
+    total = len(applicable)
+    done = sum(1 for r in applicable if r["status"] == "fully_implemented")
+
+    readiness_pct = round((done / total) * 100) if total > 0 else 0
+
+    await conn.execute(
+        """
+        UPDATE programs
+        SET sprs_score = NULL, far_above_score = 0, readiness_pct = $1, updated_at = NOW()
+        WHERE id = $2
+        """,
+        readiness_pct,
+        program_id,
+    )
+
+    return {"sprs_score": None, "far_above_score": 0, "readiness_pct": readiness_pct}

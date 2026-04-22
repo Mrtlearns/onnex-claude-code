@@ -37,6 +37,7 @@ class ProgramCreate(BaseModel):
     org_id: uuid.UUID
     name: str
     system_name: Optional[str] = None
+    cmmc_level: int = 2
 
 
 class ProgramUpdate(BaseModel):
