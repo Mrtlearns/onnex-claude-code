@@ -1,14 +1,26 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Play, Copy, Upload, ChevronDown, ChevronRight, FlaskConical, Paperclip, Loader2 } from 'lucide-react'
+import { Play, Copy, Upload, ChevronDown, ChevronRight, FlaskConical, Paperclip, Loader2, Save, Trash2, FolderOpen } from 'lucide-react'
 import { PIPELINE_STEPS, StatusDot, StepStatusBadge, CATEGORY_STYLE } from '../analysis/PipelineStatusPanel'
 import type { StepStatus } from '../analysis/PipelineStatusPanel'
 import { getAuthHeaders } from '@/lib/api'
+
+interface SavedMessage {
+  id:              string
+  name:            string
+  email_from:      string | null
+  email_subject:   string | null
+  attachment_name: string | null
+  attachment_mime: string | null
+  created_at:      string
+}
+
+const API_BASE = '/api/pipeline-tester'
 
 // Dependency metadata — keyed on step.key
 const STEP_META: Record<string, { dependsOn?: string; usePreviousField?: string }> = {
@@ -28,29 +40,100 @@ const STEP_META: Record<string, { dependsOn?: string; usePreviousField?: string 
 type StepOutputRecord = { output: Record<string, unknown>; durationMs: number }
 
 export default function UtPipelineTesterTab() {
-  const [emailText,      setEmailText]      = useState('')
-  const [emailFrom,      setEmailFrom]      = useState('')
-  const [emailSubject,   setEmailSubject]   = useState('')
-  const [attachedFile,   setAttachedFile]   = useState<File | null>(null)
+  const [emailText,        setEmailText]        = useState('')
+  const [emailFrom,        setEmailFrom]        = useState('')
+  const [emailSubject,     setEmailSubject]     = useState('')
+  const [attachedFile,     setAttachedFile]     = useState<File | null>(null)
   const [attachmentBase64, setAttachmentBase64] = useState<string>('')
-  const [expandedStep,   setExpandedStep]   = useState<string | null>(null)
-  const [stepOutputs,    setStepOutputs]    = useState<Record<string, StepOutputRecord | null>>({})
-  const [stepRunning,    setStepRunning]    = useState<Record<string, boolean>>({})
-  const [stepError,      setStepError]      = useState<Record<string, string>>({})
+  const [attachmentName,   setAttachmentName]   = useState<string>('')
+  const [attachmentMime,   setAttachmentMime]   = useState<string>('')
+  const [expandedStep,     setExpandedStep]     = useState<string | null>(null)
+  const [stepOutputs,      setStepOutputs]      = useState<Record<string, StepOutputRecord | null>>({})
+  const [stepRunning,      setStepRunning]      = useState<Record<string, boolean>>({})
+  const [stepError,        setStepError]        = useState<Record<string, string>>({})
+
+  const [savedMessages,  setSavedMessages]  = useState<SavedMessage[]>([])
+  const [saveName,       setSaveName]       = useState('')
+  const [showSaveInput,  setShowSaveInput]  = useState(false)
+  const [saving,         setSaving]         = useState(false)
+  const [loadingId,      setLoadingId]      = useState<string | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/messages`, { headers: getAuthHeaders() })
+      if (res.ok) setSavedMessages(await res.json() as SavedMessage[])
+    } catch { /* non-fatal */ }
+  }, [])
+
+  useEffect(() => { void fetchMessages() }, [fetchMessages])
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setAttachedFile(file)
+    setAttachmentName(file.name)
+    setAttachmentMime(file.type)
     const reader = new FileReader()
     reader.onload = (ev) => {
       const result = ev.target?.result as string
-      // Strip the data URL prefix — keep only base64 content
       const base64 = result.split(',')[1] ?? result
       setAttachmentBase64(base64)
     }
     reader.readAsDataURL(file)
+  }
+
+  async function handleSave() {
+    if (!saveName.trim()) return
+    setSaving(true)
+    try {
+      await fetch(`${API_BASE}/messages`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body:    JSON.stringify({
+          name:              saveName.trim(),
+          email_from:        emailFrom || undefined,
+          email_subject:     emailSubject || undefined,
+          email_text:        emailText || undefined,
+          attachment_name:   attachmentName || undefined,
+          attachment_mime:   attachmentMime || undefined,
+          attachment_base64: attachmentBase64 || undefined,
+        }),
+      })
+      setSaveName('')
+      setShowSaveInput(false)
+      void fetchMessages()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleLoad(id: string) {
+    setLoadingId(id)
+    try {
+      const res  = await fetch(`${API_BASE}/messages/${id}`, { headers: getAuthHeaders() })
+      const data = await res.json() as {
+        email_from?: string; email_subject?: string; email_text?: string
+        attachment_name?: string; attachment_mime?: string; attachment_base64?: string
+      }
+      setEmailFrom(data.email_from ?? '')
+      setEmailSubject(data.email_subject ?? '')
+      setEmailText(data.email_text ?? '')
+      setAttachmentBase64(data.attachment_base64 ?? '')
+      setAttachmentName(data.attachment_name ?? '')
+      setAttachmentMime(data.attachment_mime ?? '')
+      setAttachedFile(null)
+      setStepOutputs({})
+      setStepError({})
+    } finally {
+      setLoadingId(null)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    await fetch(`${API_BASE}/messages/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
+    void fetchMessages()
   }
 
   function getStepStatus(stepKey: string): StepStatus {
@@ -71,7 +154,7 @@ export default function UtPipelineTesterTab() {
     setStepError(prev => ({ ...prev, [stepKey]: '' }))
     try {
       const prevOutput = getPreviousOutput(stepKey)
-      const res = await fetch('/api/pipeline-tester/run-step', {
+      const res = await fetch(`${API_BASE}/run-step`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body:    JSON.stringify({
@@ -80,8 +163,8 @@ export default function UtPipelineTesterTab() {
           emailFrom:        emailFrom || undefined,
           emailSubject:     emailSubject || undefined,
           attachmentBase64: attachmentBase64 || undefined,
-          attachmentName:   attachedFile?.name,
-          attachmentMime:   attachedFile?.type,
+          attachmentName:   attachmentName || attachedFile?.name,
+          attachmentMime:   attachmentMime || attachedFile?.type,
           previousOutput:   prevOutput,
         }),
       })
@@ -105,11 +188,9 @@ export default function UtPipelineTesterTab() {
   }
 
   function useOutputInNext(stepKey: string) {
-    const stepIdx   = PIPELINE_STEPS.findIndex(s => s.key === stepKey)
-    const nextStep  = PIPELINE_STEPS[stepIdx + 1]
-    if (nextStep) {
-      setExpandedStep(nextStep.key)
-    }
+    const stepIdx  = PIPELINE_STEPS.findIndex(s => s.key === stepKey)
+    const nextStep = PIPELINE_STEPS[stepIdx + 1]
+    if (nextStep) setExpandedStep(nextStep.key)
   }
 
   function toggleStep(stepKey: string) {
@@ -118,6 +199,80 @@ export default function UtPipelineTesterTab() {
 
   return (
     <div className="space-y-4">
+
+      {/* Saved Messages Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Saved Test Messages
+            </CardTitle>
+            {!showSaveInput ? (
+              <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setShowSaveInput(true)}>
+                <Save className="h-3 w-3" />
+                Save current
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  autoFocus
+                  placeholder="Name this test…"
+                  value={saveName}
+                  onChange={e => setSaveName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') void handleSave(); if (e.key === 'Escape') setShowSaveInput(false) }}
+                  className="h-7 text-xs w-48"
+                />
+                <Button size="sm" className="h-7 text-xs gap-1" disabled={saving || !saveName.trim()} onClick={() => void handleSave()}>
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowSaveInput(false)}>Cancel</Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {savedMessages.length === 0 ? (
+            <p className="text-xs text-muted-foreground/50 italic">No saved messages — fill in the input below and click Save current.</p>
+          ) : (
+            <div className="space-y-1">
+              {savedMessages.map(msg => (
+                <div key={msg.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 group">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium truncate">{msg.name}</span>
+                    {msg.attachment_name && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        <Paperclip className="h-3 w-3 inline mr-0.5" />{msg.attachment_name}
+                      </span>
+                    )}
+                    {msg.email_subject && (
+                      <span className="ml-2 text-xs text-muted-foreground/60 truncate hidden sm:inline">{msg.email_subject}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground/50 shrink-0">
+                    {new Date(msg.created_at).toLocaleDateString()}
+                  </span>
+                  <Button
+                    size="sm" variant="outline" className="h-6 text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    disabled={loadingId === msg.id}
+                    onClick={() => void handleLoad(msg.id)}
+                  >
+                    {loadingId === msg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <FolderOpen className="h-3 w-3" />}
+                    Load
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost" className="h-6 text-xs text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => void handleDelete(msg.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Email Input Card */}
       <Card>
@@ -177,13 +332,15 @@ export default function UtPipelineTesterTab() {
               className="hidden"
               onChange={handleFileChange}
             />
-            {attachedFile && (
+            {(attachedFile || attachmentName) && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Upload className="h-3 w-3" />
-                {attachedFile.name}
-                <span className="text-muted-foreground/60">({Math.round(attachedFile.size / 1024)} kb)</span>
+                {attachedFile?.name ?? attachmentName}
+                {attachedFile && (
+                  <span className="text-muted-foreground/60">({Math.round(attachedFile.size / 1024)} kb)</span>
+                )}
                 <button
-                  onClick={() => { setAttachedFile(null); setAttachmentBase64('') }}
+                  onClick={() => { setAttachedFile(null); setAttachmentBase64(''); setAttachmentName(''); setAttachmentMime('') }}
                   className="ml-1 text-destructive hover:text-destructive/80 text-xs"
                 >
                   ×
@@ -203,16 +360,16 @@ export default function UtPipelineTesterTab() {
         </CardHeader>
         <CardContent className="pt-0 space-y-0.5">
           {PIPELINE_STEPS.map(step => {
-            const status    = getStepStatus(step.key)
+            const status     = getStepStatus(step.key)
             const isExpanded = expandedStep === step.key
-            const catStyle  = CATEGORY_STYLE[step.category]
-            const Icon      = step.icon
-            const result    = stepOutputs[step.key]
-            const error     = stepError[step.key]
-            const meta      = STEP_META[step.key] ?? {}
+            const catStyle   = CATEGORY_STYLE[step.category]
+            const Icon       = step.icon
+            const result     = stepOutputs[step.key]
+            const error      = stepError[step.key]
+            const meta       = STEP_META[step.key] ?? {}
 
-            const stepIdx   = PIPELINE_STEPS.findIndex(s => s.key === step.key)
-            const nextStep  = PIPELINE_STEPS[stepIdx + 1]
+            const stepIdx  = PIPELINE_STEPS.findIndex(s => s.key === step.key)
+            const nextStep = PIPELINE_STEPS[stepIdx + 1]
 
             return (
               <div key={step.key} className="rounded-lg border border-transparent hover:border-border/50 transition-colors">

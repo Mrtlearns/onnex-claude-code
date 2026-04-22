@@ -4,12 +4,17 @@
  *
  * Mounted at /pipeline-tester
  *
- * POST /pipeline-tester/run-step  — execute a single pipeline step
- * GET  /pipeline-tester/steps     — list step definitions with dependency metadata
+ * POST /pipeline-tester/run-step        — execute a single pipeline step
+ * GET  /pipeline-tester/steps           — list step definitions with dependency metadata
+ * GET  /pipeline-tester/messages        — list saved test messages (no base64)
+ * POST /pipeline-tester/messages        — create saved test message (with base64)
+ * GET  /pipeline-tester/messages/:id    — get single message with full base64
+ * DELETE /pipeline-tester/messages/:id  — delete saved message
  */
 
 import { Router, Request, Response } from 'express'
-import { query } from '../db'
+import { z } from 'zod'
+import { query, queryOne } from '../db'
 
 const router = Router()
 
@@ -274,5 +279,77 @@ const STEPS = [
 ]
 
 router.get('/steps', (_req: Request, res: Response) => res.json(STEPS))
+
+// ── Saved test messages CRUD ──────────────────────────────────────────────────
+
+const SaveMessageBody = z.object({
+  name:              z.string().min(1).max(200),
+  email_from:        z.string().optional(),
+  email_subject:     z.string().optional(),
+  email_text:        z.string().optional(),
+  attachment_name:   z.string().optional(),
+  attachment_mime:   z.string().optional(),
+  attachment_base64: z.string().optional(),
+})
+
+// GET /pipeline-tester/messages — list without base64 for performance
+router.get('/messages', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const rows = await query(
+      `SELECT id, name, email_from, email_subject, attachment_name, attachment_mime, created_at
+       FROM app.pipeline_test_messages
+       ORDER BY created_at DESC`,
+    )
+    res.json(rows)
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// POST /pipeline-tester/messages — create with full base64
+router.post('/messages', async (req: Request, res: Response): Promise<void> => {
+  const parsed = SaveMessageBody.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid payload', details: parsed.error.flatten() })
+    return
+  }
+  const b = parsed.data
+  try {
+    const row = await queryOne(
+      `INSERT INTO app.pipeline_test_messages
+         (name, email_from, email_subject, email_text, attachment_name, attachment_mime, attachment_base64)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [b.name, b.email_from ?? null, b.email_subject ?? null, b.email_text ?? null,
+       b.attachment_name ?? null, b.attachment_mime ?? null, b.attachment_base64 ?? null],
+    )
+    res.status(201).json(row)
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// GET /pipeline-tester/messages/:id — full record including base64
+router.get('/messages/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const row = await queryOne(
+      'SELECT * FROM app.pipeline_test_messages WHERE id=$1',
+      [req.params.id],
+    )
+    if (!row) { res.status(404).json({ error: 'Not found' }); return }
+    res.json(row)
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// DELETE /pipeline-tester/messages/:id
+router.delete('/messages/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    await query('DELETE FROM app.pipeline_test_messages WHERE id=$1', [req.params.id])
+    res.status(204).end()
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
 
 export default router
