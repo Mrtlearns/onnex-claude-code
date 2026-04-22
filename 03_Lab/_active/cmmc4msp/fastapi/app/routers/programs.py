@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import asyncpg
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.services.sweep_service import run_program_sweep as _run_sweep
@@ -328,7 +329,7 @@ async def get_l3_preview_controls(
     request: Request,
     conn: asyncpg.Connection = Depends(get_db),
     user: dict = Depends(get_current_user),
-) -> list[dict]:
+) -> dict:
     """Return Level 3 control definitions for the advisory overlay.
     Only valid for Level 2 programs with show_l3_preview = TRUE.
     These controls are NOT seeded as program_controls — they're advisory only.
@@ -363,20 +364,22 @@ async def get_l3_preview_controls(
         """,
     )
 
-    return [
-        {
-            "id": str(r["id"]),
-            "nist_id": r["nist_id"],
-            "cmmc_id": r["cmmc_id"],
-            "family": r["family"],
-            "family_abbrev": r["family_abbrev"],
-            "requirement_text": r["requirement_text"],
-            "acceptable_proof_guidance": r["acceptable_proof_guidance"],
-            "cmmc_level": r["cmmc_level"],
-            "advisory_status": "not_in_scope_for_l2",
-        }
-        for r in rows
-    ]
+    return {
+        "controls": [
+            {
+                "id": str(r["id"]),
+                "nist_id": r["nist_id"],
+                "cmmc_id": r["cmmc_id"],
+                "family": r["family"],
+                "family_abbrev": r["family_abbrev"],
+                "requirement_text": r["requirement_text"],
+                "acceptable_proof_guidance": r["acceptable_proof_guidance"],
+                "cmmc_level": r["cmmc_level"],
+                "advisory_status": "not_in_scope_for_l2",
+            }
+            for r in rows
+        ]
+    }
 
 
 # ── AI Sweep ──────────────────────────────────────────────────────────────────
