@@ -32,10 +32,16 @@
     {
       "date": "2026-04-22",
       "tools": {
-        "Bash": 7
+        "Bash": 39,
+        "Read": 43,
+        "Glob": 6,
+        "Grep": 10,
+        "Agent": 3,
+        "ToolSearch": 1,
+        "Write": 1
       },
-      "total_calls": 7,
-      "weight_total": 7
+      "total_calls": 103,
+      "weight_total": 71
     }
   ]
 }
