@@ -371,7 +371,7 @@ async def send_chat_message(
     )
     history = [{"role": r["role"], "content": r["content"]} for r in reversed(history_rows)]
 
-    system_prompt, _ = await build_context(pc_uid, body.message, user.get("org_id", ""), conn)
+    system_prompt, _ = await build_context(pc_uid, body.message, str(pc["org_id"]), conn)
 
     # Save user message
     await conn.execute(
