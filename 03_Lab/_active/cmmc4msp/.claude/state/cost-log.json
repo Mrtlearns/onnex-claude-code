@@ -32,7 +32,7 @@
     {
       "date": "2026-04-22",
       "tools": {
-        "Bash": 130,
+        "Bash": 178,
         "Read": 83,
         "Glob": 6,
         "Grep": 19,
@@ -44,8 +44,8 @@
         "WebFetch": 3,
         "Edit": 52
       },
-      "total_calls": 305,
-      "weight_total": 240
+      "total_calls": 353,
+      "weight_total": 288
     }
   ]
 }
