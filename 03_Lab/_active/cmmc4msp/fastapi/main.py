@@ -17,7 +17,7 @@ from minio import Minio
 
 from app.config import settings
 from app.database import create_pool
-from app.routers import analytics, artifacts, assessments, assignments, audit, client_errors, controls, integrations, invites, msps, notifications, orgs, programs, reports, suggestions, triage, webhooks, ssp_interview
+from app.routers import analytics, artifacts, assessments, assignments, audit, client_errors, controls, integrations, invites, library, msps, notifications, orgs, programs, reports, suggestions, triage, webhooks, ssp_interview
 from app.services.minio_service import ensure_bucket
 
 logger = get_logger(__name__)
@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 
     # Ensure required buckets exist — non-fatal: bad credentials shouldn't
     # prevent startup; artifact endpoints will fail at request time instead.
-    for bucket in ("cmmc-artifacts", "cmmc-reports", "cmmc-drafts", "cmmc-exports"):
+    for bucket in ("cmmc-artifacts", "cmmc-reports", "cmmc-drafts", "cmmc-exports", "cmmc-library"):
         try:
             ensure_bucket(app.state.minio, bucket)
         except Exception as exc:
@@ -117,6 +117,7 @@ app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ssp_interview.router, prefix="/api/programs/{program_id}/ssp-interview", tags=["ssp_interview"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
+app.include_router(library.router, prefix="/api/library", tags=["library"])
 app.include_router(triage.router, prefix="/api/triage", tags=["triage"])
 app.include_router(client_errors.router, prefix="/api/client-errors", tags=["client-errors"])
 

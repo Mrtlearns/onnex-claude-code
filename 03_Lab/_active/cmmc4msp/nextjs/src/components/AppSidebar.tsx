@@ -25,6 +25,7 @@ import {
   ClipboardDocumentCheckIcon,
   ShieldExclamationIcon,
   BoltIcon,
+  BookOpenIcon,
 } from '@heroicons/react/24/outline'
 import { getSPRSColor } from '@/lib/constants'
 import clsx from 'clsx'
@@ -77,6 +78,7 @@ function orgNav(role: string, base: string): NavSection[] {
     { href: `${base}/dashboard`, label: 'Dashboard', icon: HomeIcon },
     { href: `${base}/controls`,  label: 'Controls',  icon: ShieldCheckIcon },
     { href: `${base}/tasks`,     label: 'Tasks',      icon: ClipboardDocumentListIcon },
+    { href: `${base}/library`,   label: 'Library',    icon: BookOpenIcon },
   ]
 
   if (role === 'client_user') {

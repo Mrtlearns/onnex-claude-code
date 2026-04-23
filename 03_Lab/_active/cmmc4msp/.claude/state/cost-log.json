@@ -50,13 +50,15 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 15,
-        "Read": 18,
-        "Agent": 1,
-        "Glob": 1
+        "Bash": 27,
+        "Read": 22,
+        "Agent": 2,
+        "Glob": 1,
+        "Write": 3,
+        "Edit": 5
       },
-      "total_calls": 35,
-      "weight_total": 25
+      "total_calls": 60,
+      "weight_total": 55
     }
   ]
 }
