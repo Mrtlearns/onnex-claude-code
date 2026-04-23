@@ -113,6 +113,14 @@
       },
       "total_calls": 13,
       "weight_total": 10
+    },
+    {
+      "date": "2026-04-23",
+      "tools": {
+        "Bash": 14
+      },
+      "total_calls": 14,
+      "weight_total": 14
     }
   ]
 }
