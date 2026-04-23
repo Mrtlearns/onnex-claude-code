@@ -32,8 +32,8 @@
     {
       "date": "2026-04-22",
       "tools": {
-        "Bash": 214,
-        "Read": 94,
+        "Bash": 227,
+        "Read": 96,
         "Glob": 8,
         "Grep": 20,
         "Agent": 4,
@@ -44,8 +44,8 @@
         "WebFetch": 3,
         "Edit": 53
       },
-      "total_calls": 404,
-      "weight_total": 325
+      "total_calls": 419,
+      "weight_total": 338
     }
   ]
 }
