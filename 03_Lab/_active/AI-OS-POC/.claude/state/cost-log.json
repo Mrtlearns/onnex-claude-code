@@ -117,10 +117,10 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 14
+        "Bash": 21
       },
-      "total_calls": 14,
-      "weight_total": 14
+      "total_calls": 21,
+      "weight_total": 21
     }
   ]
 }
