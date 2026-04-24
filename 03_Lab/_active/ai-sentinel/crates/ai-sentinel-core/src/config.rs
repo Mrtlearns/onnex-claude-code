@@ -103,15 +103,49 @@ impl AppConfig {
         let profile = std::env::var("AI_SENTINEL_PROFILE")
             .unwrap_or_else(|_| "default".to_string());
 
-        Config::builder()
+        let mut cfg: AppConfig = Config::builder()
             .add_source(File::with_name(&format!("{}/default", config_dir)).required(false))
             .add_source(File::with_name(&format!("{}/{}", config_dir, profile)).required(false))
             .add_source(
+                // Separator is `__` (double-underscore) because all struct fields are flat
+                // snake_case containing single underscores. Using `_` as the separator
+                // would split `AI_SENTINEL_ADMIN_TOKEN` into nested path `admin.token` and
+                // miss the flat `admin_token` field.
                 Environment::with_prefix("AI_SENTINEL")
-                    .separator("_")
+                    .separator("__")
                     .list_separator(","),
             )
             .build()?
-            .try_deserialize()
+            .try_deserialize()?;
+
+        // Direct env overrides for fields the config crate's env loader hasn't populated.
+        // Env vars remain the single source of truth for deployments; TOML files only
+        // supply defaults for local dev. Keep this list tight — only add when a field
+        // genuinely isn't reaching the struct.
+        fn env_str(k: &str) -> Option<String> {
+            std::env::var(k).ok().filter(|v| !v.is_empty())
+        }
+        if cfg.admin_token.is_none() {
+            cfg.admin_token = env_str("AI_SENTINEL_ADMIN_TOKEN");
+        }
+        if cfg.jwt_secret.is_none() {
+            cfg.jwt_secret = env_str("AI_SENTINEL_JWT_SECRET");
+        }
+        if cfg.trust_secret.is_none() {
+            cfg.trust_secret = env_str("AI_SENTINEL_TRUST_SECRET");
+        }
+        if cfg.database_url.is_none() {
+            cfg.database_url = env_str("AI_SENTINEL_DB_URL");
+        }
+        if cfg.redis_url.is_none() {
+            cfg.redis_url = env_str("AI_SENTINEL_REDIS_URL");
+        }
+        if cfg.api_keys.is_empty() {
+            if let Some(keys) = env_str("AI_SENTINEL_API_KEYS") {
+                cfg.api_keys = keys.split(',').map(|s| s.trim().to_string()).collect();
+            }
+        }
+
+        Ok(cfg)
     }
 }
