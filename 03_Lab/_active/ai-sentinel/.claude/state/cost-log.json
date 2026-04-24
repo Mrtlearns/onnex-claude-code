@@ -88,8 +88,8 @@
       "tools": {
         "Edit": 32,
         "Write": 23,
-        "Read": 34,
-        "Bash": 110,
+        "Read": 36,
+        "Bash": 112,
         "TaskCreate": 10,
         "TaskUpdate": 16,
         "Grep": 3,
@@ -102,8 +102,8 @@
         "AskUserQuestion": 1,
         "ExitPlanMode": 1
       },
-      "total_calls": 237,
-      "weight_total": 208
+      "total_calls": 241,
+      "weight_total": 210
     }
   ]
 }
