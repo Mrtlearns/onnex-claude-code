@@ -86,20 +86,24 @@
     {
       "date": "2026-04-24",
       "tools": {
-        "Edit": 19,
-        "Write": 7,
-        "Read": 8,
-        "Bash": 77,
-        "TaskCreate": 3,
-        "TaskUpdate": 5,
-        "Grep": 1,
+        "Edit": 32,
+        "Write": 23,
+        "Read": 34,
+        "Bash": 106,
+        "TaskCreate": 10,
+        "TaskUpdate": 16,
+        "Grep": 3,
         "ToolSearch": 2,
         "ScheduleWakeup": 1,
         "Monitor": 1,
-        "TaskStop": 1
+        "TaskStop": 1,
+        "Glob": 1,
+        "Agent": 1,
+        "AskUserQuestion": 1,
+        "ExitPlanMode": 1
       },
-      "total_calls": 125,
-      "weight_total": 116
+      "total_calls": 233,
+      "weight_total": 204
     }
   ]
 }
