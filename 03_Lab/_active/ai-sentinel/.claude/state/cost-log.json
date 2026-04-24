@@ -89,10 +89,10 @@
         "Edit": 3,
         "Write": 1,
         "Read": 1,
-        "Bash": 3
+        "Bash": 8
       },
-      "total_calls": 8,
-      "weight_total": 7
+      "total_calls": 13,
+      "weight_total": 12
     }
   ]
 }
