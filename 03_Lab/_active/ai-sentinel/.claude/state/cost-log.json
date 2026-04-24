@@ -89,7 +89,7 @@
         "Edit": 32,
         "Write": 23,
         "Read": 34,
-        "Bash": 106,
+        "Bash": 110,
         "TaskCreate": 10,
         "TaskUpdate": 16,
         "Grep": 3,
@@ -102,8 +102,8 @@
         "AskUserQuestion": 1,
         "ExitPlanMode": 1
       },
-      "total_calls": 233,
-      "weight_total": 204
+      "total_calls": 237,
+      "weight_total": 208
     }
   ]
 }
