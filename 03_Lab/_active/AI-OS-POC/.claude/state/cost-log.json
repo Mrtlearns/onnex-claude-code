@@ -120,10 +120,11 @@
         "Bash": 39,
         "Read": 1,
         "Write": 1,
-        "Edit": 2
+        "Edit": 2,
+        "ToolSearch": 1
       },
-      "total_calls": 43,
-      "weight_total": 42
+      "total_calls": 44,
+      "weight_total": 43
     }
   ]
 }

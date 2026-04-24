@@ -52,13 +52,15 @@
       "tools": {
         "Bash": 27,
         "Read": 22,
-        "Agent": 2,
+        "Agent": 3,
         "Glob": 1,
         "Write": 3,
-        "Edit": 5
+        "Edit": 5,
+        "WebSearch": 25,
+        "WebFetch": 4
       },
-      "total_calls": 60,
-      "weight_total": 55
+      "total_calls": 90,
+      "weight_total": 148
     }
   ]
 }
