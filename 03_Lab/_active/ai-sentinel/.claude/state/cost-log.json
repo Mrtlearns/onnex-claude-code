@@ -86,13 +86,15 @@
     {
       "date": "2026-04-24",
       "tools": {
-        "Edit": 3,
+        "Edit": 5,
         "Write": 1,
-        "Read": 1,
-        "Bash": 8
+        "Read": 2,
+        "Bash": 23,
+        "TaskCreate": 3,
+        "TaskUpdate": 2
       },
-      "total_calls": 13,
-      "weight_total": 12
+      "total_calls": 36,
+      "weight_total": 34
     }
   ]
 }
