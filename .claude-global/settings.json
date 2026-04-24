@@ -7,6 +7,7 @@
   "permissions": {
     "allow": [
       "Bash",
+      "Bash(git:*)",
       "Read",
       "Write",
       "Edit",
@@ -41,8 +42,6 @@
       "Bash(mkfs:*)",
       "Bash(gh repo delete:*)",
       "Bash(gh repo edit --visibility public:*)",
-      "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
       "Read(~/.ssh/id_*)",
       "Read(~/.ssh/*.pem)",
       "Read(~/.aws/credentials)",
