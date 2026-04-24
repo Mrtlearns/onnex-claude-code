@@ -47,12 +47,9 @@ BASH_BLOCKED = [
 ]
 
 BASH_CONFIRM = [
-    # Git danger zone
-    (r"git\s+push\s+(--force|-f)", "Force push can lose remote commits"),
-    # Note: direct push to main/master was moved to BASH_ALERT per user's
-    # "deploy autonomously" workflow — see feedback_deploy_autonomously.md.
-    (r"git\s+reset\s+--hard",      "Loses all uncommitted changes"),
-    (r"git\s+clean\s+-fd",         "Deletes untracked files permanently"),
+    # Git: per user's "always allow all git actions" feedback, no git commands
+    # gate here. Still logged via BASH_ALERT for audit trail. See
+    # feedback_git_autonomous.md.
     # Infrastructure
     (r"terraform\s+destroy",       "Infrastructure destruction"),
     (r"terraform\s+apply.+auto-approve", "Auto-approve bypasses review"),
@@ -79,7 +76,12 @@ BASH_CONFIRM = [
 ]
 
 BASH_ALERT = [
-    (r"git\s+push\b(?!.*(-f|--force)).*\b(main|master)\b", "Direct push to main/master — allowed per autonomous-deploy rule, logging for audit"),
+    # Git — all allowed per user's autonomous-git feedback; logged here for audit trail.
+    (r"git\s+push\b(?!.*(-f|--force)).*\b(main|master)\b", "Direct push to main/master — allowed, logging"),
+    (r"git\s+push\s+(--force|-f)", "Force push — allowed per user config, can overwrite remote commits"),
+    (r"git\s+reset\s+--hard",      "git reset --hard — allowed per user config, discards uncommitted work"),
+    (r"git\s+clean\s+-fd",         "git clean -fd — allowed per user config, deletes untracked files"),
+    # Non-git alerts retained
     (r"sudo\s+",                   "Sudo usage — elevated privilege"),
     (r"chmod\s+777",               "Permissive chmod — security concern"),
     (r"ssh.+StrictHostKeyChecking=no", "SSH host key checking disabled"),

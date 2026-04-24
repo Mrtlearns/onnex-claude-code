@@ -170,9 +170,10 @@ deploy:
 
     # ── 7. Start / update services ─────────────────────────────────────────
     # docker compose up -d auto-recreates containers whose image ID changed.
-    # No explicit restart needed — removing the old sleep 20 + restart api.
+    # Retry once on failure: handles transient "removal already in progress"
+    # Docker race condition that leaves containers with hash-prefixed names.
     - cd "$DEPLOY_DIR"
-    - docker compose up -d --remove-orphans
+    - docker compose up -d --remove-orphans || (docker compose down && docker compose up -d)
     - docker compose restart traefik
 
     # ── 7b. Authentik seed — apply idempotent config after services start ────
