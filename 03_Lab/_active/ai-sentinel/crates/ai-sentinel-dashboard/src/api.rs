@@ -8,21 +8,19 @@ use serde_json::Value;
 fn base() -> String {
     // Dashboard is served from the same origin as the API in production.
     // In dev (trunk serve) we rely on CORS passthrough or a dev proxy.
-    "".to_string()
+    String::new()
 }
 
-fn auth_header(req: Request) -> Request {
+fn attach_auth(req: Request) -> Request {
     if let Some(t) = auth::get_token() {
-        req.header("Authorization", &format!("Bearer {t}"))
-    } else {
-        req
+        req.headers().set("Authorization", &format!("Bearer {t}"));
     }
+    req
 }
 
 pub async fn get<T: DeserializeOwned>(path: &str) -> Result<T, String> {
     let url = format!("{}{path}", base());
-    let req = Request::get(&url);
-    let req = auth_header(req);
+    let req = attach_auth(Request::get(&url));
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));
@@ -32,9 +30,8 @@ pub async fn get<T: DeserializeOwned>(path: &str) -> Result<T, String> {
 
 pub async fn post_json<T: DeserializeOwned>(path: &str, body: &Value) -> Result<T, String> {
     let url = format!("{}{path}", base());
-    let req = Request::post(&url);
-    let req = auth_header(req)
-        .header("Content-Type", "application/json");
+    let req = attach_auth(Request::post(&url));
+    req.headers().set("Content-Type", "application/json");
     let req = req.json(body).map_err(|e| e.to_string())?;
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
@@ -45,8 +42,7 @@ pub async fn post_json<T: DeserializeOwned>(path: &str, body: &Value) -> Result<
 
 pub async fn post_empty<T: DeserializeOwned>(path: &str) -> Result<T, String> {
     let url = format!("{}{path}", base());
-    let req = Request::post(&url);
-    let req = auth_header(req);
+    let req = attach_auth(Request::post(&url));
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));

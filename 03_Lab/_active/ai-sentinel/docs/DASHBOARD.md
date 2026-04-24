@@ -30,6 +30,32 @@ Leptos CSR crate (`crates/ai-sentinel-dashboard/`) is scaffolded for a future ri
 build. Everything the HTML dashboard does today is exposed as clean JSON API endpoints,
 so the Leptos replacement is a drop-in.
 
+## Leptos dashboard — build status
+
+**Shipping:** HTML+Tailwind at `/dashboard` (`crates/ai-sentinel-api/static/dashboard.html`).
+
+**Scaffolded (not yet compiling to WASM):** `crates/ai-sentinel-dashboard/` holds the
+Leptos 0.6 CSR source (Router, pages, API bindings, auth, Tailwind CSS via CDN).
+
+**Toolchain provisioned on the build VM:**
+- `rustup target add wasm32-unknown-unknown` — done
+- `trunk 0.21.14` — installed from pre-built tarball at
+  `https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz`
+  (avoids `cargo install trunk` OOM on 8GB VM with no swap)
+- Cargo.toml — inlined deps (no `workspace = true`) so the crate builds standalone
+
+**Remaining follow-up work** to produce a WASM bundle:
+- Resolve remaining Leptos/`gloo-net 0.5` API mismatches in `src/api.rs` and `src/pages.rs`:
+  - `Request::headers()` returns a `Headers` handle (needs `set_*`, no `header(k,v)` builder)
+  - `create_resource` requires `T: Serializable` — all DTOs need `#[derive(Serialize, Deserialize)]`
+  - `resp.json::<T>()` returns a future of `Result<T, gloo_net::Error>` — can't `.map_err` the future directly; `await` first
+- Add explicit type annotations where the compiler asks (leptos `children=...` closures)
+- `trunk build --release` to produce `dist/index.html` + `*.wasm` + `*.js`
+- Add `rust-embed` (or `tower-http::ServeDir`) handler in `ai-sentinel-api/src/main.rs`
+  to serve `/dashboard/*` from the embedded/on-disk bundle instead of the single-file
+  `include_str!` we have now
+- Cut over `/dashboard` route handler to the new bundle
+
 ## Endpoints Reference
 
 | Method | Path | Purpose |

@@ -17,7 +17,7 @@ pub struct Module {
     pub license_tier: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListResp {
     pub modules: Vec<Module>,
 }
@@ -109,7 +109,7 @@ fn ModuleCard(module: Module) -> impl IntoView {
 
 // ─── Audit log ───────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEntry {
     pub id: i64,
     pub action: String,
@@ -119,7 +119,7 @@ pub struct AuditEntry {
     pub after_version: Option<i32>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditResp {
     pub audit: Vec<AuditEntry>,
 }
