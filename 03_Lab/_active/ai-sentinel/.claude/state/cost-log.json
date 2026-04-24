@@ -67,10 +67,15 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 6
+        "Bash": 26,
+        "Read": 33,
+        "Glob": 9,
+        "Agent": 2,
+        "ToolSearch": 1,
+        "AskUserQuestion": 1
       },
-      "total_calls": 6,
-      "weight_total": 6
+      "total_calls": 72,
+      "weight_total": 48
     }
   ]
 }
