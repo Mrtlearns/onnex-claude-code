@@ -15,7 +15,7 @@ mod api;
 mod auth;
 mod pages;
 
-use pages::{AuditPage, DryRunPage, ModulesPage, OverviewPage};
+use pages::{AuditPage, DryRunPage, ModulesPage, OverviewPage, TestingPage};
 
 fn main() {
     console_error_panic_hook::set_once();
@@ -34,6 +34,7 @@ fn App() -> impl IntoView {
                         <Route path="/modules" view=ModulesPage/>
                         <Route path="/audit" view=AuditPage/>
                         <Route path="/dry-run" view=DryRunPage/>
+                        <Route path="/testing" view=TestingPage/>
                     </Routes>
                 </main>
             </div>
@@ -50,6 +51,7 @@ fn Sidebar() -> impl IntoView {
             <A href="/modules" class="nav-link">"Modules"</A>
             <A href="/audit" class="nav-link">"Audit"</A>
             <A href="/dry-run" class="nav-link">"Dry-run"</A>
+            <A href="/testing" class="nav-link">"Testing"</A>
         </aside>
     }
 }

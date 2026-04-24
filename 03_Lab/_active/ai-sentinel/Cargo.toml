@@ -12,6 +12,7 @@ members = [
     "crates/ai-sentinel-rules",
     "crates/ai-sentinel-optimizer",
     "crates/ai-sentinel-context",
+    "crates/ai-sentinel-testmode",
 ]
 # ai-sentinel-dashboard is a wasm-targeted crate built independently with `trunk build`.
 # It's excluded from the workspace so `cargo build --workspace` doesn't try to compile it

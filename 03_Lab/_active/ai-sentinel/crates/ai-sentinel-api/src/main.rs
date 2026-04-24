@@ -201,7 +201,30 @@ async fn main() -> anyhow::Result<()> {
         .route("/admin/modules/:id/audit", get(routes::admin_modules::module_audit))
         .route("/admin/rules/validate", post(routes::admin_modules::validate_rules_yaml))
         .route("/admin/rules/dry-run", post(routes::admin_modules::dry_run_rules))
-        .with_state(state);
+        .with_state(state.clone());
+
+    // Phase 6 testmode — mounted only when the `testmode` cargo feature is on.
+    // Production builds compile without it and these routes 404.
+    #[cfg(feature = "testmode")]
+    let app = {
+        use ai_sentinel_testmode::{testmode_router, TestmodeState, TestmodeStateConfig};
+        let upstream_url = std::env::var("AI_SENTINEL_UPSTREAM_URL")
+            .unwrap_or_else(|_| "https://openrouter.ai/api".to_string());
+        let upstream_api_key = std::env::var("AI_SENTINEL_UPSTREAM_API_KEY").ok();
+        let upstream_default_model = std::env::var("AI_SENTINEL_UPSTREAM_MODEL")
+            .unwrap_or_else(|_| "google/gemini-flash-1.5-8b".to_string());
+        let tm = Arc::new(TestmodeState::new(TestmodeStateConfig {
+            pipeline: state.pipeline.clone(),
+            config: state.config.clone(),
+            db: state.db.clone(),
+            sentinel_version: env!("CARGO_PKG_VERSION"),
+            upstream_url,
+            upstream_api_key,
+            upstream_default_model,
+        }));
+        info!("testmode enabled — /chat, /sentinel/*, /healthz, /readyz mounted");
+        app.merge(testmode_router(tm))
+    };
 
     let bind = format!("{}:{}", config.host, config.port);
     let listener = TcpListener::bind(&bind).await?;

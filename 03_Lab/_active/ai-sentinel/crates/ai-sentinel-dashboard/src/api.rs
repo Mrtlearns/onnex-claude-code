@@ -21,6 +21,13 @@ fn with_auth(req: RequestBuilder) -> RequestBuilder {
     }
 }
 
+fn with_extra_headers(mut req: RequestBuilder, extras: &[(&str, &str)]) -> RequestBuilder {
+    for (k, v) in extras {
+        req = req.header(k, v);
+    }
+    req
+}
+
 pub async fn get<T: DeserializeOwned>(path: &str) -> Result<T, String> {
     let url = format!("{}{path}", base());
     let builder = with_auth(gloo_net::http::Request::get(&url));
@@ -38,9 +45,22 @@ where
     T: DeserializeOwned,
     B: Serialize + ?Sized,
 {
+    post_json_with_headers(path, body, &[]).await
+}
+
+pub async fn post_json_with_headers<T, B>(
+    path: &str,
+    body: &B,
+    extra_headers: &[(&str, &str)],
+) -> Result<T, String>
+where
+    T: DeserializeOwned,
+    B: Serialize + ?Sized,
+{
     let url = format!("{}{path}", base());
     let builder = with_auth(gloo_net::http::Request::post(&url))
         .header("Content-Type", "application/json");
+    let builder = with_extra_headers(builder, extra_headers);
     let req = builder.json(body).map_err(|e| e.to_string())?;
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
