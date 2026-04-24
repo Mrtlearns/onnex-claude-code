@@ -67,15 +67,21 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 26,
-        "Read": 33,
+        "Bash": 47,
+        "Read": 55,
         "Glob": 9,
         "Agent": 2,
-        "ToolSearch": 1,
-        "AskUserQuestion": 1
+        "ToolSearch": 3,
+        "AskUserQuestion": 1,
+        "Write": 60,
+        "ExitPlanMode": 1,
+        "TaskCreate": 9,
+        "TaskUpdate": 13,
+        "Edit": 23,
+        "Grep": 3
       },
-      "total_calls": 72,
-      "weight_total": 48
+      "total_calls": 226,
+      "weight_total": 177
     }
   ]
 }
