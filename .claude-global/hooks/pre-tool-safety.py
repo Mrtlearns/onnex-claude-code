@@ -49,7 +49,8 @@ BASH_BLOCKED = [
 BASH_CONFIRM = [
     # Git danger zone
     (r"git\s+push\s+(--force|-f)", "Force push can lose remote commits"),
-    (r"git\s+push\b(?!.*(-f|--force)).*\b(main|master)\b", "Direct push to main/master — confirm intent"),
+    # Note: direct push to main/master was moved to BASH_ALERT per user's
+    # "deploy autonomously" workflow — see feedback_deploy_autonomously.md.
     (r"git\s+reset\s+--hard",      "Loses all uncommitted changes"),
     (r"git\s+clean\s+-fd",         "Deletes untracked files permanently"),
     # Infrastructure
@@ -78,6 +79,7 @@ BASH_CONFIRM = [
 ]
 
 BASH_ALERT = [
+    (r"git\s+push\b(?!.*(-f|--force)).*\b(main|master)\b", "Direct push to main/master — allowed per autonomous-deploy rule, logging for audit"),
     (r"sudo\s+",                   "Sudo usage — elevated privilege"),
     (r"chmod\s+777",               "Permissive chmod — security concern"),
     (r"ssh.+StrictHostKeyChecking=no", "SSH host key checking disabled"),

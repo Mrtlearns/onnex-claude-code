@@ -67,8 +67,8 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 47,
-        "Read": 55,
+        "Bash": 51,
+        "Read": 57,
         "Glob": 9,
         "Agent": 2,
         "ToolSearch": 3,
@@ -77,11 +77,11 @@
         "ExitPlanMode": 1,
         "TaskCreate": 9,
         "TaskUpdate": 13,
-        "Edit": 23,
-        "Grep": 3
+        "Edit": 25,
+        "Grep": 4
       },
-      "total_calls": 226,
-      "weight_total": 177
+      "total_calls": 235,
+      "weight_total": 183
     }
   ]
 }

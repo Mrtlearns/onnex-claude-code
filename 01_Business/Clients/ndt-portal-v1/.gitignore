@@ -20,6 +20,14 @@ claude-token-store/raw_token.txt
 
 # Claude session state — local only, not shared
 .claude/state/
+api/.claude/
+frontend/.claude/
+files/.claude/
+pipeline/.claude/
+
+# Data files — large/sensitive, deploy separately
+files/*.csv
+files/*.xlsx
 
 # Logs
 *.log

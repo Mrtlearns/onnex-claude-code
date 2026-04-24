@@ -1,13 +1,13 @@
 # NDT Portal — Current Data
 
 > Update after each development session or client interaction.
-> Last updated: 2026-04-17
+> Last updated: 2026-04-23
 
 ## Development Status
 - Pipeline architecture: Complete
 - **Auth (OIDC/Authentik): Working end-to-end** — full login flow verified with Playwright 2026-04-07
 - **Email-to-quote pipeline: Working** — Gmail polling → classify → customer lookup → BOM match → UT quote → auto-reply (2026-04-14)
-- **Inbox UI: Live** — email quote detail modal with LLM extraction + part match display
+- **Inbox UI: Live** — email quote detail modal with LLM extraction + part match display; forwarded email parsing (2026-04-20)
 - ndtv1-comply service: Dockerized, in docker-compose stack
 - ndtv1-sanitize service: Dockerized, in docker-compose stack
 - ndtv1-gateway service: Dockerized, in docker-compose stack (Claude CLI provider added 2026-04-14)
@@ -18,6 +18,12 @@
 - UT calculator: Working — formulas aligned with Excel spreadsheet
 - Customer-specific rule sets: UI built (2026-04-09)
 - Workshop dashboard: SSE real-time, DB migration 027
+- **Pipeline Tester: Added** — `pipeline-tester.ts` API route + `UtPipelineTesterTab.tsx` frontend tab, DB migration 050 (2026-04-21)
+- **Quote fallback: Added** — unknown customer falls back to prospect defaults instead of 404 (2026-04-20)
+- **Forwarded email parsing: Fixed** — inbox route parses forwarded body for original sender; customer lookup on internal forward (2026-04-20)
+- **ndt-classify.ts: Added** — NDT classification helper module (2026-04-21)
+- **Permissions system: Extended** — `diagram-analyses.permissions.ts` + `inbox.permissions.ts` added (2026-04-21)
+- **Migrations 042–050: Applied** — internal sender, UT formula fixes, email domain, quote part lookup, UT link, 2026 pricing update, deferred customers, placeholders, pipeline test messages
 
 ## Auth Status (2026-04-09)
 - Authentik OIDC provider: Configured — implicit consent flow active
@@ -31,6 +37,16 @@
 - Playwright tests: Both passing — full flow + auto-redirect (9.0s total)
 - Stable JWT signing cert: Unmanaged RS256 cert in seed.py prevents Authentik auto-rotation issues
 - Auto re-login on 401: AuthContext handles expired tokens gracefully
+
+## CI/CD Status (2026-04-23)
+- **GitLab runner (`ndtv1-shell-runner`)**: Online — 503 error resolved
+  - Runner is registered to project `ndt-portal-v1` (ID 7, runner ID 1)
+  - Last successful pipeline: 2026-04-12
+  - Last failed pipeline: 2026-04-15 (job 213, `script_failure` — log expired)
+  - Runner was in exponential backoff after Apr 23 05:00 TLS cert error; now recovered and polling
+- **GitLab remote** (`gitlab.botonomy.xyz/mrt/ndt-portal-v1`): Synced to 2026-04-23 ✓
+- **GitHub remote** (`github.com/Mrtlearns/ndt-portal-v1`): Synced to 2026-04-23 ✓
+- **VM `/opt/ndt-portal`**: Current — all source files present, dist built 2026-04-22
 
 ## Docker Stack (20 services)
 traefik, postgres, postgrest-rt, postgrest-ut, nginx, gotenberg, n8n, msg-api, presidio-analyzer, comply, sanitize, gateway, api, nextcloud-db, nextcloud-redis, nextcloud-app, authentik-db, authentik-redis, authentik, authentik-worker
@@ -61,6 +77,14 @@ admin, bom, diagram-analyses, documents, email-checks, feedback, inbox, inspecti
 ## Recent Changes (since 2026-04-17)
 - Stage 2 model updated: anthropic/claude-sonnet-4-5 → anthropic/claude-sonnet-4-6 (rt-pipeline.ts)
 - current-data.md status corrected after full codebase audit — Stage 1, Stage 2, R3F renderer all complete
+- Pipeline Tester feature added (API route + UT frontend tab + DB migration)
+- Quote unknown-customer fallback to prospect defaults
+- Forwarded email parsing fix for original sender extraction
+- ndt-classify.ts helper module added
+- RBAC permissions files for diagram-analyses and inbox routes
+- Migrations 042–050 applied (email domain, UT formulas, pricing, deferred customers)
+- CI/CD: ndt-portal-v1 git repo initialized locally; synced to GitLab + GitHub (2026-04-23)
+- CLAUDE.md updated: manual deploy path documented, CI/CD 503 history noted
 
 ## Changes (2026-04-09 → 2026-04-15)
 - Email-to-quote pipeline built end-to-end (steps 8, 9, 11)
