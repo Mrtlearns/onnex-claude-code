@@ -7,3 +7,8 @@ scripts/package-lock.json
 
 # Deploy config — may contain credentials; use env vars instead
 scripts/_config.py
+
+# The Leptos dashboard's dist/ IS committed (axum include_bytes! embeds it at compile
+# time). Override any higher-level rule that ignores dist/.
+!crates/ai-sentinel-dashboard/dist/
+!crates/ai-sentinel-dashboard/dist/**

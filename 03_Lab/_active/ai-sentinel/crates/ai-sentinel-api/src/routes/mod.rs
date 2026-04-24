@@ -119,13 +119,42 @@ pub async fn ui_handler() -> impl IntoResponse {
     )
 }
 
-/// GET /dashboard — Phase 5 admin dashboard (HTML-first implementation;
-/// Leptos WASM bundle replaces this once trunk-built).
+/// GET /dashboard — Phase 5 admin dashboard (Leptos CSR, WASM bundle).
+/// Bundle built with `trunk build --release` from crates/ai-sentinel-dashboard; embedded
+/// here at compile time via include_bytes! so the service remains single-binary.
 pub async fn dashboard_handler() -> impl IntoResponse {
     (
         axum::http::StatusCode::OK,
         [("content-type", "text/html; charset=utf-8")],
+        include_str!("../../../ai-sentinel-dashboard/dist/index.html"),
+    )
+}
+
+/// Fallback: the pre-Leptos HTML dashboard. Useful when a runtime change breaks the WASM
+/// bundle or during a browser-side WASM outage. Served at /dashboard-html.
+pub async fn dashboard_html_fallback_handler() -> impl IntoResponse {
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "text/html; charset=utf-8")],
         include_str!("../../static/dashboard.html"),
+    )
+}
+
+/// GET /dashboard/ai-sentinel-dashboard.js — WASM loader script.
+pub async fn dashboard_js_handler() -> impl IntoResponse {
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "application/javascript; charset=utf-8")],
+        include_str!("../../../ai-sentinel-dashboard/dist/ai-sentinel-dashboard.js"),
+    )
+}
+
+/// GET /dashboard/ai-sentinel-dashboard_bg.wasm — compiled WASM binary.
+pub async fn dashboard_wasm_handler() -> impl IntoResponse {
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "application/wasm")],
+        include_bytes!("../../../ai-sentinel-dashboard/dist/ai-sentinel-dashboard_bg.wasm").as_slice(),
     )
 }
 

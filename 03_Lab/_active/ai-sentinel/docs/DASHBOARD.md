@@ -30,31 +30,52 @@ Leptos CSR crate (`crates/ai-sentinel-dashboard/`) is scaffolded for a future ri
 build. Everything the HTML dashboard does today is exposed as clean JSON API endpoints,
 so the Leptos replacement is a drop-in.
 
-## Leptos dashboard — build status
+## Leptos dashboard — build
 
-**Shipping:** HTML+Tailwind at `/dashboard` (`crates/ai-sentinel-api/static/dashboard.html`).
+**Shipping Leptos CSR** at `/dashboard`. Bundle: ~625 KB total (51 KB JS loader + 572 KB WASM + 1 KB HTML). Pre-Leptos HTML dashboard remains available at `/dashboard-html` as a fallback for any browser that can't run WASM.
 
-**Scaffolded (not yet compiling to WASM):** `crates/ai-sentinel-dashboard/` holds the
-Leptos 0.6 CSR source (Router, pages, API bindings, auth, Tailwind CSS via CDN).
+### Building locally
 
-**Toolchain provisioned on the build VM:**
-- `rustup target add wasm32-unknown-unknown` — done
-- `trunk 0.21.14` — installed from pre-built tarball at
-  `https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz`
-  (avoids `cargo install trunk` OOM on 8GB VM with no swap)
-- Cargo.toml — inlined deps (no `workspace = true`) so the crate builds standalone
+```bash
+# One-time — install the wasm target
+rustup target add wasm32-unknown-unknown
 
-**Remaining follow-up work** to produce a WASM bundle:
-- Resolve remaining Leptos/`gloo-net 0.5` API mismatches in `src/api.rs` and `src/pages.rs`:
-  - `Request::headers()` returns a `Headers` handle (needs `set_*`, no `header(k,v)` builder)
-  - `create_resource` requires `T: Serializable` — all DTOs need `#[derive(Serialize, Deserialize)]`
-  - `resp.json::<T>()` returns a future of `Result<T, gloo_net::Error>` — can't `.map_err` the future directly; `await` first
-- Add explicit type annotations where the compiler asks (leptos `children=...` closures)
-- `trunk build --release` to produce `dist/index.html` + `*.wasm` + `*.js`
-- Add `rust-embed` (or `tower-http::ServeDir`) handler in `ai-sentinel-api/src/main.rs`
-  to serve `/dashboard/*` from the embedded/on-disk bundle instead of the single-file
-  `include_str!` we have now
-- Cut over `/dashboard` route handler to the new bundle
+# One-time — install trunk. On low-RAM hosts prefer the pre-built tarball over
+# `cargo install trunk`, which needs ~4 GB to compile from source:
+wget https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf trunk-x86_64-unknown-linux-gnu.tar.gz -C ~/.cargo/bin/
+
+# Build the WASM bundle. Trunk.toml pins public_url=/dashboard/ and filehash=false so
+# filenames are stable for include_bytes!.
+cd crates/ai-sentinel-dashboard && trunk build --release
+```
+
+Output lands in `crates/ai-sentinel-dashboard/dist/`:
+- `index.html` — entrypoint with the WASM loader script
+- `ai-sentinel-dashboard.js` — bindgen loader (~51 KB)
+- `ai-sentinel-dashboard_bg.wasm` — compiled app (~572 KB)
+
+All three are `include_bytes!`-embedded into the `ai-sentinel-api` binary at compile time, so the service ships as a single binary.
+
+### Serving
+
+Axum route table (in `ai-sentinel-api/src/main.rs`):
+
+| Route | Served file |
+|-------|-------------|
+| `GET /dashboard` | `dist/index.html` |
+| `GET /dashboard/` | same |
+| `GET /dashboard/ai-sentinel-dashboard.js` | JS loader |
+| `GET /dashboard/ai-sentinel-dashboard_bg.wasm` | WASM binary |
+| `GET /dashboard-html` | Legacy HTML fallback |
+
+### When you edit the dashboard
+
+1. Rebuild WASM: `cd crates/ai-sentinel-dashboard && trunk build --release`
+2. Rebuild binary: `docker compose build agentsec`
+3. `docker compose up -d --force-recreate agentsec`
+
+The committed `dist/` is the source of truth for the binary — the Dockerfile doesn't run trunk, so `dist/` must be present and current when you rebuild the image.
 
 ## Endpoints Reference
 

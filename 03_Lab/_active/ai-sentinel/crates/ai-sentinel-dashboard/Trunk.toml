@@ -1,6 +1,12 @@
 [build]
 target = "index.html"
 release = false
+# Stable filenames so axum can reference them via include_bytes!. Acceptable because the
+# dashboard is served with short cache headers (no need for cache-busting hash).
+filehash = false
+# Scope all emitted URLs under /dashboard/ so the single-binary service can host the UI
+# alongside /admin, /health, /check etc.
+public_url = "/dashboard/"
 
 [watch]
 ignore = ["target", "dist"]
