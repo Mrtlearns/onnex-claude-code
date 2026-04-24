@@ -1,0 +1,10 @@
+[build]
+target = "index.html"
+release = false
+
+[watch]
+ignore = ["target", "dist"]
+
+[serve]
+address = "127.0.0.1"
+port = 8787

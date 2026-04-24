@@ -1,0 +1,39 @@
+module: legal-pi
+version: 1
+license_tier: pro
+description: |
+  Plaintiff personal-injury law rule set. Protects privileged matter and client
+  confidentiality; flags work that could waive privilege.
+
+rules:
+  - name: privilege-markers-require-internal-model
+    trigger: prompt_ingress
+    priority: 100
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(attorney[- ]client|work[- ]product|privileged (?:and|&) confidential)\\b"
+    actions:
+      - type: route_to_model
+        target_model: internal-llama-legal
+        audit_tag: legal-privileged-routed
+
+  - name: block-settlement-amounts-egress
+    trigger: prompt_egress
+    priority: 80
+    conditions:
+      any_of:
+        - regex: "(?i)\\bsettlement\\s+(amount|offer|value)\\s*[:=]?\\s*\\$?\\s*\\d"
+    actions:
+      - type: redact
+        replacement: "[SETTLEMENT]"
+        audit_tag: legal-settlement-redacted
+
+  - name: flag-opposing-counsel-mention
+    trigger: prompt_ingress
+    priority: 40
+    conditions:
+      any_of:
+        - regex: "(?i)\\bopposing\\s+counsel\\b"
+    actions:
+      - type: warn
+        message: "Mentioning opposing counsel — ensure any discussion is properly scoped within privilege."

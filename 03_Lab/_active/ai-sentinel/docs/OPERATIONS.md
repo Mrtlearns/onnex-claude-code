@@ -201,8 +201,99 @@ curl -X POST https://ai-sentinel.on-nex.us/admin/estop/lift \
 | 2 | Semantic Intent + Egress Inspection | ✅ Complete |
 | 3 | Python SDK + SaaS + Multi-tenant | ✅ Complete |
 | 4 | Gateway MVP (TLS MITM proxy) | ✅ Complete — 3 gates pending before prod rollout |
-| 5 | Full pipeline in gateway, rcgen 0.14, cert pinning | 🔲 Planned |
-| 6 | Transparent iptables REDIRECT mode | 🔲 Planned |
+| 5 | Modular Platform (rules/optimizer/context/dashboard) | ✅ Code Complete |
+| 6 | Full pipeline in gateway, rcgen 0.14, cert pinning | 🔲 Planned |
+| 7 | Transparent iptables REDIRECT mode | 🔲 Planned |
+
+---
+
+## Module CRUD (Phase 5)
+
+Every module (rule set, optimizer, context bank) has the same lifecycle: created, updated
+(versioned), enabled/disabled, reverted, or deleted. Every action is audit-logged.
+
+### List + toggle
+
+```bash
+# List all modules the current license tier can see
+curl -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  https://ai-sentinel.on-nex.us/admin/modules | jq '.modules[] | {id, name, kind, enabled}'
+
+# Enable K-12 (replace :id with the actual id from the list)
+curl -X POST -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  https://ai-sentinel.on-nex.us/admin/modules/3/enable
+
+# Disable
+curl -X POST -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  https://ai-sentinel.on-nex.us/admin/modules/3/disable
+```
+
+### Update a rule set (optimistic concurrency)
+
+```bash
+# Fetch current version + yaml
+curl -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  https://ai-sentinel.on-nex.us/admin/modules/3 | jq '{version: .module.current_version, yaml: .config_yaml}'
+
+# Edit yaml locally, then PUT with If-Match
+curl -X PUT \
+  -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  -H "If-Match: 1" \
+  -H "Content-Type: application/json" \
+  -d "{\"config_yaml\": $(jq -Rs . < k12-new.yaml)}" \
+  https://ai-sentinel.on-nex.us/admin/modules/3
+```
+
+If someone else has bumped the version meanwhile, you get `412 Precondition Failed`.
+
+### Revert to a prior version
+
+```bash
+curl -X POST -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  https://ai-sentinel.on-nex.us/admin/modules/3/revert/2
+```
+
+This creates a new version whose content equals version 2. History stays intact.
+
+### Validate + dry-run rules before saving
+
+```bash
+# Validate
+curl -X POST \
+  -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"yaml\": $(jq -Rs . < new-rules.yaml)}" \
+  https://ai-sentinel.on-nex.us/admin/rules/validate
+
+# Dry-run against a sample prompt
+curl -X POST \
+  -H "Authorization: Bearer $AI_SENTINEL_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"yaml":"...","trigger":"prompt_ingress","content":"solve my homework"}' \
+  https://ai-sentinel.on-nex.us/admin/rules/dry-run
+```
+
+### Offline linter
+
+```bash
+# Catches bad YAML / invalid regex before the rule set hits production
+cargo run --bin rules-lint -- config/modules/*.yaml
+```
+
+### License tier
+
+Set `AI_SENTINEL_LICENSE_TIER` in `/opt/ai-sentinel/.env`:
+
+- `basic` — basic-tier modules only
+- `pro` — basic + pro
+- `enterprise` — all (default)
+
+Restart to take effect. Out-of-tier modules are hidden from `/admin/modules`.
+
+### Dashboard
+
+Operators should normally use the dashboard at `https://ai-sentinel.on-nex.us/dashboard`
+instead of curl. See `docs/DASHBOARD.md`.
 
 ---
 

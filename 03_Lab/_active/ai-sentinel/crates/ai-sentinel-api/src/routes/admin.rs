@@ -92,7 +92,7 @@ pub async fn audit_verify_handler(
     if !check_admin_token(&state, extract_bearer(&headers)) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
-    match state.audit.verify() {
+    match state.audit.verify().await {
         Ok(count) => (StatusCode::OK, Json(json!({
             "status": "ok",
             "records_verified": count,

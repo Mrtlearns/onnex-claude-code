@@ -10,9 +10,12 @@ use ai_sentinel_core::{AppConfig, Pipeline, TelemetryEvent};
 use ai_sentinel_feed::LiveSignatures;
 use ai_sentinel_store::MemoryStore;
 use ai_sentinel_layers::AuditChain;
+use ai_sentinel_modules::{LicenseTier, PostgresModuleStore};
+use ai_sentinel_rules::PolicyEngine;
 use crate::metrics::MetricsRegistry;
 
 pub mod admin;
+pub mod admin_modules;
 pub mod check;
 pub mod health;
 pub mod ws;
@@ -29,6 +32,13 @@ pub struct AppState {
     pub metrics: Arc<MetricsRegistry>,
     /// Broadcast sender for real-time telemetry streaming to /ws/telemetry clients.
     pub broadcast_tx: broadcast::Sender<TelemetryEvent>,
+
+    // Phase 5 additions — all optional so the binary still runs without Postgres
+    // (local dev, unit tests). Routes that need them return 503 if absent.
+    pub db: Option<sqlx::PgPool>,
+    pub module_store: Option<Arc<PostgresModuleStore>>,
+    pub policy_engine: Arc<PolicyEngine>,
+    pub license_tier: LicenseTier,
 }
 
 /// GET /metrics — Prometheus text format
@@ -100,12 +110,22 @@ pub async fn live_handler() -> impl IntoResponse {
     )
 }
 
-/// GET /ui — Built-in admin dashboard (embedded at compile time)
+/// GET /ui — Legacy built-in admin UI (embedded at compile time)
 pub async fn ui_handler() -> impl IntoResponse {
     (
         axum::http::StatusCode::OK,
         [("content-type", "text/html; charset=utf-8")],
         include_str!("../../static/ui.html"),
+    )
+}
+
+/// GET /dashboard — Phase 5 admin dashboard (HTML-first implementation;
+/// Leptos WASM bundle replaces this once trunk-built).
+pub async fn dashboard_handler() -> impl IntoResponse {
+    (
+        axum::http::StatusCode::OK,
+        [("content-type", "text/html; charset=utf-8")],
+        include_str!("../../static/dashboard.html"),
     )
 }
 

@@ -1,0 +1,37 @@
+module: education-higher-ed
+version: 1
+license_tier: pro
+description: |
+  Higher education rule set. Permits research and analytical work; warns on direct
+  assignment copying and flags plagiarism-risk phrasing.
+
+rules:
+  - name: warn-direct-copy
+    trigger: prompt_ingress
+    priority: 80
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(write|produce) (me|us) (a|an) (essay|paper|thesis|dissertation)\\b"
+        - regex: "(?i)\\bcopy[- ]?pasteable (version|answer)\\b"
+    actions:
+      - type: warn
+        message: "Note: submitting AI-generated text as your own is plagiarism under most institutional policies."
+
+  - name: research-scope-ok
+    trigger: prompt_ingress
+    priority: 10
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(explain|analyze|compare|contrast|summarize|derive|critique)\\b"
+    actions:
+      - type: allow
+
+  - name: flag-exam-terms
+    trigger: prompt_ingress
+    priority: 60
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(take[- ]home|closed[- ]book|proctored|final) (exam|test)\\b"
+    actions:
+      - type: warn
+        message: "This session has been tagged as potentially exam-related for instructor review."

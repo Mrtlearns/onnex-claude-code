@@ -12,6 +12,10 @@ ai-sentinel-core = { path = "../ai-sentinel-core" }
 ai-sentinel-layers = { path = "../ai-sentinel-layers" }
 ai-sentinel-feed = { path = "../ai-sentinel-feed" }
 ai-sentinel-store = { path = "../ai-sentinel-store" }
+ai-sentinel-modules = { path = "../ai-sentinel-modules" }
+ai-sentinel-rules = { path = "../ai-sentinel-rules" }
+ai-sentinel-optimizer = { path = "../ai-sentinel-optimizer" }
+ai-sentinel-context = { path = "../ai-sentinel-context" }
 async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -35,3 +39,5 @@ utoipa = { workspace = true }
 utoipa-scalar = { workspace = true }
 config = { workspace = true }
 dashmap = { workspace = true }
+sqlx = { workspace = true }
+serde_yaml = { workspace = true }

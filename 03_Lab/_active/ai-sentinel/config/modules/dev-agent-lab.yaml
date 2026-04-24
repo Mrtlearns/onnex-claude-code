@@ -1,0 +1,38 @@
+module: dev-agent-lab
+version: 1
+license_tier: basic
+description: |
+  Internal dev/test rule set. Permissive baseline — useful for lab testing of agent
+  flows. Emits warnings instead of rejections so you can observe what *would* have fired.
+
+rules:
+  - name: observe-injection-attempts
+    trigger: prompt_ingress
+    priority: 10
+    conditions:
+      any_of:
+        - regex: "(?i)ignore (all )?previous instructions"
+        - regex: "(?i)disregard (all )?(system|prior) (prompt|instructions)"
+        - regex: "(?i)you are now (DAN|unrestricted|jailbroken)"
+    actions:
+      - type: warn
+        message: "Observed prompt-injection pattern (dev lab — not blocking)."
+
+  - name: observe-secret-like-ingress
+    trigger: prompt_ingress
+    priority: 10
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(AKIA|ASIA)[A-Z0-9]{16}\\b"
+        - regex: "(?i)\\bsk-[A-Za-z0-9_\\-]{30,}\\b"
+    actions:
+      - type: warn
+        message: "Observed credential-shaped input (dev lab)."
+
+  - name: always-allow
+    trigger: prompt_egress
+    priority: 1
+    conditions:
+      always: null
+    actions:
+      - type: allow

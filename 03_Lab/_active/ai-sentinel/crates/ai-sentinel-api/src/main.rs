@@ -16,7 +16,10 @@ use ai_sentinel_layers::{
     L1Sanitization, L2Auth, L2Mcp, L2Threat, L2Trust,
     L3Intent, L4Tools, L5Sandbox, L6Output, AuditChain,
 };
+use ai_sentinel_modules::{LicenseTier, PostgresModuleStore};
+use ai_sentinel_rules::PolicyEngine;
 
+mod bootstrap;
 mod metrics;
 mod routes;
 
@@ -41,6 +44,25 @@ async fn main() -> anyhow::Result<()> {
 
     info!(version = env!("CARGO_PKG_VERSION"), "ai-sentinel starting");
 
+    // Optional Postgres — required for persistent audit, modules, context. Missing in
+    // local dev mode is fine: we fall back to in-memory audit and skip module/context.
+    let db = match std::env::var("AI_SENTINEL_DB_URL") {
+        Ok(url) => match ai_sentinel_store::connect_and_migrate(&url).await {
+            Ok(pool) => {
+                info!("postgres connected + migrations applied");
+                Some(pool)
+            }
+            Err(e) => {
+                warn!(error = %e, "postgres unavailable — running in in-memory mode");
+                None
+            }
+        },
+        Err(_) => {
+            warn!("AI_SENTINEL_DB_URL not set — running in in-memory mode");
+            None
+        }
+    };
+
     // Initialize live signatures
     let signatures = LiveSignatures::new(SignatureSet::default());
 
@@ -48,8 +70,45 @@ async fn main() -> anyhow::Result<()> {
     let feed_worker = FeedWorker::new(signatures.clone(), config.clone());
     let feed_refresh_tx = feed_worker.spawn();
 
-    // Initialize audit chain
-    let audit = Arc::new(AuditChain::new());
+    // Initialize audit chain — Postgres-backed when the pool is available.
+    let audit = match &db {
+        Some(pool) => {
+            match AuditChain::with_postgres(pool.clone()).await {
+                Ok(c) => Arc::new(c),
+                Err(e) => {
+                    warn!(error = %e, "audit: postgres init failed — falling back to in-memory");
+                    Arc::new(AuditChain::new())
+                }
+            }
+        }
+        None => Arc::new(AuditChain::new()),
+    };
+
+    // Module store & policy engine
+    let module_store = match &db {
+        Some(pool) => match PostgresModuleStore::new(pool.clone()).await {
+            Ok(s) => Some(Arc::new(s)),
+            Err(e) => {
+                warn!(error = %e, "module store init failed — module admin API disabled");
+                None
+            }
+        },
+        None => None,
+    };
+    let policy_engine = Arc::new(PolicyEngine::new());
+    let license_tier = LicenseTier::parse(
+        &std::env::var("AI_SENTINEL_LICENSE_TIER").unwrap_or_else(|_| "enterprise".to_string()),
+    );
+
+    // Preseed + hot-load active rule modules into the policy engine.
+    if let Some(ms) = module_store.as_ref() {
+        if let Err(e) = bootstrap::preseed_if_empty(ms.as_ref()).await {
+            warn!(error = %e, "bootstrap: preseed skipped");
+        }
+        if let Err(e) = bootstrap::load_active_into_engine(ms.as_ref(), &policy_engine).await {
+            warn!(error = %e, "bootstrap: policy engine load failed");
+        }
+    }
 
     // Initialize e-stop flag
     let e_stop = Arc::new(AtomicBool::new(false));
@@ -70,21 +129,25 @@ async fn main() -> anyhow::Result<()> {
     let l3 = L3Intent::new(&config);
     let l6 = L6Output::new(&config)
         .map_err(|e| anyhow::anyhow!("L6 init: {}", e))?;
+    let l8 = ai_sentinel_optimizer::L8Optimizer::new(Default::default());
 
-    let pipeline = Arc::new(Pipeline::new(vec![
-        Arc::new(l1),
-        Arc::new(l2_auth),
-        Arc::new(l2_trust),
-        Arc::new(l2_threat),
-        Arc::new(l2_mcp),
-        Arc::new(l3),
-        Arc::new(l4),
-        Arc::new(l5),
-        Arc::new(l6),
-    ]));
+    let pipeline = Arc::new(
+        Pipeline::new(vec![
+            Arc::new(l1),
+            Arc::new(l2_auth),
+            Arc::new(l2_trust),
+            Arc::new(l2_threat),
+            Arc::new(l2_mcp),
+            Arc::new(l8), // L8 optimizer: semantic cache + model routing (ingress)
+            Arc::new(l3),
+            Arc::new(l4),
+            Arc::new(l5),
+            Arc::new(l6),
+        ])
+        .with_policy(policy_engine.clone()),
+    );
 
     // Broadcast channel for real-time telemetry streaming to /ws/telemetry clients.
-    // Buffer 1024 events. Slow/absent subscribers receive RecvError::Lagged (not an error).
     let (broadcast_tx, _broadcast_rx) = broadcast::channel::<TelemetryEvent>(1024);
 
     // Build app state
@@ -99,6 +162,10 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
         metrics: metrics_registry,
         broadcast_tx,
+        db: db.clone(),
+        module_store,
+        policy_engine,
+        license_tier,
     });
 
     // Build router
@@ -112,6 +179,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/metrics", get(routes::metrics_handler))
         .route("/openapi.json", get(routes::openapi_handler))
         .route("/ui", get(routes::ui_handler))
+        .route("/dashboard", get(routes::dashboard_handler))
         .route("/docs", get(routes::docs_handler))
         .route("/presentation.pdf", get(routes::presentation_pdf_handler))
         .route("/admin/estop", post(routes::admin::estop_handler))
@@ -119,6 +187,16 @@ async fn main() -> anyhow::Result<()> {
         .route("/admin/feed/refresh", post(routes::admin::feed_refresh_handler))
         .route("/admin/signatures", get(routes::admin::signatures_handler))
         .route("/admin/audit/verify", get(routes::admin::audit_verify_handler))
+        // Phase 5 admin module CRUD
+        .route("/admin/modules", get(routes::admin_modules::list_modules))
+        .route("/admin/modules/:id", get(routes::admin_modules::get_module).put(routes::admin_modules::update_module).delete(routes::admin_modules::delete_module))
+        .route("/admin/modules/:id/enable", post(routes::admin_modules::enable_module))
+        .route("/admin/modules/:id/disable", post(routes::admin_modules::disable_module))
+        .route("/admin/modules/:id/versions", get(routes::admin_modules::list_versions))
+        .route("/admin/modules/:id/revert/:version", post(routes::admin_modules::revert_module))
+        .route("/admin/modules/:id/audit", get(routes::admin_modules::module_audit))
+        .route("/admin/rules/validate", post(routes::admin_modules::validate_rules_yaml))
+        .route("/admin/rules/dry-run", post(routes::admin_modules::dry_run_rules))
         .with_state(state);
 
     let bind = format!("{}:{}", config.host, config.port);

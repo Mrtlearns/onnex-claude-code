@@ -1,0 +1,44 @@
+module: corporate-default
+version: 1
+license_tier: basic
+description: |
+  Corporate baseline rule set. Blocks obvious secrets leakage, strict egress PII, and
+  unknown-provider routing. Suitable as a default for any enterprise customer.
+
+rules:
+  - name: block-secrets-ingress
+    trigger: prompt_ingress
+    priority: 100
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(AKIA|ASIA)[A-Z0-9]{16}\\b"
+        - regex: "(?i)\\bghp_[A-Za-z0-9]{36,}\\b"
+        - regex: "(?i)\\bsk-(?:proj-|ant-)?[A-Za-z0-9_\\-]{30,}\\b"
+        - regex: "(?i)(-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----)"
+    actions:
+      - type: reject
+        user_message: "This request appears to contain a credential or secret and has been blocked."
+        audit_tag: corp-secret-blocked
+        severity: critical
+
+  - name: strict-egress-pii
+    trigger: prompt_egress
+    priority: 80
+    conditions:
+      any_of:
+        - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"                      # SSN
+        - regex: "\\b(?:\\d[ -]*?){13,16}\\b"                      # credit card
+        - regex: "(?i)\\b(password|pwd|passwd)\\s*[:=]\\s*\\S+"
+    actions:
+      - type: redact
+        replacement: "[REDACTED]"
+        audit_tag: corp-egress-pii
+
+  - name: cost-guardrail
+    trigger: cost_threshold
+    priority: 50
+    conditions:
+      cost_gt: 5.0
+    actions:
+      - type: warn
+        message: "Per-session LLM spend above $5 — operator notification sent."

@@ -23,7 +23,7 @@ async fn test_audit_chain_clean() {
     sleep(Duration::from_millis(100)).await;
 
     // Verify chain integrity
-    let result = chain.verify();
+    let result = chain.verify().await;
     assert!(result.is_ok(), "clean chain should verify: {:?}", result);
     assert_eq!(result.unwrap(), 5, "should have 5 records");
 }
@@ -44,7 +44,7 @@ async fn test_audit_chain_detects_tamper() {
 #[tokio::test]
 async fn test_audit_empty_chain_verifies() {
     let chain = AuditChain::new();
-    let result = chain.verify();
+    let result = chain.verify().await;
     assert!(result.is_ok(), "empty chain should verify");
     assert_eq!(result.unwrap(), 0);
 }

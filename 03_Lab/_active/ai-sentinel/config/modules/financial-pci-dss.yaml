@@ -1,0 +1,45 @@
+module: financial-pci-dss
+version: 1
+license_tier: enterprise
+description: |
+  PCI-DSS rule set. Blocks cardholder data (PAN, CVV, full track) in any direction and
+  forces audit logging on any attempt.
+
+rules:
+  - name: block-pan
+    trigger: prompt_ingress
+    priority: 100
+    conditions:
+      any_of:
+        - regex: "\\b4\\d{3}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{4}\\b"        # Visa
+        - regex: "\\b5[1-5]\\d{2}[ -]?\\d{4}[ -]?\\d{4}[ -]?\\d{4}\\b"   # Mastercard
+        - regex: "\\b3[47]\\d{2}[ -]?\\d{6}[ -]?\\d{5}\\b"               # Amex
+    actions:
+      - type: reject
+        user_message: "Cardholder data (PAN) detected and blocked per PCI-DSS."
+        audit_tag: pci-pan-blocked
+        severity: critical
+
+  - name: block-cvv
+    trigger: prompt_ingress
+    priority: 95
+    conditions:
+      any_of:
+        - regex: "(?i)\\bcvv?\\s*[:=]\\s*\\d{3,4}\\b"
+    actions:
+      - type: reject
+        user_message: "CVV data cannot be sent to AI services under PCI-DSS."
+        audit_tag: pci-cvv-blocked
+        severity: critical
+
+  - name: block-pan-egress
+    trigger: prompt_egress
+    priority: 90
+    conditions:
+      any_of:
+        - regex: "\\b(?:\\d[ -]*?){13,16}\\b"
+    actions:
+      - type: reject
+        user_message: "Outbound content contained card-number-shaped data."
+        audit_tag: pci-pan-egress-blocked
+        severity: high

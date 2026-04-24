@@ -1,0 +1,49 @@
+module: healthcare-hipaa
+version: 1
+license_tier: enterprise
+description: |
+  HIPAA-aware rule set. Blocks PHI patterns in ingress/egress, refuses routes to providers
+  without a signed BAA, and enforces minimum-necessary logging.
+
+rules:
+  - name: block-phi-ingress
+    trigger: prompt_ingress
+    priority: 100
+    conditions:
+      any_of:
+        - regex: "(?i)\\bmrn\\s*[:#]?\\s*\\d{6,}\\b"
+        - regex: "(?i)\\b(patient|pt)\\s+name\\s*[:=]"
+        - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"              # SSN
+        - regex: "(?i)\\b(diagnos(ed|is)|icd[- ]?10)\\b"
+    actions:
+      - type: reject
+        user_message: "Protected Health Information (PHI) detected and blocked per HIPAA safeguards."
+        audit_tag: hipaa-phi-blocked
+        severity: critical
+
+  - name: phi-egress-redact
+    trigger: prompt_egress
+    priority: 90
+    conditions:
+      any_of:
+        - regex: "(?i)\\bmrn\\s*[:#]?\\s*\\d{6,}\\b"
+        - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+    actions:
+      - type: redact
+        replacement: "[PHI]"
+        audit_tag: hipaa-phi-egress-redacted
+
+  - name: baa-only-providers
+    trigger: tool_call
+    priority: 70
+    description: >-
+      Rust regex has no negative look-ahead, so this enumerates known non-BAA providers
+      to block. Keep this list synced with the BAA-approved provider registry.
+    conditions:
+      any_of:
+        - regex: "(?i)provider\\s*=\\s*(openai-public|anthropic-public|google-public|groq|together|mistral-public|ollama-local)"
+    actions:
+      - type: reject
+        user_message: "Only providers with a signed BAA are permitted."
+        audit_tag: hipaa-no-baa
+        severity: high

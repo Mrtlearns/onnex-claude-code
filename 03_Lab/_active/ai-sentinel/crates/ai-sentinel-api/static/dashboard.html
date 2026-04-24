@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>AI-Sentinel — Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+    .chip-pro { background: #312e81; color: #e0e7ff; }
+    .chip-basic { background: #1e293b; color: #cbd5e1; }
+    .chip-enterprise { background: #134e4a; color: #ccfbf1; }
+    .chip-on { background: #064e3b; color: #a7f3d0; }
+    .chip-off { background: #450a0a; color: #fecaca; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+<div class="flex min-h-screen">
+  <aside class="w-64 bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-2">
+    <h1 class="text-xl font-semibold mb-6">AI-Sentinel</h1>
+    <nav class="flex flex-col gap-1">
+      <a href="#overview"  data-tab="overview"  class="tab px-3 py-2 rounded hover:bg-slate-800">Overview</a>
+      <a href="#modules"   data-tab="modules"   class="tab px-3 py-2 rounded hover:bg-slate-800">Modules</a>
+      <a href="#audit"     data-tab="audit"     class="tab px-3 py-2 rounded hover:bg-slate-800">Audit</a>
+      <a href="#dry-run"   data-tab="dry-run"   class="tab px-3 py-2 rounded hover:bg-slate-800">Dry-run</a>
+    </nav>
+    <div class="mt-auto text-xs text-slate-500">v5.0 — Modular Platform</div>
+  </aside>
+
+  <main class="flex-1 p-8 overflow-y-auto">
+    <div id="auth-bar" class="mb-6 flex items-center gap-3">
+      <input id="token" type="password" placeholder="Admin Bearer token"
+             class="px-3 py-2 rounded bg-slate-900 border border-slate-800 w-96"/>
+      <button id="save-token" class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm">Save</button>
+      <span id="auth-status" class="text-sm text-slate-400"></span>
+    </div>
+
+    <section id="tab-overview" class="tab-pane">
+      <h2 class="text-2xl font-semibold mb-2">Overview</h2>
+      <p class="text-slate-400 mb-6">AI-Sentinel v5.0 — modular rule sets, token optimizer, context bank.</p>
+      <div id="overview-stats" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </section>
+
+    <section id="tab-modules" class="tab-pane hidden">
+      <h2 class="text-2xl font-semibold mb-4">Modules</h2>
+      <div id="module-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </section>
+
+    <section id="tab-audit" class="tab-pane hidden">
+      <h2 class="text-2xl font-semibold mb-4">Audit Chain Verification</h2>
+      <pre id="audit-out" class="rounded bg-slate-900 border border-slate-800 p-4 overflow-x-auto text-sm"></pre>
+    </section>
+
+    <section id="tab-dry-run" class="tab-pane hidden">
+      <h2 class="text-2xl font-semibold mb-4">Rules Dry-run</h2>
+      <label class="block text-sm text-slate-400 mb-1">YAML</label>
+      <textarea id="dr-yaml" class="w-full h-48 rounded bg-slate-900 border border-slate-800 p-3 font-mono text-sm mb-3"
+        placeholder="module: test-k12&#10;version: 1&#10;rules:&#10;  - name: r&#10;    trigger: prompt_ingress&#10;    conditions: { regex: '(?i)homework' }&#10;    actions: [ { type: reject, user_message: 'no' } ]"></textarea>
+      <label class="block text-sm text-slate-400 mb-1">Trigger</label>
+      <select id="dr-trigger" class="rounded bg-slate-900 border border-slate-800 p-2 mb-3">
+        <option value="prompt_ingress">prompt_ingress</option>
+        <option value="prompt_egress">prompt_egress</option>
+        <option value="tool_call">tool_call</option>
+        <option value="session_start">session_start</option>
+        <option value="session_end">session_end</option>
+        <option value="cost_threshold">cost_threshold</option>
+        <option value="token_budget_exceeded">token_budget_exceeded</option>
+      </select>
+      <label class="block text-sm text-slate-400 mb-1">Sample prompt content</label>
+      <input id="dr-content" class="w-full rounded bg-slate-900 border border-slate-800 p-3 mb-4"
+             placeholder="solve my homework"/>
+      <button id="dr-run" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500">Dry-run</button>
+      <pre id="dr-out" class="mt-6 rounded bg-slate-900 border border-slate-800 p-4 overflow-x-auto text-sm"></pre>
+    </section>
+  </main>
+</div>
+
+<script>
+const TOKEN_KEY = 'ai_sentinel_admin_token';
+
+function token() { return sessionStorage.getItem(TOKEN_KEY) || ''; }
+function hdrs() { return token() ? { 'Authorization': 'Bearer ' + token() } : {}; }
+
+document.getElementById('save-token').onclick = () => {
+  const t = document.getElementById('token').value.trim();
+  if (!t) return;
+  sessionStorage.setItem(TOKEN_KEY, t);
+  document.getElementById('auth-status').textContent = 'Token saved';
+  document.getElementById('token').value = '';
+  refresh();
+};
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  const pane = document.getElementById('tab-' + name);
+  if (pane) pane.classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('bg-slate-800'));
+  const a = document.querySelector(`[data-tab="${name}"]`);
+  if (a) a.classList.add('bg-slate-800');
+}
+
+document.querySelectorAll('.tab').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    switchTab(a.dataset.tab);
+    refresh();
+  });
+});
+
+async function loadModules() {
+  const grid = document.getElementById('module-grid');
+  grid.innerHTML = '<p class="text-slate-400">Loading...</p>';
+  try {
+    const r = await fetch('/admin/modules', { headers: hdrs() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    grid.innerHTML = '';
+    for (const m of data.modules || []) {
+      const card = document.createElement('div');
+      card.className = 'rounded-lg border border-slate-800 bg-slate-900 p-5';
+      card.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-semibold">${m.name}</div>
+            <div class="text-xs text-slate-400 mt-1">
+              <span class="chip chip-${m.license_tier}">${m.license_tier}</span>
+              <span class="ml-1 text-slate-500">${m.kind}</span>
+              <span class="ml-1 text-slate-500">v${m.current_version}</span>
+            </div>
+          </div>
+          <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" ${m.enabled ? 'checked' : ''} class="toggle" data-id="${m.id}"/>
+            <span class="ml-2 text-sm ${m.enabled ? 'text-emerald-400' : 'text-slate-500'}">
+              ${m.enabled ? 'enabled' : 'disabled'}
+            </span>
+          </label>
+        </div>
+        <p class="text-sm text-slate-400 mt-3">${m.description || ''}</p>
+      `;
+      grid.appendChild(card);
+    }
+    grid.querySelectorAll('.toggle').forEach(t => {
+      t.addEventListener('change', async ev => {
+        const id = ev.target.dataset.id;
+        const path = ev.target.checked ? `/admin/modules/${id}/enable` : `/admin/modules/${id}/disable`;
+        await fetch(path, { method: 'POST', headers: hdrs() });
+        loadModules();
+      });
+    });
+  } catch (e) {
+    grid.innerHTML = `<p class="text-red-400">${e.message} — is your admin token correct?</p>`;
+  }
+}
+
+async function loadAudit() {
+  const out = document.getElementById('audit-out');
+  try {
+    const r = await fetch('/admin/audit/verify', { headers: hdrs() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    out.textContent = JSON.stringify(await r.json(), null, 2);
+  } catch (e) {
+    out.textContent = 'error: ' + e.message;
+  }
+}
+
+async function loadOverview() {
+  const stats = document.getElementById('overview-stats');
+  try {
+    const r = await fetch('/admin/modules', { headers: hdrs() });
+    const data = r.ok ? await r.json() : { modules: [] };
+    const total = data.modules.length;
+    const enabled = data.modules.filter(m => m.enabled).length;
+    stats.innerHTML = `
+      <div class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+        <div class="text-slate-400 text-sm">Total modules</div>
+        <div class="text-3xl font-semibold mt-1">${total}</div>
+      </div>
+      <div class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+        <div class="text-slate-400 text-sm">Enabled</div>
+        <div class="text-3xl font-semibold mt-1 text-emerald-400">${enabled}</div>
+      </div>
+      <div class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+        <div class="text-slate-400 text-sm">Disabled</div>
+        <div class="text-3xl font-semibold mt-1 text-slate-400">${total - enabled}</div>
+      </div>
+    `;
+  } catch (e) {
+    stats.innerHTML = `<p class="text-red-400">${e.message}</p>`;
+  }
+}
+
+document.getElementById('dr-run').onclick = async () => {
+  const body = {
+    yaml: document.getElementById('dr-yaml').value,
+    trigger: document.getElementById('dr-trigger').value,
+    content: document.getElementById('dr-content').value,
+  };
+  const r = await fetch('/admin/rules/dry-run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...hdrs() },
+    body: JSON.stringify(body),
+  });
+  document.getElementById('dr-out').textContent = JSON.stringify(await r.json(), null, 2);
+};
+
+function currentTab() {
+  return (location.hash || '#overview').slice(1);
+}
+
+async function refresh() {
+  const t = currentTab();
+  if (t === 'overview') loadOverview();
+  if (t === 'modules')  loadModules();
+  if (t === 'audit')    loadAudit();
+}
+
+window.addEventListener('hashchange', () => { switchTab(currentTab()); refresh(); });
+switchTab(currentTab());
+refresh();
+</script>
+</body>
+</html>

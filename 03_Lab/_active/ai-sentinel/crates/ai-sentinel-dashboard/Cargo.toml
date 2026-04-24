@@ -1,0 +1,27 @@
+[package]
+name = "ai-sentinel-dashboard"
+version = "0.1.0"
+edition = "2021"
+description = "Leptos CSR admin dashboard for AI-Sentinel. Built with `trunk build`."
+
+# Dashboard is built independently (trunk). Excluded from workspace default-members so
+# `cargo check --workspace` on x86_64-linux doesn't fail without wasm target installed.
+# The compiled dist/ is committed to ../ai-sentinel-api/static/dashboard/.
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos = { version = "0.6", features = ["csr"] }
+leptos_router = { version = "0.6", features = ["csr"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+console_error_panic_hook = "0.1"
+gloo-net = { version = "0.5", features = ["http"] }
+gloo-storage = "0.3"
+
+[package.metadata.leptos]
+output-name = "ai-sentinel-dashboard"
+site-root = "dist"

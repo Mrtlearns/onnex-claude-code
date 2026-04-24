@@ -8,6 +8,16 @@ members = [
     "crates/ai-sentinel-api",
     "crates/ai-sentinel-classifier",
     "crates/ai-sentinel-proxy",
+    "crates/ai-sentinel-modules",
+    "crates/ai-sentinel-rules",
+    "crates/ai-sentinel-optimizer",
+    "crates/ai-sentinel-context",
+]
+# ai-sentinel-dashboard is a wasm-targeted crate built independently with `trunk build`.
+# It's excluded from the workspace so `cargo build --workspace` doesn't try to compile it
+# with the native target. Build it with: `cd crates/ai-sentinel-dashboard && trunk build --release`
+exclude = [
+    "crates/ai-sentinel-dashboard",
 ]
 
 [workspace.dependencies]
@@ -57,7 +67,16 @@ tokio-cron-scheduler = "0.11"
 # Session store
 dashmap = "6"
 deadpool-redis = "0.15"
-sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "migrate"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "uuid", "chrono", "migrate", "json"] }
+lru = "0.12"
+
+# YAML + serialization for rules engine / compiled IR
+serde_yaml = "0.9"
+bincode = "1.3"
+smallvec = { version = "1.13", features = ["serde"] }
+
+# Rules engine benchmarks
+criterion = { version = "0.5", features = ["async_tokio"] }
 
 # Metrics
 prometheus-client = "0.22"
