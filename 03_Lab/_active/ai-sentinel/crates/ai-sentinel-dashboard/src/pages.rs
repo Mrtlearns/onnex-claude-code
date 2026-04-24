@@ -159,7 +159,7 @@ pub fn DryRunPage() -> impl IntoView {
         let c = content.get();
         async move {
             let body = json!({ "yaml": y, "trigger": "prompt_ingress", "content": c });
-            match api::post_json::<serde_json::Value>("/admin/rules/dry-run", &body).await {
+            match api::post_json::<serde_json::Value, serde_json::Value>("/admin/rules/dry-run", &body).await {
                 Ok(v) => set_result.set(Some(serde_json::to_string_pretty(&v).unwrap_or_default())),
                 Err(e) => set_result.set(Some(format!("error: {e}"))),
             }

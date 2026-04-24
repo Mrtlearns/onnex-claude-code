@@ -86,10 +86,10 @@
     {
       "date": "2026-04-24",
       "tools": {
-        "Edit": 13,
-        "Write": 6,
+        "Edit": 14,
+        "Write": 7,
         "Read": 7,
-        "Bash": 63,
+        "Bash": 66,
         "TaskCreate": 3,
         "TaskUpdate": 5,
         "Grep": 1,
@@ -98,8 +98,8 @@
         "Monitor": 1,
         "TaskStop": 1
       },
-      "total_calls": 103,
-      "weight_total": 95
+      "total_calls": 108,
+      "weight_total": 100
     }
   ]
 }
