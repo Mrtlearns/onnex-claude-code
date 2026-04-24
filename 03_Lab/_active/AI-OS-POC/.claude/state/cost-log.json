@@ -117,14 +117,15 @@
     {
       "date": "2026-04-23",
       "tools": {
-        "Bash": 39,
+        "Bash": 64,
         "Read": 1,
         "Write": 1,
         "Edit": 2,
-        "ToolSearch": 1
+        "ToolSearch": 1,
+        "WebFetch": 1
       },
-      "total_calls": 44,
-      "weight_total": 43
+      "total_calls": 70,
+      "weight_total": 70
     }
   ]
 }
