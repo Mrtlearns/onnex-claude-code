@@ -44,19 +44,20 @@ export default async function meRoutes(fastify: FastifyInstance) {
     const user = (request as any).user
     const userId: string = user.sub
     const tenantId: string = user.tenant_id ?? "default"
-    const { display_name, timezone, job_title, phone, avatar_url } = (request as any).body ?? {}
+    const { display_name, timezone, job_title, phone, avatar_url, plane_api_token } = (request as any).body ?? {}
 
     await pool.query(
-      `INSERT INTO user_profiles (user_id, tenant_id, display_name, timezone, job_title, phone, avatar_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO user_profiles (user_id, tenant_id, display_name, timezone, job_title, phone, avatar_url, plane_api_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (user_id) DO UPDATE SET
-         display_name  = COALESCE(NULLIF(EXCLUDED.display_name, ''), user_profiles.display_name),
-         timezone      = EXCLUDED.timezone,
-         job_title     = EXCLUDED.job_title,
-         phone         = EXCLUDED.phone,
-         avatar_url    = COALESCE(EXCLUDED.avatar_url, user_profiles.avatar_url),
-         updated_at    = now()`,
-      [userId, tenantId, display_name ?? user.name ?? user.email ?? userId, timezone ?? null, job_title ?? null, phone ?? null, avatar_url ?? null],
+         display_name    = COALESCE(NULLIF(EXCLUDED.display_name, ''), user_profiles.display_name),
+         timezone        = EXCLUDED.timezone,
+         job_title       = EXCLUDED.job_title,
+         phone           = EXCLUDED.phone,
+         avatar_url      = COALESCE(EXCLUDED.avatar_url, user_profiles.avatar_url),
+         plane_api_token = COALESCE(EXCLUDED.plane_api_token, user_profiles.plane_api_token),
+         updated_at      = now()`,
+      [userId, tenantId, display_name ?? user.name ?? user.email ?? userId, timezone ?? null, job_title ?? null, phone ?? null, avatar_url ?? null, plane_api_token ?? null],
     )
 
     const result = await pool.query("SELECT * FROM user_profiles WHERE user_id = $1", [userId])

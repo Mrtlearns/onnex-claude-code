@@ -25,6 +25,8 @@ import { TaskGanttView } from "../../tasks/components/task-gantt-view"
 import { ProjectNotes } from "./components/project-notes"
 import { ProjectActivity } from "./components/project-activity"
 import { ProjectTeam } from "./components/project-team"
+import { ProjectPlaneTab } from "./components/project-plane-tab"
+import { PlaneLinkDialog } from "./components/plane-link-dialog"
 import {
   FileText,
   CheckCircle2,
@@ -32,6 +34,7 @@ import {
   DollarSign,
   ListTodo,
   BarChart3,
+  ExternalLink,
 } from "lucide-react"
 import {
   BarChart,
@@ -79,6 +82,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const router = useRouter()
   const [showEdit, setShowEdit] = useState(false)
   const [showMeeting, setShowMeeting] = useState(false)
+  const [showPlaneLink, setShowPlaneLink] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
@@ -317,6 +321,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             { value: "team",      label: "Team" },
             { value: "activity",  label: "Activity" },
             { value: "notes",     label: "Notes" },
+            ...(project.plane_project_id ? [{ value: "plane", label: "Plane" }] : []),
           ].map(tab => (
             <TabsTrigger
               key={tab.value}
@@ -462,6 +467,51 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
               </CardContent>
             </Card>
           )}
+          {/* Plane link card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Plane</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {project.plane_project_id ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Linked to <span className="text-foreground font-medium">{project.plane_workspace_slug}/{project.plane_project_id}</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <a
+                        href={`https://plane.on-nex.us/${project.plane_workspace_slug}/projects/${project.plane_project_id}/issues/`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open in Plane <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={async () => {
+                        await fetch(`/api/bff/projects/${projectId}/plane`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ plane_project_id: null, plane_workspace_slug: null }),
+                        })
+                        queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+                      }}
+                    >
+                      Unlink
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setShowPlaneLink(true)}>
+                  Link Plane Project
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── Tasks ── */}
@@ -579,7 +629,21 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         <TabsContent value="notes" className="pt-4">
           <ProjectNotes projectId={projectId} />
         </TabsContent>
+
+        {/* ── Plane ── */}
+        {project.plane_project_id && (
+          <TabsContent value="plane" className="pt-4">
+            <ProjectPlaneTab project={project} active={activeTab === "plane"} />
+          </TabsContent>
+        )}
       </Tabs>
+
+      {/* ── Plane Link Dialog ── */}
+      <PlaneLinkDialog
+        projectId={projectId}
+        open={showPlaneLink}
+        onOpenChange={setShowPlaneLink}
+      />
 
       {/* ── Edit Dialog ── */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>

@@ -44,6 +44,8 @@ import { apiKeyAuthPlugin } from "./plugins/api-key-auth.js";
 import { documentSignRoutes } from "./routes/document-sign.js"
 // Staff people-picker
 import { staffRoutes } from "./routes/staff.js";
+// Plane integration proxy
+import { planeRoutes } from "./routes/plane.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -227,6 +229,17 @@ async function runMigrations() {
   } catch (err) {
     console.warn("Migration 021 warning:", err);
   }
+
+  // Plane integration — user token + project link fields
+  try {
+    const sql025 = readFileSync(
+      join(__dirname, "db/migrations/025_plane_integration.sql"),
+      "utf8",
+    );
+    await pool.query(sql025);
+  } catch (err) {
+    console.warn("Migration 025 warning:", err);
+  }
 }
 
 async function main() {
@@ -280,6 +293,8 @@ async function main() {
   await fastify.register(documentSignRoutes);
   // Staff people-picker
   await fastify.register(staffRoutes);
+  // Plane integration proxy
+  await fastify.register(planeRoutes);
 
   try {
     await fastify.listen({ port: PORT, host: HOST });

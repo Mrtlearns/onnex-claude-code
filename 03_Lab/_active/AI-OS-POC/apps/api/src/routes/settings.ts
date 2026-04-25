@@ -280,4 +280,30 @@ export async function settingsRoutes(fastify: FastifyInstance) {
       return reply.code(200).send(result)
     },
   })
+
+  // GET /api/v1/settings/plane — workspace Plane base URL + service token (redacted)
+  fastify.get('/api/v1/settings/plane', {
+    preHandler: [(fastify as any).authenticate, requireRole(['owner', 'ops_manager'])],
+    handler: async (_request: any, reply: any) => {
+      const cfg = await getSettingValue(pool, 'plane') ?? {}
+      return reply.send({
+        base_url: cfg.base_url ?? 'https://plane.on-nex.us',
+        api_token: cfg.api_token ? '********' : null,
+      })
+    },
+  })
+
+  // PUT /api/v1/settings/plane — save workspace Plane base URL + service token
+  fastify.put('/api/v1/settings/plane', {
+    preHandler: [(fastify as any).authenticate, requireRole(['owner', 'ops_manager'])],
+    handler: async (request: any, reply: any) => {
+      const { base_url, api_token } = request.body ?? {}
+      const existing = await getSettingValue(pool, 'plane') ?? {}
+      await upsertSettingValue(pool, 'plane', {
+        base_url: base_url ?? existing.base_url ?? 'https://plane.on-nex.us',
+        api_token: api_token ?? existing.api_token ?? null,
+      })
+      return reply.send({ ok: true })
+    },
+  })
 }

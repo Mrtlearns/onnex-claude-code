@@ -453,3 +453,12 @@ export const apiGetPortalInvoices = (token: string) =>
 
 export const apiGetPortalDocuments = (token: string) =>
   apiFetch<{ documents: PortalDocument[] }>('/api/v1/portal/documents', token)
+
+// ─── Plane Integration ────────────────────────────────────────────────────────
+import type { PlaneProject, PlaneIssue } from '@/types/api'
+
+export const apiGetPlaneProjects = (token: string) =>
+  apiFetch<PlaneProject[]>('/api/v1/plane/projects', token)
+
+export const apiGetPlaneIssues = (token: string, projectId: string) =>
+  apiFetch<PlaneIssue[]>(`/api/v1/projects/${projectId}/plane/issues`, token)

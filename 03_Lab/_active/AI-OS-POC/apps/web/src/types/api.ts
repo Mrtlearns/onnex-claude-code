@@ -106,6 +106,27 @@ export interface Project {
   archived_at?: string
   task_count?: number // present on GET /:id
   client_name?: string // joined from clients table
+  plane_project_id?: string | null
+  plane_workspace_slug?: string | null
+}
+
+// ─── Plane Integration ────────────────────────────────────────────────────────
+
+export interface PlaneIssue {
+  id: string
+  sequence_id: number
+  name: string
+  state: { name: string; group: "backlog" | "unstarted" | "started" | "completed" | "cancelled" }
+  priority: "urgent" | "high" | "medium" | "low" | "none"
+  assignees: string[]
+  plane_url: string
+}
+
+export interface PlaneProject {
+  id: string
+  name: string
+  identifier: string
+  workspace_slug: string
 }
 
 export interface ProjectNote {
