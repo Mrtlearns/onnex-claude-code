@@ -130,13 +130,18 @@
     {
       "date": "2026-04-24",
       "tools": {
-        "Bash": 206,
-        "Read": 3,
-        "Edit": 3,
-        "ToolSearch": 1
+        "Bash": 258,
+        "Read": 58,
+        "Edit": 18,
+        "ToolSearch": 2,
+        "Glob": 7,
+        "Agent": 1,
+        "Write": 11,
+        "ExitPlanMode": 1,
+        "Grep": 1
       },
-      "total_calls": 213,
-      "weight_total": 210
+      "total_calls": 357,
+      "weight_total": 300
     }
   ]
 }
