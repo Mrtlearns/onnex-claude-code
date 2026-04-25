@@ -2,8 +2,8 @@ import fp from "fastify-plugin";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { FastifyInstance } from "fastify";
 
-const JWKS_URI = process.env.AUTHENTIK_JWKS_URI ?? "http://authentik-server:9000/application/o/aios/jwks/";
-const ISSUER = process.env.AUTHENTIK_ISSUER ?? "http://authentik-server:9000/application/o/aios/";
+const JWKS_URI = process.env.AUTHENTIK_JWKS_URI || "http://authentik-server:9000/application/o/aios/jwks/";
+const ISSUER = process.env.AUTHENTIK_ISSUER || "http://authentik-server:9000/application/o/aios/";
 
 const JWKS = createRemoteJWKSet(new URL(JWKS_URI));
 
