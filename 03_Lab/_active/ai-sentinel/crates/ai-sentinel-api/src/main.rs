@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use axum::{
+    middleware as axum_middleware,
     Router,
     routing::{get, post},
 };
@@ -19,6 +20,7 @@ use ai_sentinel_layers::{
 use ai_sentinel_modules::{LicenseTier, PostgresModuleStore};
 use ai_sentinel_rules::PolicyEngine;
 
+mod auth_helpers;
 mod bootstrap;
 mod metrics;
 mod routes;
@@ -201,6 +203,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/admin/modules/:id/audit", get(routes::admin_modules::module_audit))
         .route("/admin/rules/validate", post(routes::admin_modules::validate_rules_yaml))
         .route("/admin/rules/dry-run", post(routes::admin_modules::dry_run_rules))
+        .route("/admin/preseed/refresh", post(routes::admin_modules::refresh_preseeds))
+        .layer(axum_middleware::from_fn_with_state(
+            state.clone(),
+            auth_helpers::admin_auth_middleware,
+        ))
         .with_state(state.clone());
 
     // Phase 6 testmode — mounted only when the `testmode` cargo feature is on.

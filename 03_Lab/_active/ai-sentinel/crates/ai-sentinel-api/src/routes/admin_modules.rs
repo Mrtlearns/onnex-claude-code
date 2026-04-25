@@ -12,35 +12,18 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use subtle::ConstantTimeEq;
 use tracing::warn;
 
+use crate::auth_helpers::verify_admin;
 use crate::routes::AppState;
 use ai_sentinel_modules::{ModuleKind, ModuleStore, ModuleUpdate};
 use ai_sentinel_rules::{compile_yaml, dsl::Trigger, evaluator::RuleContext, PolicyEngine};
 
-// ─── Auth helpers (duplicated from admin.rs to keep this file self-contained) ────
-
-fn extract_bearer(headers: &HeaderMap) -> &str {
-    headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .unwrap_or("")
-}
-
-fn check_admin_token(state: &AppState, token: &str) -> bool {
-    match &state.config.admin_token {
-        Some(t) => t.as_bytes().ct_eq(token.as_bytes()).into(),
-        None => {
-            warn!("admin: no admin_token configured — rejecting");
-            false
-        }
-    }
-}
+// ─── Auth ────────────────────────────────────────────────────────────────────
 
 fn auth_or_401(state: &AppState, headers: &HeaderMap) -> Option<(StatusCode, Json<Value>)> {
-    if !check_admin_token(state, extract_bearer(headers)) {
+    if !verify_admin(&state.config, headers) {
+        warn!("admin_modules: no valid Bearer or Basic credentials");
         return Some((StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"}))));
     }
     None
@@ -391,6 +374,38 @@ pub struct DryRunBody {
 struct DryRunResult {
     rule: String,
     actions: usize,
+}
+
+/// POST /admin/preseed/refresh — re-syncs every preseed module from on-disk YAMLs in
+/// `config/modules/`. Used after editing the shipped rule sets. Existing modules get a
+/// new version (preserves audit chain); missing ones are created. Hot-reloads the
+/// PolicyEngine for any updated rules-kind module.
+pub async fn refresh_preseeds(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if let Some(resp) = auth_or_401(&state, &headers) {
+        return resp;
+    }
+    let store = match store_or_503(&state) {
+        Ok(s) => s,
+        Err(e) => return e,
+    };
+    let actor = actor_from_headers(&headers);
+    match crate::bootstrap::resync_preseeds(store.as_ref(), &actor).await {
+        Ok((updated, created)) => {
+            // Hot-reload all rules-kind modules into the engine.
+            let _ = crate::bootstrap::load_active_into_engine(store.as_ref(), &state.policy_engine).await;
+            (
+                StatusCode::OK,
+                Json(json!({"updated": updated, "created": created, "actor": actor})),
+            )
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
 }
 
 pub async fn dry_run_rules(

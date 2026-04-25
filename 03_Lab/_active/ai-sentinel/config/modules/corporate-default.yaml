@@ -2,8 +2,8 @@ module: corporate-default
 version: 1
 license_tier: basic
 description: |
-  Corporate baseline rule set. Blocks obvious secrets leakage, strict egress PII, and
-  unknown-provider routing. Suitable as a default for any enterprise customer.
+  Corporate baseline rule set. Blocks obvious secrets leakage, strict egress PII, blocks
+  internal-confidential markers, prevents prompt-injection bypass, and rate-limits cost.
 
 rules:
   - name: block-secrets-ingress
@@ -21,13 +21,41 @@ rules:
         audit_tag: corp-secret-blocked
         severity: critical
 
+  - name: block-confidential-marker-egress
+    trigger: prompt_egress
+    priority: 90
+    description: >-
+      Catches the common case where an internal doc was pasted into the prompt and the
+      LLM repeats classification markers in its response.
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(confidential|internal use only|company confidential|attorney[- ]client privileged|trade secret)\\b"
+    actions:
+      - type: redact
+        replacement: "[CONFIDENTIAL]"
+        audit_tag: corp-confidential-egress
+
+  - name: block-prompt-injection-override
+    trigger: prompt_ingress
+    priority: 95
+    conditions:
+      any_of:
+        - regex: "(?i)\\bignore (all |any |the )?(previous |prior |above )?(instructions|prompts?|rules)\\b"
+        - regex: "(?i)\\bdisregard (all |the )?(system|prior) (prompt|instructions)\\b"
+        - regex: "(?i)\\byou are now (DAN|unrestricted|jailbroken|developer mode)\\b"
+    actions:
+      - type: reject
+        user_message: "Prompt-injection pattern detected; the assistant is following its configured instructions."
+        audit_tag: corp-injection-blocked
+        severity: high
+
   - name: strict-egress-pii
     trigger: prompt_egress
     priority: 80
     conditions:
       any_of:
-        - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"                      # SSN
-        - regex: "\\b(?:\\d[ -]*?){13,16}\\b"                      # credit card
+        - regex: "\\b\\d{3}-\\d{2}-\\d{4}\\b"
+        - regex: "\\b(?:\\d[ -]*?){13,16}\\b"
         - regex: "(?i)\\b(password|pwd|passwd)\\s*[:=]\\s*\\S+"
     actions:
       - type: redact

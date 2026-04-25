@@ -2,13 +2,17 @@ module: legal-pi
 version: 1
 license_tier: pro
 description: |
-  Plaintiff personal-injury law rule set. Protects privileged matter and client
-  confidentiality; flags work that could waive privilege.
+  Plaintiff personal-injury law rule set. Protects privilege, redacts settlement
+  figures and case identifiers, flags opposing-counsel mentions, and blocks attempts to
+  draft binding legal advice.
 
 rules:
-  - name: privilege-markers-require-internal-model
+  - name: privilege-markers-route-internal
     trigger: prompt_ingress
     priority: 100
+    description: >-
+      Anything tagged attorney-client privileged or work-product MUST be routed to the
+      on-prem internal model — never sent to a public provider.
     conditions:
       any_of:
         - regex: "(?i)\\b(attorney[- ]client|work[- ]product|privileged (?:and|&) confidential)\\b"
@@ -19,14 +23,43 @@ rules:
 
   - name: block-settlement-amounts-egress
     trigger: prompt_egress
-    priority: 80
+    priority: 90
     conditions:
       any_of:
-        - regex: "(?i)\\bsettlement\\s+(amount|offer|value)\\s*[:=]?\\s*\\$?\\s*\\d"
+        - regex: "(?i)\\bsettlement\\s+(amount|offer|value|range)\\s*[:=]?\\s*\\$?\\s*[0-9,]+"
     actions:
       - type: redact
         replacement: "[SETTLEMENT]"
         audit_tag: legal-settlement-redacted
+
+  - name: redact-case-numbers-egress
+    trigger: prompt_egress
+    priority: 85
+    description: >-
+      Common state/federal docket formats (e.g., "1:24-cv-04567", "CV-2024-12345").
+    conditions:
+      any_of:
+        - regex: "(?i)\\b\\d{1,2}:\\d{2}-(cv|cr|mc|md|civ|crim)-\\d{4,6}\\b"
+        - regex: "(?i)\\b(case|docket|matter)\\s*#?\\s*\\d{2,4}[- ]?\\d{3,6}\\b"
+    actions:
+      - type: redact
+        replacement: "[CASE-NO]"
+        audit_tag: legal-case-no-redacted
+
+  - name: block-binding-advice-drafting
+    trigger: prompt_ingress
+    priority: 80
+    description: >-
+      Block drafts that would form binding legal advice without attorney review. Lawyers
+      can override via the privilege-markers-route-internal rule by tagging the prompt.
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(draft|write) (a |an )?(binding|signed|notarized) (legal opinion|memorandum of advice|engagement letter)\\b"
+    actions:
+      - type: reject
+        user_message: "Drafting binding advice requires attorney review. Tag the prompt with 'attorney-client privileged' to route to the internal review pipeline."
+        audit_tag: legal-binding-advice-blocked
+        severity: medium
 
   - name: flag-opposing-counsel-mention
     trigger: prompt_ingress

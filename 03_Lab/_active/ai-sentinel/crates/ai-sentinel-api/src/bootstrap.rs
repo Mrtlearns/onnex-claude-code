@@ -49,6 +49,63 @@ pub async fn preseed_if_empty(store: &PostgresModuleStore) -> anyhow::Result<()>
     Ok(())
 }
 
+/// Force-update every preseed module in the database with the YAML on disk. Triggered
+/// from `POST /admin/preseed/refresh`. For each preseed:
+///   - if the module exists, call update_config (creates a new version)
+///   - if it doesn't, create it
+/// Returns (updated_count, created_count).
+pub async fn resync_preseeds(
+    store: &PostgresModuleStore,
+    actor: &str,
+) -> anyhow::Result<(usize, usize)> {
+    let mut updated = 0usize;
+    let mut created = 0usize;
+    for (name, desc, tier) in PRESEED {
+        let path = format!("config/modules/{name}.yaml");
+        let yaml = match std::fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!(path, error = %e, "preseed-refresh: file missing, skipping");
+                continue;
+            }
+        };
+        let existing = store.get_by_name(ai_sentinel_modules::ModuleKind::Rules, name).await?;
+        match existing {
+            Some(m) => {
+                let update = ai_sentinel_modules::ModuleUpdate {
+                    config_yaml: yaml,
+                    description: Some((*desc).to_string()),
+                    expected_version: m.current_version,
+                };
+                match store.update_config(actor, m.id, update).await {
+                    Ok(updated_m) => {
+                        info!(id = m.id, name, new_version = updated_m.current_version, "preseed-refresh: updated");
+                        updated += 1;
+                    }
+                    Err(e) => warn!(name, error = %e, "preseed-refresh: update failed"),
+                }
+            }
+            None => {
+                let nm = ai_sentinel_modules::NewModule {
+                    kind: ai_sentinel_modules::ModuleKind::Rules,
+                    name: (*name).to_string(),
+                    description: (*desc).to_string(),
+                    license_tier: *tier,
+                    initial_config_yaml: yaml,
+                };
+                match store.create(actor, nm).await {
+                    Ok(m) => {
+                        info!(id = m.id, name, "preseed-refresh: created");
+                        created += 1;
+                    }
+                    Err(e) => warn!(name, error = %e, "preseed-refresh: create failed"),
+                }
+            }
+        }
+    }
+    Ok((updated, created))
+}
+
 /// Load every enabled `rules`-kind module into the `PolicyEngine`.
 pub async fn load_active_into_engine(
     store: &PostgresModuleStore,

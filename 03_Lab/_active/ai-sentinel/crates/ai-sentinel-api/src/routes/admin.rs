@@ -6,39 +6,25 @@ use axum::{
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use subtle::ConstantTimeEq;
 use tracing::{info, warn};
 
+use crate::auth_helpers::verify_admin;
 use crate::routes::AppState;
 
-fn extract_bearer(headers: &HeaderMap) -> &str {
-    headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .unwrap_or("")
-}
-
-fn check_admin_token(state: &AppState, token: &str) -> bool {
-    match &state.config.admin_token {
-        Some(t) => {
-            // Constant-time comparison to prevent timing oracle attacks.
-            t.as_bytes().ct_eq(token.as_bytes()).into()
-        }
-        None => {
-            // No admin token configured — reject all admin requests.
-            // This is the secure default; set AI_SENTINEL_ADMIN_TOKEN to enable admin API.
-            warn!("admin: no admin_token configured — rejecting request (set AI_SENTINEL_ADMIN_TOKEN)");
-            false
-        }
+/// Accepts Bearer admin-token OR Basic dashboard creds. Constant-time compare both paths.
+fn is_admin(state: &AppState, headers: &HeaderMap) -> bool {
+    let ok = verify_admin(&state.config, headers);
+    if !ok {
+        warn!("admin: no valid credentials (Bearer or Basic) — rejecting request");
     }
+    ok
 }
 
 pub async fn estop_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    if !check_admin_token(&state, extract_bearer(&headers)) {
+    if !is_admin(&state, &headers) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
     state.e_stop.store(true, Ordering::SeqCst);
@@ -51,7 +37,7 @@ pub async fn estop_lift_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    if !check_admin_token(&state, extract_bearer(&headers)) {
+    if !is_admin(&state, &headers) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
     state.e_stop.store(false, Ordering::SeqCst);
@@ -64,7 +50,7 @@ pub async fn feed_refresh_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    if !check_admin_token(&state, extract_bearer(&headers)) {
+    if !is_admin(&state, &headers) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
     let _ = state.feed_refresh_tx.send(()).await;
@@ -75,7 +61,7 @@ pub async fn signatures_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    if !check_admin_token(&state, extract_bearer(&headers)) {
+    if !is_admin(&state, &headers) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
     let stats = state.signatures.stats();
@@ -89,7 +75,7 @@ pub async fn audit_verify_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    if !check_admin_token(&state, extract_bearer(&headers)) {
+    if !is_admin(&state, &headers) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"})));
     }
     match state.audit.verify().await {

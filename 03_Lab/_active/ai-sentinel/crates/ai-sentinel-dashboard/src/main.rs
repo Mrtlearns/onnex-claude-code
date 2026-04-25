@@ -29,7 +29,6 @@ fn App() -> impl IntoView {
             <div class="flex min-h-screen">
                 <Sidebar/>
                 <main class="flex-1 overflow-y-auto">
-                    <TokenBar/>
                     <div class="p-8">
                         <Routes>
                             <Route path="/" view=OverviewPage/>

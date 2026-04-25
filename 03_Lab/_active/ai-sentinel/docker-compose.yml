@@ -11,6 +11,9 @@ services:
       - AI_SENTINEL_PRESIDIO_URL=http://presidio:3000
       - AI_SENTINEL_STORE_BACKEND=memory
     ports:
+      # Public — NPM (or whatever reverse proxy fronts on-nex.us) forwards here.
+      # Basic auth on /dashboard + /admin/* is enforced by the axum app itself
+      # (see ai-sentinel-api/src/auth_helpers.rs and middleware in main.rs).
       - "8080:8080"
     depends_on:
       - presidio
@@ -23,12 +26,6 @@ services:
       retries: 3
     networks:
       - sentinel-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.ai-sentinel.rule=Host(`ai-sentinel.on-nex.us`)"
-      - "traefik.http.routers.ai-sentinel.entrypoints=websecure"
-      - "traefik.http.routers.ai-sentinel.tls.certresolver=letsencrypt"
-      - "traefik.http.services.ai-sentinel.loadbalancer.server.port=8080"
 
   presidio:
     image: mcr.microsoft.com/presidio-analyzer:latest

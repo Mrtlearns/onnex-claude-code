@@ -17,6 +17,11 @@ pub struct AppConfig {
     pub api_keys: Vec<String>,   // pre-hashed SHA-256 hex strings
     pub admin_token: Option<String>,
     pub trust_secret: Option<String>,
+    /// Username for HTTP Basic auth on /dashboard + /admin/* (browser session via Traefik).
+    /// When set together with `dashboard_password`, requests carrying matching Basic auth
+    /// are treated as admin-equivalent — no Bearer token required.
+    pub dashboard_user: Option<String>,
+    pub dashboard_password: Option<String>,
 
     // Store
     #[serde(default = "default_store")]
@@ -127,6 +132,12 @@ impl AppConfig {
         }
         if cfg.admin_token.is_none() {
             cfg.admin_token = env_str("AI_SENTINEL_ADMIN_TOKEN");
+        }
+        if cfg.dashboard_user.is_none() {
+            cfg.dashboard_user = env_str("AI_SENTINEL_DASHBOARD_USER");
+        }
+        if cfg.dashboard_password.is_none() {
+            cfg.dashboard_password = env_str("AI_SENTINEL_DASHBOARD_PASSWORD");
         }
         if cfg.jwt_secret.is_none() {
             cfg.jwt_secret = env_str("AI_SENTINEL_JWT_SECRET");

@@ -3,7 +3,7 @@ version: 1
 license_tier: pro
 description: |
   K-12 school rule set. Blocks direct homework-completion requests, redacts student PII
-  in egress responses, restricts after-hours access, and warns on sensitive topics.
+  in egress responses, restricts after-hours access, and blocks self-harm escalation.
 
 rules:
   - name: block-homework-completion
@@ -34,6 +34,23 @@ rules:
         user_message: "This content isn't supported in a K-12 context."
         audit_tag: k12-age-inappropriate
         severity: high
+
+  - name: self-harm-safety-escalation
+    trigger: prompt_ingress
+    priority: 98
+    description: >-
+      Self-harm or suicide ideation patterns: refuse to engage with the original prompt
+      and surface the standard youth crisis-line response. The reject body is the
+      response the user will see — keep it action-oriented.
+    conditions:
+      any_of:
+        - regex: "(?i)\\b(suicide|kill myself|end my life|hurt myself|self[- ]?harm)\\b"
+        - regex: "(?i)\\b(how (do|can) i die|painless way to)\\b"
+    actions:
+      - type: reject
+        user_message: "I'm not able to help with that here. If you're in crisis in the US, text or call 988 (Suicide & Crisis Lifeline) — they're free, confidential, and available 24/7. If you're somewhere else, please tell a trusted adult or contact your local emergency line."
+        audit_tag: k12-self-harm-redirect
+        severity: critical
 
   - name: redact-student-names-egress
     trigger: prompt_egress

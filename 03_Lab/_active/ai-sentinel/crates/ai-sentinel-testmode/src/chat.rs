@@ -12,7 +12,7 @@
 //! All X-Sentinel-* headers are always emitted, even on BYPASS or transparent-mode ALLOW.
 
 use crate::contract::*;
-use crate::mode::{check_admin_token, SentinelMode};
+use crate::mode::{verify_admin_headers, SentinelMode};
 use crate::state::TestmodeState;
 use crate::trace::{new_trace_id, sanitize_external_trace_id, TraceRecord};
 use ai_sentinel_core::{
@@ -47,7 +47,7 @@ pub async fn chat_handler(
     // 2. Effective mode (admin + bypass-header wins over global)
     let bypass_header =
         header_str(&headers, H_BYPASS).map(|s| s.eq_ignore_ascii_case("true")).unwrap_or(false);
-    let is_admin = check_admin_token(&state, extract_bearer(&headers));
+    let is_admin = verify_admin_headers(&state, &headers);
     let global_mode = state.mode.read().mode;
     let effective_mode = if bypass_header && is_admin {
         SentinelMode::Bypass
@@ -314,13 +314,6 @@ pub async fn chat_handler(
 
 fn header_str<'a>(h: &'a HeaderMap, name: &str) -> Option<&'a str> {
     h.get(name).and_then(|v| v.to_str().ok())
-}
-
-fn extract_bearer(h: &HeaderMap) -> &str {
-    h.get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .unwrap_or("")
 }
 
 fn extract_content(v: &Value) -> Option<String> {

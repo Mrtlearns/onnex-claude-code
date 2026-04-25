@@ -2,8 +2,9 @@ module: dev-agent-lab
 version: 1
 license_tier: basic
 description: |
-  Internal dev/test rule set. Permissive baseline — useful for lab testing of agent
-  flows. Emits warnings instead of rejections so you can observe what *would* have fired.
+  Internal dev/test rule set. Permissive baseline — emits WARN events instead of blocking
+  so engineers can observe what would have fired against any traffic. Useful for false-
+  positive measurement and Armory red-team rehearsal.
 
 rules:
   - name: observe-injection-attempts
@@ -28,6 +29,32 @@ rules:
     actions:
       - type: warn
         message: "Observed credential-shaped input (dev lab)."
+
+  - name: observe-shell-metacharacters
+    trigger: prompt_ingress
+    priority: 10
+    description: >-
+      Tool-call abuse is the next attack class — when an agent has shell access, raw
+      shell metas in the prompt are a red flag worth observing in QA.
+    conditions:
+      any_of:
+        - regex: "(?:^|\\s|;|`)(rm\\s+-rf|curl\\s+[^|]+\\|\\s*(sh|bash)|nc\\s+-l|wget\\s+[^|]+\\|\\s*(sh|bash))"
+        - regex: "\\$\\([^)]+\\)"
+    actions:
+      - type: warn
+        message: "Observed shell-metacharacter pattern (dev lab)."
+
+  - name: observe-large-base64-blob
+    trigger: prompt_ingress
+    priority: 10
+    description: >-
+      Large base64 blobs are a common data-exfil staging pattern in red-team flows.
+    conditions:
+      any_of:
+        - regex: "[A-Za-z0-9+/]{200,}={0,2}"
+    actions:
+      - type: warn
+        message: "Observed large base64 blob (potential exfil staging — dev lab)."
 
   - name: always-allow
     trigger: prompt_egress

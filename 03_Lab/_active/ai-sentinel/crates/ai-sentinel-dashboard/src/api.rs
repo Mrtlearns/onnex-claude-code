@@ -1,24 +1,15 @@
-//! Thin fetch wrappers around the `/admin/*` API. Bearer token comes from sessionStorage.
+//! Thin fetch wrappers around `/admin/*` and `/sentinel/*`.
 //!
-//! gloo-net 0.5 split the types: `Request::get(url)` / `::post(url)` return a
-//! `RequestBuilder`; `.build()` or `.send()` on the builder gives a `Request` / future.
-//! Headers are added on the builder via `.header(k, v)`.
+//! Auth model: the dashboard sits behind Traefik HTTP basic auth, so the browser
+//! automatically attaches `Authorization: Basic …` to every same-origin request.
+//! The dashboard does NOT manage tokens — no Bearer header is set client-side.
 
-use crate::auth;
 use gloo_net::http::RequestBuilder;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 fn base() -> String {
-    // Dashboard is served from the same origin as the API in production.
     String::new()
-}
-
-fn with_auth(req: RequestBuilder) -> RequestBuilder {
-    match auth::get_token() {
-        Some(t) => req.header("Authorization", &format!("Bearer {t}")),
-        None => req,
-    }
 }
 
 fn with_extra_headers(mut req: RequestBuilder, extras: &[(&str, &str)]) -> RequestBuilder {
@@ -30,8 +21,9 @@ fn with_extra_headers(mut req: RequestBuilder, extras: &[(&str, &str)]) -> Reque
 
 pub async fn get<T: DeserializeOwned>(path: &str) -> Result<T, String> {
     let url = format!("{}{path}", base());
-    let builder = with_auth(gloo_net::http::Request::get(&url));
-    let req = builder.build().map_err(|e| e.to_string())?;
+    let req = gloo_net::http::Request::get(&url)
+        .build()
+        .map_err(|e| e.to_string())?;
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));
@@ -58,8 +50,7 @@ where
     B: Serialize + ?Sized,
 {
     let url = format!("{}{path}", base());
-    let builder = with_auth(gloo_net::http::Request::post(&url))
-        .header("Content-Type", "application/json");
+    let builder = gloo_net::http::Request::post(&url).header("Content-Type", "application/json");
     let builder = with_extra_headers(builder, extra_headers);
     let req = builder.json(body).map_err(|e| e.to_string())?;
     let resp = req.send().await.map_err(|e| e.to_string())?;
@@ -72,8 +63,9 @@ where
 
 pub async fn post_empty<T: DeserializeOwned>(path: &str) -> Result<T, String> {
     let url = format!("{}{path}", base());
-    let builder = with_auth(gloo_net::http::Request::post(&url));
-    let req = builder.build().map_err(|e| e.to_string())?;
+    let req = gloo_net::http::Request::post(&url)
+        .build()
+        .map_err(|e| e.to_string())?;
     let resp = req.send().await.map_err(|e| e.to_string())?;
     if !resp.ok() {
         return Err(format!("HTTP {}", resp.status()));
