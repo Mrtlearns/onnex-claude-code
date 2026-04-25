@@ -61,6 +61,15 @@
       },
       "total_calls": 90,
       "weight_total": 148
+    },
+    {
+      "date": "2026-04-25",
+      "tools": {
+        "Bash": 8,
+        "Read": 3
+      },
+      "total_calls": 11,
+      "weight_total": 8
     }
   ]
 }
