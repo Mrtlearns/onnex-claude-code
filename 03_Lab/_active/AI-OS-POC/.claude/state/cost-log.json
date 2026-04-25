@@ -149,10 +149,11 @@
       "date": "2026-04-25",
       "tools": {
         "Bash": 20,
-        "Read": 1
+        "Read": 4,
+        "Edit": 4
       },
-      "total_calls": 21,
-      "weight_total": 20
+      "total_calls": 28,
+      "weight_total": 24
     }
   ]
 }
