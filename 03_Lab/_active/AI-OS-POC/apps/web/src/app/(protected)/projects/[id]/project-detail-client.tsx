@@ -28,6 +28,12 @@ import { ProjectTeam } from "./components/project-team"
 import { ProjectPlaneTab } from "./components/project-plane-tab"
 import { PlaneLinkDialog } from "./components/plane-link-dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   FileText,
   CheckCircle2,
   Clock,
@@ -35,6 +41,8 @@ import {
   ListTodo,
   BarChart3,
   ExternalLink,
+  ChevronDown,
+  Loader2,
 } from "lucide-react"
 import {
   BarChart,
@@ -83,6 +91,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const [showEdit, setShowEdit] = useState(false)
   const [showMeeting, setShowMeeting] = useState(false)
   const [showPlaneLink, setShowPlaneLink] = useState(false)
+  const [confirmUnlink, setConfirmUnlink] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
@@ -133,6 +142,32 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] })
       router.push("/projects")
+    },
+  })
+
+  const createInPlaneMutation = useMutation({
+    mutationFn: () =>
+      fetch("/api/bff/plane/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aios_project_id: projectId, name: project?.name ?? "Project" }),
+      }).then(r => {
+        if (!r.ok) return r.json().then(e => { throw new Error(e.error ?? "Create failed") })
+        return r.json()
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+
+  const unlinkPlaneMutation = useMutation({
+    mutationFn: () =>
+      fetch(`/api/bff/projects/${projectId}/plane`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plane_project_id: null, plane_workspace_slug: null }),
+      }).then(r => { if (!r.ok) throw new Error("Unlink failed") }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+      setConfirmUnlink(false)
     },
   })
 
@@ -474,41 +509,89 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </CardHeader>
             <CardContent>
               {project.plane_project_id ? (
-                <div className="flex items-center justify-between">
+                <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Linked to <span className="text-foreground font-medium">{project.plane_workspace_slug}/{project.plane_project_id}</span>
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <a
-                        href={`https://plane.on-nex.us/${project.plane_workspace_slug}/projects/${project.plane_project_id}/issues/`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Open in Plane <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                      </a>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={async () => {
-                        await fetch(`/api/bff/projects/${projectId}/plane`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ plane_project_id: null, plane_workspace_slug: null }),
-                        })
-                        queryClient.invalidateQueries({ queryKey: ["project", projectId] })
-                      }}
+                    Linked to{" "}
+                    <a
+                      href={`https://plane.on-nex.us/${project.plane_workspace_slug}/projects/${project.plane_project_id}/issues/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-foreground font-medium underline-offset-2 hover:underline"
                     >
-                      Unlink
-                    </Button>
-                  </div>
+                      {project.plane_workspace_slug} <ExternalLink className="inline h-3 w-3 mb-0.5" />
+                    </a>
+                  </p>
+                  {confirmUnlink ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-destructive">Unlink this project from Plane?</span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => unlinkPlaneMutation.mutate()}
+                        disabled={unlinkPlaneMutation.isPending}
+                      >
+                        {unlinkPlaneMutation.isPending ? "Unlinking…" : "Confirm"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmUnlink(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <a
+                          href={`https://plane.on-nex.us/${project.plane_workspace_slug}/projects/${project.plane_project_id}/issues/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Open in Plane <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setConfirmUnlink(true)}
+                      >
+                        Unlink
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <Button variant="outline" size="sm" onClick={() => setShowPlaneLink(true)}>
-                  Link Plane Project
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={createInPlaneMutation.isPending}
+                    >
+                      {createInPlaneMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          Creating in Plane…
+                        </>
+                      ) : (
+                        <>
+                          Link Plane Project <ChevronDown className="ml-1.5 h-3.5 w-3.5" />
+                        </>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => createInPlaneMutation.mutate()}>
+                      Create new in Plane
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShowPlaneLink(true)}>
+                      Link existing project
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {createInPlaneMutation.isError && (
+                <p className="text-xs text-destructive mt-2">
+                  {(createInPlaneMutation.error as Error).message}
+                </p>
               )}
             </CardContent>
           </Card>
