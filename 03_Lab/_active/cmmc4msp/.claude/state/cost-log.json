@@ -66,10 +66,12 @@
       "date": "2026-04-25",
       "tools": {
         "Bash": 8,
-        "Read": 3
+        "Read": 4,
+        "Write": 1,
+        "Edit": 1
       },
-      "total_calls": 11,
-      "weight_total": 8
+      "total_calls": 14,
+      "weight_total": 10
     }
   ]
 }
