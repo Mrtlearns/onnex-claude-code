@@ -22,6 +22,28 @@ function auditLog(action: string, path: string) {
 // Module-level dedup cache — tracks lastModified to avoid re-uploading identical files
 const uploadedFiles = new Map<string, number>()
 
+// Nextcloud may be installed at a sub-path (e.g. /nextcloud/) that differs from NC_BASE.
+// MOVE Destination headers must use the canonical path Nextcloud itself advertises in hrefs.
+// We detect it once from a PROPFIND response and cache it for the process lifetime.
+let _ncDavDestBase: string | null = null
+async function getDestBase(basicAuth: string): Promise<string> {
+  if (_ncDavDestBase) return _ncDavDestBase
+  try {
+    const res = await fetch(`${NC_BASE}/`, {
+      method: "PROPFIND",
+      headers: { Authorization: `Basic ${basicAuth}`, Depth: "0", "Content-Type": "application/xml" },
+    })
+    const xml = await res.text()
+    // Hrefs look like /nextcloud/remote.php/dav/files/ncadmin/
+    const match = xml.match(/href>([^<]*\/remote\.php\/dav\/files\/[^/<]+)/)
+    if (match) {
+      const origin = NC_URL.match(/^https?:\/\/[^/]+/)?.[0] ?? NC_URL
+      _ncDavDestBase = `${origin}${match[1].replace(/\/$/, "")}`
+    }
+  } catch { /* fall through */ }
+  return _ncDavDestBase ?? NC_BASE
+}
+
 function encodePath(segments: string[]): string {
   return segments.map(encodeURIComponent).join("/")
 }
@@ -236,12 +258,14 @@ export async function DELETE(
       return NextResponse.json({ ok: res.ok })
     } else {
       // Soft delete — move to _deleted/ (auto-create if needed)
+      // Destination must use Nextcloud's canonical base URI (may differ from request path)
+      const destBase = await getDestBase(basicAuth)
       await fetch(`${NC_BASE}/_deleted`, {
         method: "MKCOL",
         headers: { Authorization: `Basic ${basicAuth}` },
       }).catch(() => {}) // 405 = already exists, silently ignored
       const filename = params.path[params.path.length - 1]
-      const dest = `${NC_BASE}/_deleted/${encodeURIComponent(filename)}`
+      const dest = `${destBase}/_deleted/${encodeURIComponent(filename)}`
       const res = await fetch(`${NC_BASE}/${resourcePath}`, {
         method: "MOVE",
         headers: {
