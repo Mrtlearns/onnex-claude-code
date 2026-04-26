@@ -148,7 +148,7 @@
     {
       "date": "2026-04-25",
       "tools": {
-        "Bash": 181,
+        "Bash": 188,
         "Read": 40,
         "Edit": 13,
         "Agent": 5,
@@ -156,8 +156,8 @@
         "Grep": 2,
         "Write": 7
       },
-      "total_calls": 250,
-      "weight_total": 251
+      "total_calls": 257,
+      "weight_total": 258
     }
   ]
 }
