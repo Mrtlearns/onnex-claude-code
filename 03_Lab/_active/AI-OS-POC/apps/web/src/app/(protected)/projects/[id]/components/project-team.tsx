@@ -17,6 +17,17 @@ import { UserPlus, Trash2, Users, Clock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ProjectMember, StaffMember } from "@/types/api"
 
+const PROJECT_ROLES = [
+  { value: "lead",            label: "Lead" },
+  { value: "project_manager", label: "Project Manager" },
+  { value: "developer",       label: "Developer" },
+  { value: "member",          label: "Member" },
+  { value: "reviewer",        label: "Reviewer" },
+  { value: "client",          label: "Client" },
+  { value: "external",        label: "External" },
+  { value: "observer",        label: "Observer" },
+]
+
 interface ProjectTeamProps {
   projectId: string
 }
@@ -73,6 +84,23 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
     onError: () => toast.error("Failed to remove member"),
   })
 
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
+      fetch(`/api/bff/projects/${projectId}/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      }).then(r => {
+        if (!r.ok) throw new Error("Update failed")
+        return r.json()
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["project-members", projectId] })
+      toast.success("Role updated")
+    },
+    onError: () => toast.error("Failed to update role"),
+  })
+
   const handleAdd = () => {
     if (!selectedUserId) return
     const member = staff.find(s => s.user_id === selectedUserId)
@@ -123,10 +151,9 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="lead">Lead</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="reviewer">Reviewer</SelectItem>
-                    <SelectItem value="observer">Observer</SelectItem>
+                    {PROJECT_ROLES.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -167,7 +194,19 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{member.user_name || member.user_id}</p>
-                <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                <Select
+                  value={member.role}
+                  onValueChange={(role) => updateRoleMutation.mutate({ userId: member.user_id, role })}
+                >
+                  <SelectTrigger className="h-6 text-xs px-1.5 py-0 border-0 shadow-none hover:bg-muted/50 w-auto gap-1 text-muted-foreground font-normal capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROJECT_ROLES.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               {member.logged_minutes > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">

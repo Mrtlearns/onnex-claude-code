@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -150,7 +151,14 @@ export function SmtpSettingsForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="smtp-password">Password</Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="smtp-password">Password</Label>
+            {data?.has_password && (
+              <span className="flex items-center gap-1 text-xs text-green-500">
+                <CheckCircle2 className="h-3 w-3" /> Saved
+              </span>
+            )}
+          </div>
           <Input
             id="smtp-password"
             type="password"

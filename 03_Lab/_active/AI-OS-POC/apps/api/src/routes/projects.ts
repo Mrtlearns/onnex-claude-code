@@ -287,6 +287,25 @@ export async function projectsRoutes(fastify: FastifyInstance) {
     },
   })
 
+  // PATCH /api/v1/projects/:id/members/:userId — update role
+  fastify.patch('/api/v1/projects/:id/members/:userId', {
+    preHandler: [(fastify as any).authenticate],
+    handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
+      const { id, userId } = request.params as any
+      const { role } = request.body as any
+      if (!role) return reply.code(400).send({ error: 'role required' })
+      const result = await pool.query(
+        `UPDATE project_members SET role = $1
+         WHERE project_id = $2 AND user_id = $3 AND tenant_id = $4
+         RETURNING id, project_id, user_id, user_name, role`,
+        [role, id, userId, tenantId],
+      )
+      if (result.rowCount === 0) return reply.code(404).send({ error: 'Member not found' })
+      return reply.send(result.rows[0])
+    },
+  })
+
   // ─── Project Activity ───────────────────────────────────────────────────────
 
   // GET /api/v1/projects/:id/activity — audit log entries for this project

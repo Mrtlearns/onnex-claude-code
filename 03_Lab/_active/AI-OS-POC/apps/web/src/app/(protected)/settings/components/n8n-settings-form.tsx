@@ -2,13 +2,13 @@
 // apps/web/src/app/(protected)/settings/components/n8n-settings-form.tsx
 // n8n webhook URL + enabled events checkboxes
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon, CheckCircle2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,8 @@ const EVENT_OPTIONS: { value: string; label: string }[] = [
 
 export function N8nSettingsForm() {
   const queryClient = useQueryClient()
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const { data, isLoading } = useQuery<N8nConfig>({
     queryKey: ["settings", "n8n"],
@@ -74,6 +76,24 @@ export function N8nSettingsForm() {
     },
   })
 
+  async function handleTest() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch("/api/bff/settings/n8n/test", { method: "POST" })
+      const body = await res.json()
+      if (body.ok) {
+        setTestResult({ ok: true, msg: `Webhook reachable (HTTP ${body.status})` })
+      } else {
+        setTestResult({ ok: false, msg: body.error ?? `HTTP ${body.status}` })
+      }
+    } catch {
+      setTestResult({ ok: false, msg: "Network error" })
+    } finally {
+      setTesting(false)
+    }
+  }
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading...</p>
   }
@@ -86,7 +106,14 @@ export function N8nSettingsForm() {
       <h2 className="text-lg font-medium">n8n Integration</h2>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="n8n-webhook">Webhook URL</Label>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="n8n-webhook">Webhook URL</Label>
+          {data?.webhook_url && (
+            <span className="flex items-center gap-1 text-xs text-green-500">
+              <CheckCircle2 className="h-3 w-3" /> Saved
+            </span>
+          )}
+        </div>
         <Input
           id="n8n-webhook"
           type="url"
@@ -151,7 +178,24 @@ export function N8nSettingsForm() {
         )}
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={testing || !data?.webhook_url}
+            onClick={handleTest}
+          >
+            {testing ? (
+              <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Testing…</>
+            ) : "Test Webhook"}
+          </Button>
+          {testResult && (
+            <span className={`text-xs ${testResult.ok ? "text-green-500" : "text-destructive"}`}>
+              {testResult.msg}
+            </span>
+          )}
+        </div>
         <Button type="submit" disabled={isSubmitting || mutation.isPending}>
           {mutation.isPending ? "Saving..." : "Save n8n Settings"}
         </Button>
