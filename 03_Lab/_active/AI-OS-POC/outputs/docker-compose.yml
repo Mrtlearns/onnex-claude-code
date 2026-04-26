@@ -414,6 +414,8 @@ services:
     volumes:
     - aios_uploads:/app/uploads
     - aios_tmp:/app/tmp
+    extra_hosts:
+    - plane.on-nex.us:10.10.30.35
     depends_on:
       pgbouncer:
         condition: service_healthy

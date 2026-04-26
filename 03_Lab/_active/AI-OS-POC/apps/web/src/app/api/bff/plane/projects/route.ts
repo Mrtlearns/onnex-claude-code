@@ -12,8 +12,10 @@ export async function GET() {
     const projects = await apiFetch<PlaneProject[]>("/api/v1/plane/projects", session.user.token)
     return NextResponse.json(projects)
   } catch (err: any) {
-    const status = err.message?.includes("401") ? 401 : 500
-    return NextResponse.json({ error: err.message }, { status })
+    const isUnauth = err.message?.includes("401") || err.message?.toLowerCase().includes("unauthorized")
+    const status = isUnauth ? 401 : 500
+    const error = isUnauth ? "Plane token not configured or invalid" : err.message
+    return NextResponse.json({ error }, { status })
   }
 }
 
@@ -28,7 +30,9 @@ export async function POST(req: Request) {
     })
     return NextResponse.json(data, { status: 201 })
   } catch (err: any) {
-    const status = err.message?.includes("401") ? 401 : 500
-    return NextResponse.json({ error: err.message }, { status })
+    const isUnauth = err.message?.includes("401") || err.message?.toLowerCase().includes("unauthorized")
+    const status = isUnauth ? 401 : 500
+    const error = isUnauth ? "Plane token not configured or invalid" : err.message
+    return NextResponse.json({ error }, { status })
   }
 }

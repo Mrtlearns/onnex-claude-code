@@ -158,6 +158,13 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
+  const { data: integrations } = useQuery({
+    queryKey: ["me-integrations"],
+    queryFn: () => fetch("/api/bff/me/integrations").then(r => r.json()),
+    staleTime: 60_000,
+  })
+  const hasPlaneToken = !!integrations?.plane_api_token
+
   const unlinkPlaneMutation = useMutation({
     mutationFn: () =>
       fetch(`/api/bff/projects/${projectId}/plane`, {
@@ -558,7 +565,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : hasPlaneToken ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -587,6 +594,14 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : (
+                <Link
+                  href="/settings?tab=integrations"
+                  className="flex items-center gap-1.5 text-xs text-destructive hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Link your Plane API token to enable project linking
+                </Link>
               )}
               {createInPlaneMutation.isError && (
                 <p className="text-xs text-destructive mt-2">

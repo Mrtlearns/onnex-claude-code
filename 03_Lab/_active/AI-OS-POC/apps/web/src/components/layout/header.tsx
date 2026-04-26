@@ -18,6 +18,7 @@ import { LogOut, Moon, Search, Settings, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { NotificationBell } from "@/components/layout/notification-bell"
 import { AIChatPanel } from "@/components/ai/ai-chat-panel"
+import { FeedbackButton } from "@/components/feedback/FeedbackButton"
 import type { UserProfile } from "@/types/api"
 
 interface HeaderProps {
@@ -60,6 +61,7 @@ export function Header({ session, onMenuClick }: HeaderProps) {
 
       <div className="flex items-center gap-2 ml-auto">
         <AIChatPanel />
+        <FeedbackButton />
         <NotificationBell />
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
