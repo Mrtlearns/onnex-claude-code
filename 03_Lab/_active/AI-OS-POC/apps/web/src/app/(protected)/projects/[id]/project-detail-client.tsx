@@ -750,6 +750,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           <ProjectForm
+            key={project.id}
             project={project}
             onSuccess={() => {
               setShowEdit(false)

@@ -24,6 +24,7 @@ import { SubtasksPanel } from "./subtasks-panel"
 import { CommentsPanel } from "./comments-panel"
 import { CmsSection } from "../../documents/components/cms-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { Bot, X, UserPlus } from "lucide-react"
 
 const STATUS_OPTIONS: TaskStatus[] = ["Backlog", "In Progress", "Review", "Done"]
@@ -332,6 +333,23 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               </TabsContent>
             )}
           </Tabs>
+        </div>
+
+        {/* Footer: explicit save for any pending text changes + close */}
+        <div className="mt-6 flex justify-end gap-2 border-t pt-4">
+          {savedFlash && (
+            <span className="text-xs text-green-600 dark:text-green-400 flex items-center mr-auto">Saved ✓</span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              patchTask({ description: description || undefined, start_date: startDate || undefined, end_date: endDate || undefined, due_date: dueDate || undefined, estimated_hours: estimatedHours ? parseFloat(estimatedHours) : undefined, actual_hours: actualHours ? parseFloat(actualHours) : undefined })
+              onOpenChange(false)
+            }}
+          >
+            Save &amp; Close
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

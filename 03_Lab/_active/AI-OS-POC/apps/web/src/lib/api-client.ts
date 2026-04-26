@@ -158,7 +158,8 @@ export async function apiGetProjects(
 }
 
 export async function apiGetProject(token: string, id: string): Promise<Project> {
-  return apiGet<Project>(`/api/v1/projects/${id}`, token)
+  const data = await apiGet<{ project: Project } | Project>(`/api/v1/projects/${id}`, token)
+  return ('project' in (data as object)) ? (data as { project: Project }).project : data as Project
 }
 
 export async function apiCreateProject(token: string, body: CreateProjectInput): Promise<Project> {
