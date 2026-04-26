@@ -6,7 +6,18 @@ import { useState, useEffect } from "react"
 import { ExternalLink, Share2, PenLine } from "lucide-react"
 import { SignRequestModal } from "./sign-request-modal"
 
-const OFFICE_EXTENSIONS = ["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp"]
+const OFFICE_EXTENSIONS = [
+  // Microsoft Office
+  "doc", "docx", "docm", "dotx", "dotm",
+  "xls", "xlsx", "xlsm", "xltx", "xltm",
+  "ppt", "pptx", "pptm", "potx", "potm",
+  // OpenDocument
+  "odt", "ods", "odp", "odg", "odf",
+  // Legacy OpenOffice / StarOffice
+  "sxw", "sxc", "sxi", "sxd",
+  // Other
+  "rtf", "wpd",
+]
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"]
 
 function getFileType(filename: string): "pdf" | "office" | "image" | "text" | "other" {
