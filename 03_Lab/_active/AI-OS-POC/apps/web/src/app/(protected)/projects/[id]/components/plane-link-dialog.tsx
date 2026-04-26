@@ -61,6 +61,7 @@ export function PlaneLinkDialog({ projectId, open, onOpenChange }: PlaneLinkDial
         body: JSON.stringify({
           plane_project_id: proj.id,
           plane_workspace_slug: proj.workspace_slug,
+          plane_project_name: proj.name,
         }),
       }).then(r => { if (!r.ok) throw new Error("Link failed"); return r.json() })
     },

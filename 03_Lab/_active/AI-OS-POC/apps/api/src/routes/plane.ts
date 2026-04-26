@@ -147,8 +147,8 @@ export async function planeRoutes(fastify: FastifyInstance) {
 
         // Update AIOS project to link it
         await pool.query(
-          'UPDATE projects SET plane_project_id = $1, plane_workspace_slug = $2 WHERE id = $3 AND tenant_id = $4',
-          [planeProjectId, workspaceSlug, aios_project_id, tenantId],
+          'UPDATE projects SET plane_project_id = $1, plane_workspace_slug = $2, plane_project_name = $3 WHERE id = $4 AND tenant_id = $5',
+          [planeProjectId, workspaceSlug, planeName, aios_project_id, tenantId],
         )
 
         return reply.code(201).send({

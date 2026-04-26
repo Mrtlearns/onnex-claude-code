@@ -88,7 +88,7 @@ export async function projectsRoutes(fastify: FastifyInstance) {
       const { id } = request.params as any
       const body = request.body as Record<string, unknown>
 
-      const allowedFields = ['name', 'description', 'status', 'start_date', 'end_date', 'budget', 'client_id', 'health', 'color', 'phases', 'plane_project_id', 'plane_workspace_slug']
+      const allowedFields = ['name', 'description', 'status', 'start_date', 'end_date', 'budget', 'client_id', 'health', 'color', 'phases', 'plane_project_id', 'plane_workspace_slug', 'plane_project_name']
       const setClauses: string[] = []
       const params: unknown[] = []
       let idx = 1

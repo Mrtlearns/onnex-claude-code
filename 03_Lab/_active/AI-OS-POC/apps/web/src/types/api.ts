@@ -108,6 +108,7 @@ export interface Project {
   client_name?: string // joined from clients table
   plane_project_id?: string | null
   plane_workspace_slug?: string | null
+  plane_project_name?: string | null
 }
 
 // ─── Plane Integration ────────────────────────────────────────────────────────

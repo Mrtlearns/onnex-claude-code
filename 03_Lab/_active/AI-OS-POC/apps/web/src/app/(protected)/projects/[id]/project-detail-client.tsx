@@ -155,7 +155,10 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
         if (!r.ok) return r.json().then(e => { throw new Error(e.error ?? "Create failed") })
         return r.json()
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+    onSuccess: (data: any) => {
+      // plane_project_name already stored server-side by the POST handler
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] })
+    },
   })
 
   const { data: integrations } = useQuery({
@@ -525,7 +528,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
                       rel="noopener noreferrer"
                       className="text-foreground font-medium underline-offset-2 hover:underline"
                     >
-                      {project.plane_workspace_slug} <ExternalLink className="inline h-3 w-3 mb-0.5" />
+                      {project.plane_project_name ?? project.plane_workspace_slug} <ExternalLink className="inline h-3 w-3 mb-0.5" />
                     </a>
                   </p>
                   {confirmUnlink ? (
