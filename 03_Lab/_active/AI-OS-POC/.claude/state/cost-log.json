@@ -149,15 +149,15 @@
       "date": "2026-04-25",
       "tools": {
         "Bash": 217,
-        "Read": 49,
-        "Edit": 21,
+        "Read": 50,
+        "Edit": 22,
         "Agent": 5,
         "Glob": 4,
         "Grep": 2,
         "Write": 7
       },
-      "total_calls": 305,
-      "weight_total": 295
+      "total_calls": 307,
+      "weight_total": 296
     }
   ]
 }
