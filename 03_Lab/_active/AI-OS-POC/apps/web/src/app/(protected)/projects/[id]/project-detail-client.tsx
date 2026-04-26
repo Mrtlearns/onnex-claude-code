@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog"
 import { ProjectForm } from "../components/project-form"
 import { MeetingMinutesDialog } from "../../tasks/components/meeting-minutes-dialog"
-import { CmsSection } from "../../documents/components/cms-section"
 import { KanbanBoard } from "../../tasks/components/kanban-board"
 import { TaskGanttView } from "../../tasks/components/task-gantt-view"
 import { ProjectNotes } from "./components/project-notes"
@@ -27,6 +26,7 @@ import { ProjectActivity } from "./components/project-activity"
 import { ProjectTeam } from "./components/project-team"
 import { ProjectPlaneTab } from "./components/project-plane-tab"
 import { PlaneLinkDialog } from "./components/plane-link-dialog"
+import { ProjectFilesTab } from "./components/project-files-tab"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -713,7 +713,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
 
         {/* ── Files ── */}
         <TabsContent value="files" className="pt-4">
-          <CmsSection entityType="project" entityId={projectId} title="Project Files" />
+          <ProjectFilesTab projectId={projectId} />
         </TabsContent>
 
         {/* ── Team ── */}

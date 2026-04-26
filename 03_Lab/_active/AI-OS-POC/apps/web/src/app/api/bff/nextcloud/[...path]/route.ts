@@ -235,7 +235,11 @@ export async function DELETE(
       if (res.ok) auditLog("hard_delete", fullPath)
       return NextResponse.json({ ok: res.ok })
     } else {
-      // Soft delete — move to _deleted/
+      // Soft delete — move to _deleted/ (auto-create if needed)
+      await fetch(`${NC_BASE}/_deleted`, {
+        method: "MKCOL",
+        headers: { Authorization: `Basic ${basicAuth}` },
+      }).catch(() => {}) // 405 = already exists, silently ignored
       const filename = params.path[params.path.length - 1]
       const dest = `${NC_BASE}/_deleted/${encodeURIComponent(filename)}`
       const res = await fetch(`${NC_BASE}/${resourcePath}`, {

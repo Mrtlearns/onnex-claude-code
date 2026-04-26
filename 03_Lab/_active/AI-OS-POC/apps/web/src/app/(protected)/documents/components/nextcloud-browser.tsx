@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   AlertDialog,
@@ -130,13 +131,17 @@ export function NextcloudBrowser({
   }
 
   async function executeDelete() {
+    const failures: string[] = []
     for (const path of selected) {
       const encoded = path.split("/").map(encodeURIComponent).join("/")
-      await fetch(`/api/bff/nextcloud/${encoded}`, { method: "DELETE" })
+      const res = await fetch(`/api/bff/nextcloud/${encoded}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (!data.ok) failures.push(path.split("/").pop() ?? path)
     }
     exitSelectMode()
     queryClient.invalidateQueries({ queryKey: ["nextcloud-files", currentPath] })
     setConfirmHardDelete(false)
+    if (failures.length > 0) toast.error(`Failed to delete: ${failures.join(", ")}`)
   }
 
   function handleDelete() {
