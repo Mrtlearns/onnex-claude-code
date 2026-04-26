@@ -6,6 +6,8 @@ import { useState, useEffect } from "react"
 import { ExternalLink, Share2, PenLine } from "lucide-react"
 import { SignRequestModal } from "./sign-request-modal"
 
+const VIDEO_EXTENSIONS = ["mp4", "webm", "ogv", "ogg", "mov"]
+
 const OFFICE_EXTENSIONS = [
   // Microsoft Office
   "doc", "docx", "docm", "dotx", "dotm",
@@ -20,11 +22,12 @@ const OFFICE_EXTENSIONS = [
 ]
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"]
 
-function getFileType(filename: string): "pdf" | "office" | "image" | "text" | "other" {
+function getFileType(filename: string): "pdf" | "office" | "image" | "video" | "text" | "other" {
   const ext = filename.split(".").pop()?.toLowerCase() ?? ""
   if (ext === "pdf") return "pdf"
   if (OFFICE_EXTENSIONS.includes(ext)) return "office"
   if (IMAGE_EXTENSIONS.includes(ext)) return "image"
+  if (VIDEO_EXTENSIONS.includes(ext)) return "video"
   if (["txt", "md", "csv", "json", "xml", "log"].includes(ext)) return "text"
   return "other"
 }
@@ -137,6 +140,13 @@ export function DocumentViewer({ documentId, title, nextcloudPath }: DocumentVie
             <iframe src={bffUrl} className="w-full h-full border-0" title={fileName} />
           ) : fileType === "office" ? (
             <iframe src={convertUrl} className="w-full h-full border-0" title={fileName} />
+          ) : fileType === "video" ? (
+            <video
+              key={bffUrl}
+              controls
+              className="w-full h-full bg-black"
+              src={bffUrl}
+            />
           ) : fileType === "text" ? (
             <TextPreview url={bffUrl} />
           ) : (
