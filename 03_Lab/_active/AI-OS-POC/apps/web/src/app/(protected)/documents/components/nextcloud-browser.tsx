@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Square, Trash2 } from "lucide-react"
+import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Square, Trash2, ArrowLeft, ArrowRight, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { NextcloudFile } from "@/types/api"
 
@@ -75,7 +75,12 @@ export function NextcloudBrowser({
   onPathChange,
   initialPath = "",
 }: NextcloudBrowserProps) {
-  const [currentPath, setCurrentPath] = useState(initialPath)
+  // Navigation history — currentPath is derived, not separate state
+  const [nav, setNav] = useState({ history: [initialPath], index: 0 })
+  const currentPath = nav.history[nav.index]
+  const canBack = nav.index > 0
+  const canForward = nav.index < nav.history.length - 1
+
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmHardDelete, setConfirmHardDelete] = useState(false)
@@ -92,7 +97,7 @@ export function NextcloudBrowser({
 
   const bffUrl = currentPath ? `/api/bff/nextcloud/${currentPath}` : "/api/bff/nextcloud"
 
-  const { data: files = [], isLoading, isError } = useQuery<NextcloudFile[]>({
+  const { data: files = [], isLoading, isError, isFetching } = useQuery<NextcloudFile[]>({
     queryKey: ["nextcloud-files", currentPath],
     queryFn: async () => {
       const r = await fetch(bffUrl)
@@ -107,9 +112,34 @@ export function NextcloudBrowser({
   const breadcrumbs = currentPath ? currentPath.split("/").filter(Boolean) : []
 
   function navigateTo(path: string) {
-    setCurrentPath(path)
+    setNav(prev => ({
+      history: [...prev.history.slice(0, prev.index + 1), path],
+      index: prev.index + 1,
+    }))
     exitSelectMode()
     onPathChange?.(path)
+  }
+
+  function goBack() {
+    if (!canBack) return
+    const newIndex = nav.index - 1
+    const path = nav.history[newIndex]
+    setNav(prev => ({ ...prev, index: newIndex }))
+    exitSelectMode()
+    onPathChange?.(path)
+  }
+
+  function goForward() {
+    if (!canForward) return
+    const newIndex = nav.index + 1
+    const path = nav.history[newIndex]
+    setNav(prev => ({ ...prev, index: newIndex }))
+    exitSelectMode()
+    onPathChange?.(path)
+  }
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ["nextcloud-files", currentPath] })
   }
 
   function toggleSelect(path: string) {
@@ -172,8 +202,36 @@ export function NextcloudBrowser({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Selection toolbar */}
+      {/* Navigation + selection toolbar */}
       <div className="flex items-center gap-1 px-2 pt-2 pb-1">
+        {/* Back / Forward / Refresh */}
+        <button
+          title="Back"
+          disabled={!canBack}
+          className="p-1 rounded transition-colors hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+          onClick={goBack}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </button>
+        <button
+          title="Forward"
+          disabled={!canForward}
+          className="p-1 rounded transition-colors hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground"
+          onClick={goForward}
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+        <button
+          title="Refresh"
+          className="p-1 rounded transition-colors hover:bg-muted/50 text-muted-foreground"
+          onClick={handleRefresh}
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin")} />
+        </button>
+
+        <div className="flex-1" />
+
+        {/* Select mode */}
         <button
           title={selectMode ? "Exit selection mode" : "Select files"}
           className={cn(
