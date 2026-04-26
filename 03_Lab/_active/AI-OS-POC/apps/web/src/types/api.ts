@@ -450,6 +450,8 @@ export interface AiChatResponse {
 export interface AiMemoryStats {
   entry_count: number
   vector_storage_bytes: number
+  rag_chunk_count: number
+  rag_storage_bytes: number
 }
 
 // ─── Phase 12: Client Portal ──────────────────────────────────────────────

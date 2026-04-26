@@ -72,6 +72,7 @@ export function AiMemoryPanel() {
             </>
           ) : stats ? (
             <>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 pb-1">Conversational Memory</p>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Memory Entries</span>
                 <span className="font-medium">{stats.entry_count.toLocaleString()}</span>
@@ -79,6 +80,15 @@ export function AiMemoryPanel() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Vector Storage</span>
                 <span className="font-medium">{formatBytes(stats.vector_storage_bytes)}</span>
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 pt-3 pb-1">RAG Knowledge Base (Nextcloud)</p>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Document Chunks</span>
+                <span className="font-medium">{(stats.rag_chunk_count ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Vector Storage</span>
+                <span className="font-medium">{formatBytes(stats.rag_storage_bytes ?? 0)}</span>
               </div>
             </>
           ) : (
