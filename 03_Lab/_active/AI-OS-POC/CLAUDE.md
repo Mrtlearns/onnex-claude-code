@@ -107,6 +107,26 @@ AI-OS-POC/
 | API | `http://10.10.110.31:3001` |
 | External domain | `https://agencyos-v1.on-nex.us` (Phase 3.5+) |
 
+## Docker Compose — Always Use Make
+
+**Never run `docker compose up/down/restart` directly on this VM.** The secrets file is at `env/.env`, not the compose-default `.env`, so raw `docker compose` commands start containers with all `AUTH_*` env vars empty — breaking Authentik SSO (next-auth returns `error=Configuration` and redirects to `0.0.0.0`).
+
+Always use the Makefile:
+
+```bash
+cd /opt/agency-ai-os/infra
+
+make up                        # start all services
+make up SERVICE=aios-web       # start one service
+make restart SERVICE=aios-api  # restart one service
+make down                      # stop all
+make logs SERVICE=aios-web     # tail logs
+```
+
+The Makefile expands to `docker compose -f docker-compose.yml --env-file env/.env …` — that `--env-file` flag is the critical piece.
+
+---
+
 ## SSH Access — Correct Pattern
 
 ProxyJump (`-J`) does **not** work here because the private key isn't forwarded to the jumpbox for the second hop. Use this two-step pattern instead:
