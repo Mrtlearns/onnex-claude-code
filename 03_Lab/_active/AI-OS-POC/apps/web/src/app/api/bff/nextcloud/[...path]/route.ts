@@ -1,6 +1,5 @@
 // apps/web/src/app/api/bff/nextcloud/[...path]/route.ts
-// BFF proxy: GET Nextcloud WebDAV at arbitrary path — directory listing (PROPFIND) or file stream (GET)
-// POST: create a public share link via OCS Sharing API
+// BFF proxy: GET (PROPFIND list / file stream / PDF convert), PUT (upload), DELETE (soft/hard), POST (share)
 // Credentials (NEXTCLOUD_PASSWORD) stay server-side; browser receives XML or file bytes
 
 import { auth } from "@/auth"
@@ -10,6 +9,13 @@ const NC_URL = process.env.NEXTCLOUD_INTERNAL_URL ?? process.env.NEXTCLOUD_BASE_
 const NC_USER = process.env.NEXTCLOUD_USER ?? process.env.NEXTCLOUD_ADMIN_USER ?? "ncadmin"
 const NC_PASS = process.env.NEXTCLOUD_PASSWORD ?? process.env.NEXTCLOUD_ADMIN_PASSWORD ?? "ncadmin_dev_2024"
 const NC_BASE = `${NC_URL}/remote.php/dav/files/${NC_USER}`
+
+// Module-level dedup cache — tracks lastModified to avoid re-uploading identical files
+const uploadedFiles = new Map<string, number>()
+
+function encodePath(segments: string[]): string {
+  return segments.map(encodeURIComponent).join("/")
+}
 
 export async function GET(
   request: NextRequest,
@@ -21,7 +27,7 @@ export async function GET(
   }
 
   const basicAuth = Buffer.from(`${NC_USER}:${NC_PASS}`).toString("base64")
-  const resourcePath = params.path.map(encodeURIComponent).join("/")
+  const resourcePath = encodePath(params.path)
 
   // Determine if this is a directory listing or a file download based on trailing slash
   // or Content-Type hint from the request. Default to PROPFIND for directories.
@@ -151,6 +157,87 @@ export async function POST(
 
     const publicBase = process.env.NEXT_PUBLIC_NEXTCLOUD_URL ?? NC_URL
     return NextResponse.json({ url: `${publicBase}/s/${token}` })
+  } catch {
+    return NextResponse.json({ error: "Nextcloud unavailable" }, { status: 503 })
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { path: string[] } },
+) {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const basicAuth = Buffer.from(`${NC_USER}:${NC_PASS}`).toString("base64")
+  const resourcePath = encodePath(params.path)
+  const fullPath = params.path.join("/")
+
+  // Skip re-uploading identical files (same path + lastModified)
+  const lastModifiedHeader = request.headers.get("x-file-last-modified")
+  const lastModified = lastModifiedHeader ? parseInt(lastModifiedHeader) : null
+  if (lastModified && uploadedFiles.get(fullPath) === lastModified) {
+    return NextResponse.json({ ok: true, skipped: true })
+  }
+
+  try {
+    const contentType = request.headers.get("Content-Type") ?? "application/octet-stream"
+    const res = await fetch(`${NC_BASE}/${resourcePath}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": contentType,
+      },
+      body: request.body,
+      // @ts-expect-error duplex required for streaming uploads
+      duplex: "half",
+    })
+
+    if (res.ok && lastModified) uploadedFiles.set(fullPath, lastModified)
+    return NextResponse.json({ ok: res.ok }, { status: res.ok ? 200 : res.status })
+  } catch {
+    return NextResponse.json({ error: "Nextcloud unavailable" }, { status: 503 })
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { path: string[] } },
+) {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const basicAuth = Buffer.from(`${NC_USER}:${NC_PASS}`).toString("base64")
+  const resourcePath = encodePath(params.path)
+  const fullPath = params.path.join("/")
+  const isInTrash = fullPath.startsWith("_deleted/")
+
+  try {
+    if (isInTrash) {
+      // Hard delete — item is already in trash
+      const res = await fetch(`${NC_BASE}/${resourcePath}`, {
+        method: "DELETE",
+        headers: { Authorization: `Basic ${basicAuth}` },
+      })
+      return NextResponse.json({ ok: res.ok })
+    } else {
+      // Soft delete — move to _deleted/
+      const filename = params.path[params.path.length - 1]
+      const dest = `${NC_BASE}/_deleted/${encodeURIComponent(filename)}`
+      const res = await fetch(`${NC_BASE}/${resourcePath}`, {
+        method: "MOVE",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          Destination: dest,
+          Overwrite: "T",
+        },
+      })
+      return NextResponse.json({ ok: res.ok })
+    }
   } catch {
     return NextResponse.json({ error: "Nextcloud unavailable" }, { status: 503 })
   }

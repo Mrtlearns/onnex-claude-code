@@ -1,15 +1,25 @@
 "use client"
 // apps/web/src/app/(protected)/documents/components/nextcloud-browser.tsx
-// Calls /api/bff/nextcloud (BFF PROPFIND proxy) — parses WebDAV XML client-side
+// WebDAV browser with multi-select, soft/hard delete, refreshKey, onPathChange
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useRef, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import type { NextcloudFile } from "@/types/api"
 
-// Parse WebDAV PROPFIND XML response into NextcloudFile list
 function parseWebDavXml(xml: string, currentPath: string): NextcloudFile[] {
   try {
     const parser = new DOMParser()
@@ -19,13 +29,9 @@ function parseWebDavXml(xml: string, currentPath: string): NextcloudFile[] {
 
     for (const response of responses) {
       const href = response.querySelector("href")?.textContent ?? ""
-      // Extract path after /remote.php/dav/files/{user}/
-      // Works with both /remote.php/... and /nextcloud/remote.php/... hrefs (no ^ anchor)
       const match = href.match(/\/remote\.php\/dav\/files\/[^/]+\/(.*)/)
       if (!match) continue
       const filePath = decodeURIComponent(match[1]).replace(/\/$/, "")
-
-      // Skip the current directory entry itself
       if (filePath === currentPath || filePath === "") continue
 
       const displayName = response.querySelector("displayname")?.textContent ?? filePath.split("/").pop() ?? ""
@@ -47,17 +53,44 @@ function parseWebDavXml(xml: string, currentPath: string): NextcloudFile[] {
   }
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return ""
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 interface NextcloudBrowserProps {
   onSelectFile?: (file: NextcloudFile) => void
   onSelectFolder?: (path: string, name: string) => void
+  refreshKey?: number
+  onPathChange?: (path: string) => void
+  initialPath?: string
 }
 
-export function NextcloudBrowser({ onSelectFile, onSelectFolder }: NextcloudBrowserProps) {
-  const [currentPath, setCurrentPath] = useState("")
+export function NextcloudBrowser({
+  onSelectFile,
+  onSelectFolder,
+  refreshKey,
+  onPathChange,
+  initialPath = "",
+}: NextcloudBrowserProps) {
+  const [currentPath, setCurrentPath] = useState(initialPath)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmHardDelete, setConfirmHardDelete] = useState(false)
+  const queryClient = useQueryClient()
+  const prevRefreshKey = useRef(refreshKey)
 
-  const bffUrl = currentPath
-    ? `/api/bff/nextcloud/${currentPath}`
-    : "/api/bff/nextcloud"
+  // Respond to external refreshKey changes
+  useEffect(() => {
+    if (refreshKey !== prevRefreshKey.current) {
+      prevRefreshKey.current = refreshKey
+      queryClient.invalidateQueries({ queryKey: ["nextcloud-files", currentPath] })
+    }
+  }, [refreshKey, currentPath, queryClient])
+
+  const bffUrl = currentPath ? `/api/bff/nextcloud/${currentPath}` : "/api/bff/nextcloud"
 
   const { data: files = [], isLoading, isError } = useQuery<NextcloudFile[]>({
     queryKey: ["nextcloud-files", currentPath],
@@ -71,101 +104,208 @@ export function NextcloudBrowser({ onSelectFile, onSelectFolder }: NextcloudBrow
     retry: false,
   })
 
-  // Build breadcrumb segments from currentPath
   const breadcrumbs = currentPath ? currentPath.split("/").filter(Boolean) : []
 
-  const navigateTo = (path: string) => setCurrentPath(path)
+  function navigateTo(path: string) {
+    setCurrentPath(path)
+    exitSelectMode()
+    onPathChange?.(path)
+  }
+
+  function toggleSelect(path: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(path) ? next.delete(path) : next.add(path)
+      return next
+    })
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelected(new Set())
+  }
+
+  function handleToggleSelectMode() {
+    if (selectMode) exitSelectMode()
+    else setSelectMode(true)
+  }
+
+  async function executeDelete() {
+    for (const path of selected) {
+      const encoded = path.split("/").map(encodeURIComponent).join("/")
+      await fetch(`/api/bff/nextcloud/${encoded}`, { method: "DELETE" })
+    }
+    exitSelectMode()
+    queryClient.invalidateQueries({ queryKey: ["nextcloud-files", currentPath] })
+    setConfirmHardDelete(false)
+  }
+
+  function handleDelete() {
+    const allInTrash = [...selected].every((p) => p.startsWith("_deleted/"))
+    if (allInTrash) {
+      setConfirmHardDelete(true)
+    } else {
+      executeDelete()
+    }
+  }
 
   const handleFileClick = (item: NextcloudFile) => {
+    if (selectMode) {
+      toggleSelect(item.path)
+      return
+    }
     if (item.type === "directory") {
       navigateTo(item.path)
     } else {
       if (onSelectFile) {
         onSelectFile(item)
       } else {
-        window.open(`/api/bff/nextcloud/${item.path}?download=1`, "_blank")
+        const encoded = item.path.split("/").map(encodeURIComponent).join("/")
+        window.open(`/api/bff/nextcloud/${encoded}?download=1`, "_blank")
       }
     }
   }
 
   return (
-    <div className="flex flex-col h-full p-2 space-y-2">
-      {/* Breadcrumb navigation */}
-      <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-        <button
-          className="hover:text-foreground transition-colors"
-          onClick={() => navigateTo("")}
+    <div className="flex flex-col h-full">
+      {/* Breadcrumb + select toolbar */}
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/20 flex-wrap">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-1 flex-wrap min-w-0">
+          <button className="hover:text-foreground transition-colors shrink-0" onClick={() => navigateTo("")}>
+            Root
+          </button>
+          {breadcrumbs.map((segment, idx) => {
+            const path = breadcrumbs.slice(0, idx + 1).join("/")
+            return (
+              <span key={path} className="flex items-center gap-1">
+                <ChevronRightIcon className="h-3 w-3" />
+                <button className="hover:text-foreground transition-colors" onClick={() => navigateTo(path)}>
+                  {segment}
+                </button>
+              </span>
+            )
+          })}
+        </div>
+
+        <Button
+          variant={selectMode ? "secondary" : "ghost"}
+          size="sm"
+          onClick={handleToggleSelectMode}
+          className="h-7 px-2 text-xs gap-1 shrink-0"
         >
-          Root
-        </button>
-        {breadcrumbs.map((segment, idx) => {
-          const path = breadcrumbs.slice(0, idx + 1).join("/")
-          return (
-            <span key={path} className="flex items-center gap-1">
-              <ChevronRightIcon className="h-3 w-3" />
-              <button
-                className="hover:text-foreground transition-colors"
-                onClick={() => navigateTo(path)}
-              >
-                {segment}
-              </button>
-            </span>
-          )
-        })}
+          <CheckSquare className="h-3.5 w-3.5" />
+          {selectMode ? "Cancel" : "Select"}
+        </Button>
+
+        {selectMode && selected.size > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 shrink-0"
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete ({selected.size})
+          </Button>
+        )}
       </div>
 
       {/* File/folder list */}
-      {isLoading && (
-        <div className="space-y-1">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-8 w-full" />
-          ))}
-        </div>
-      )}
+      <div className="flex-1 overflow-auto p-2 space-y-0.5">
+        {isLoading && (
+          <div className="space-y-1">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        )}
 
-      {isError && (
-        <div className="text-sm text-muted-foreground text-center py-4">
-          Could not connect to Nextcloud
-        </div>
-      )}
+        {isError && (
+          <div className="text-sm text-muted-foreground text-center py-4">
+            Could not connect to Nextcloud
+          </div>
+        )}
 
-      {!isLoading && !isError && files.length === 0 && (
-        <div className="text-sm text-muted-foreground text-center py-4">
-          Empty folder
-        </div>
-      )}
+        {!isLoading && !isError && files.length === 0 && (
+          <div className="text-sm text-muted-foreground text-center py-4">Empty folder</div>
+        )}
 
-      {!isLoading && !isError && files.length > 0 && (
-        <div className="space-y-1 overflow-auto">
-          {files.map((item) => (
-            <div key={item.path} className="flex items-center gap-1 group">
-              <button
-                className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded text-sm hover:bg-muted/50 transition-colors text-left"
-                onClick={() => handleFileClick(item)}
+        {!isLoading &&
+          !isError &&
+          files.map((item) => {
+            const isSelected = selected.has(item.path)
+            return (
+              <div
+                key={item.path}
+                className={cn("flex items-center gap-1 group rounded", isSelected && "bg-muted/70")}
               >
-                {item.type === "directory" ? (
-                  <FolderIcon className="h-4 w-4 text-yellow-500 shrink-0" />
-                ) : (
-                  <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={isSelected}
+                    onClick={() => toggleSelect(item.path)}
+                    className="ml-2 shrink-0 cursor-pointer"
+                  />
                 )}
-                <span className="truncate">{item.name}</span>
-              </button>
-              {item.type === "directory" && onSelectFolder && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  onClick={(e) => { e.stopPropagation(); onSelectFolder(item.path, item.name) }}
-                  title="Link this folder"
+
+                <button
+                  className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded text-sm hover:bg-muted/50 transition-colors text-left"
+                  onClick={() => handleFileClick(item)}
                 >
-                  <FolderInput className="h-3.5 w-3.5 mr-1" />
-                  Link
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                  {item.type === "directory" ? (
+                    <FolderIcon className="h-4 w-4 text-yellow-500 shrink-0" />
+                  ) : (
+                    <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="truncate">{item.name}</span>
+                  {!selectMode && item.type === "file" && (
+                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                      {formatBytes(item.size)}
+                    </span>
+                  )}
+                </button>
+
+                {item.type === "directory" && onSelectFolder && !selectMode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelectFolder(item.path, item.name)
+                    }}
+                    title="Link this folder"
+                  >
+                    <FolderInput className="h-3.5 w-3.5 mr-1" />
+                    Link
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+      </div>
+
+      {/* Hard delete confirmation */}
+      <AlertDialog open={confirmHardDelete} onOpenChange={setConfirmHardDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selected.size} item(s) will be permanently deleted from Nextcloud. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmHardDelete(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={executeDelete}
+            >
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
