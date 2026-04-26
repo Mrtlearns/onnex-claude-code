@@ -1,0 +1,1021 @@
+name: agency-ai-os
+x-logging: &id001
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+networks:
+  edge_net:
+    driver: bridge
+  app_net:
+    driver: bridge
+  data_net:
+    driver: bridge
+    internal: true
+volumes:
+  pg_core_data: null
+  redis_core_data: null
+  minio_data: null
+  nextcloud_html: null
+  nextcloud_data: null
+  nextcloud_db_data: null
+  nextcloud_redis_data: null
+  paperless_data: null
+  paperless_media: null
+  paperless_export: null
+  paperless_consume: null
+  paperless_db_data: null
+  paperless_broker_data: null
+  aios_uploads: null
+  aios_tmp: null
+  openclaw_workspace: null
+  openclaw_config: null
+  grafana_data: null
+  prometheus_data: null
+  loki_data: null
+  promtail_positions: null
+  n8n_data: null
+  rclone_state: null
+services:
+  docker-socket-proxy:
+    container_name: docker-socket-proxy
+    build:
+      context: docker-socket-rewriter
+      dockerfile: Dockerfile
+    image: docker-api-rewriter:local
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+    - edge_net
+    environment:
+      TZ: America/Los_Angeles
+  edge-traefik:
+    container_name: edge-traefik
+    image: traefik:v3.3
+    restart: unless-stopped
+    logging: *id001
+    links:
+    - docker-socket-proxy
+    networks:
+    - edge_net
+    - app_net
+    ports:
+    - 0.0.0.0:8888:80
+    expose:
+    - '80'
+    - '443'
+    - '8081'
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost/ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command:
+    - --ping=true
+    - --api.dashboard=false
+    - --log.level=INFO
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    - --providers.docker=true
+    - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
+    - --providers.docker.exposedbydefault=false
+    - --entrypoints.web.forwardedHeaders.trustedIPs=10.10.0.0/16,172.16.0.0/12
+    - --ping.entryPoint=web
+    - --providers.docker.network=agency-ai-os_app_net
+    environment:
+      DOCKER_API_VERSION: '1.41'
+      TZ: America/Los_Angeles
+  authentik-server:
+    container_name: authentik-server
+    image: ghcr.io/goauthentik/server:2024.10
+    restart: unless-stopped
+    logging: *id001
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-placeholder-change-me}
+      AUTHENTIK_POSTGRESQL__HOST: ${AUTHENTIK_POSTGRESQL__HOST:-postgres-core}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-aios}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:-aios_dev_password}
+      AUTHENTIK_REDIS__HOST: ${AUTHENTIK_REDIS__HOST:-redis-core}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+      TZ: America/Los_Angeles
+    networks:
+    - edge_net
+    - app_net
+    - data_net
+    ports:
+    - 0.0.0.0:9000:9000
+    expose:
+    - '9443'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - ak healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+    - traefik.enable=true
+    - traefik.http.services.authentik.loadbalancer.server.port=9000
+    - traefik.http.routers.authentik-app.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/application`)
+    - traefik.http.routers.authentik-app.entrypoints=web
+    - traefik.http.routers.authentik-app.service=authentik
+    - traefik.http.routers.authentik-app.priority=20
+    - traefik.http.routers.authentik-if.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/if`)
+    - traefik.http.routers.authentik-if.entrypoints=web
+    - traefik.http.routers.authentik-if.service=authentik
+    - traefik.http.routers.authentik-if.priority=20
+    - traefik.http.routers.authentik-apiv3.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/api/v3`)
+    - traefik.http.routers.authentik-apiv3.entrypoints=web
+    - traefik.http.routers.authentik-apiv3.service=authentik
+    - traefik.http.routers.authentik-apiv3.priority=20
+    - traefik.http.routers.authentik-wk.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/.well-known`)
+    - traefik.http.routers.authentik-wk.entrypoints=web
+    - traefik.http.routers.authentik-wk.service=authentik
+    - traefik.http.routers.authentik-wk.priority=20
+    - traefik.http.routers.authentik-static.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/static`)
+    - traefik.http.routers.authentik-static.entrypoints=web
+    - traefik.http.routers.authentik-static.service=authentik
+    - traefik.http.routers.authentik-static.priority=20
+    - traefik.http.routers.authentik-flows.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/flows`)
+    - traefik.http.routers.authentik-flows.entrypoints=web
+    - traefik.http.routers.authentik-flows.service=authentik
+    - traefik.http.routers.authentik-flows.priority=20
+  authentik-worker:
+    container_name: authentik-worker
+    image: ghcr.io/goauthentik/server:2024.10
+    restart: unless-stopped
+    logging: *id001
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-placeholder-change-me}
+      AUTHENTIK_POSTGRESQL__HOST: ${AUTHENTIK_POSTGRESQL__HOST:-postgres-core}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRESQL__NAME:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRESQL__USER:-aios}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRESQL__PASSWORD:-aios_dev_password}
+      AUTHENTIK_REDIS__HOST: ${AUTHENTIK_REDIS__HOST:-redis-core}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+      TZ: America/Los_Angeles
+    networks:
+    - app_net
+    - data_net
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - ak healthcheck || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+  postgres-core:
+    container_name: postgres-core
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    logging: *id001
+    command: postgres -c max_connections=500 -c shared_buffers=256MB -c hba_file=/etc/postgresql/pg_hba.conf
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aios}
+      POSTGRES_USER: ${POSTGRES_USER:-aios}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aios_dev_password}
+      TZ: America/Los_Angeles
+    volumes:
+    - pg_core_data:/var/lib/postgresql/data
+    - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    networks:
+    - data_net
+    ports:
+    - 0.0.0.0:5432:5432
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER:-aios} -d ${POSTGRES_DB:-aios}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  redis-core:
+    container_name: redis-core
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - redis_core_data:/data
+    networks:
+    - data_net
+    expose:
+    - '6379'
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    environment:
+      TZ: America/Los_Angeles
+  minio-core:
+    container_name: minio-core
+    image: minio/minio:latest
+    restart: unless-stopped
+    logging: *id001
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+      MINIO_BROWSER_REDIRECT_URL: https://${PUBLIC_DOMAIN}/minio
+      TZ: America/Los_Angeles
+    volumes:
+    - minio_data:/data
+    networks:
+    - data_net
+    - app_net
+    ports:
+    - 0.0.0.0:9002:9000
+    - 0.0.0.0:9001:9001
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -f http://localhost:9000/minio/health/live || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.minio.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/minio`)
+    - traefik.http.routers.minio.entrypoints=web
+    - traefik.http.routers.minio.priority=10
+    - traefik.http.services.minio.loadbalancer.server.port=9001
+    - traefik.http.middlewares.minio-strip.stripprefix.prefixes=/minio
+    - traefik.http.routers.minio.middlewares=minio-strip
+  temporal:
+    container_name: temporal
+    init: true
+    image: temporalio/auto-setup:1.25
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      DB: postgres12
+      DB_PORT: '5432'
+      POSTGRES_USER: ${TEMPORAL_DB_USER:-aios}
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-aios_dev_password}
+      POSTGRES_SEEDS: ${TEMPORAL_DB_HOST:-postgres-core}
+      DYNAMIC_CONFIG_FILE_PATH: /etc/temporal/config/dynamicconfig.yaml
+      TZ: America/Los_Angeles
+    volumes:
+    - ./config/temporal/dynamicconfig.yaml:/etc/temporal/config/dynamicconfig.yaml:ro
+    networks:
+    - app_net
+    - data_net
+    expose:
+    - '7233'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - HOST=$$(hostname); IP=$$(grep $$HOST /etc/hosts | awk '{print $$1}' | head
+        -1); temporal operator cluster health --address $$IP:7233 2>/dev/null || exit
+        1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+  temporal-ui:
+    container_name: temporal-ui
+    image: temporalio/ui:2.32.0
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+      TEMPORAL_UI_BASE_HREF: /temporal/
+      TZ: America/Los_Angeles
+    networks:
+    - app_net
+    ports:
+    - 0.0.0.0:8080:8080
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://localhost:8080 || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      temporal:
+        condition: service_started
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.temporal-ui.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/temporal`)
+    - traefik.http.routers.temporal-ui.entrypoints=web
+    - traefik.http.routers.temporal-ui.priority=10
+    - traefik.http.services.temporal-ui.loadbalancer.server.port=8080
+    - traefik.http.middlewares.temporal-ui-strip.stripprefix.prefixes=/temporal
+    - traefik.http.routers.temporal-ui.middlewares=temporal-ui-strip
+  aios-web:
+    container_name: aios-web
+    init: true
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    image: aios-web:local
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://aios-api:3001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+      NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL}
+      PORT: 3002
+      HOSTNAME: 0.0.0.0
+      AUTH_URL: ${AUTH_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
+      AUTH_AUTHENTIK_ISSUER: ${AUTH_AUTHENTIK_ISSUER:-http://authentik-server:9000/application/o/aios}
+      AUTH_AUTHENTIK_PUBLIC_URL: ${AUTH_AUTHENTIK_PUBLIC_URL}
+      AUTH_AUTHENTIK_ID: ${AUTH_AUTHENTIK_ID}
+      AUTH_AUTHENTIK_SECRET: ${AUTH_AUTHENTIK_SECRET}
+      AIOS_API_INTERNAL_URL: ${AIOS_API_INTERNAL_URL:-http://aios-api:3001}
+      NEXTCLOUD_INTERNAL_URL: ${NEXTCLOUD_BASE_URL:-http://nextcloud-app:80}
+      NEXTCLOUD_USER: ${NEXTCLOUD_ADMIN_USER:-ncadmin}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-ncadmin_dev_2024}
+      MINIO_INTERNAL_URL: ${S3_ENDPOINT:-http://minio-core:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin_dev}
+      S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-uploads}
+      NEXT_PUBLIC_MINIO_URL: ${NEXT_PUBLIC_MINIO_URL:-http://10.10.110.31:9002}
+      TZ: America/Los_Angeles
+    networks:
+    - edge_net
+    - app_net
+    ports:
+    - 0.0.0.0:3002:3002
+    depends_on:
+      aios-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - node -e "require('http').get('http://127.0.0.1:3002/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.aios-web.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/`)
+    - traefik.http.routers.aios-web.entrypoints=web
+    - traefik.http.routers.aios-web.priority=1
+    - traefik.http.services.aios-web.loadbalancer.server.port=3002
+  aios-api:
+    container_name: aios-api
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    image: aios-api:local
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      API_PORT: ${API_PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aios}:${POSTGRES_PASSWORD:-aios_dev_password}@pgbouncer:5432/${POSTGRES_DB:-aios}
+      REDIS_URL: ${REDIS_URL}
+      AUTHENTIK_JWKS_URI: ${AUTHENTIK_JWKS_URI}
+      AUTHENTIK_ISSUER: ${AUTHENTIK_ISSUER}
+      AUTHENTIK_INTERNAL_URL: ${AUTHENTIK_INTERNAL_URL:-http://authentik-server:9000}
+      AUTHENTIK_API_TOKEN: ${AUTHENTIK_API_TOKEN}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3002}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.1-pro-preview}
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-aios}
+      PAPERLESS_AI_API_TOKEN: ${PAPERLESS_AI_API_TOKEN}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio-core:9000}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin_dev}
+      S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-uploads}
+      TZ: America/Los_Angeles
+    networks:
+    - edge_net
+    - app_net
+    - data_net
+    ports:
+    - 0.0.0.0:3001:3001
+    volumes:
+    - aios_uploads:/app/uploads
+    - aios_tmp:/app/tmp
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis-core:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://127.0.0.1:3001/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.aios-api.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/api`)
+    - traefik.http.routers.aios-api.entrypoints=web
+    - traefik.http.routers.aios-api.priority=10
+    - traefik.http.services.aios-api.loadbalancer.server.port=3001
+  aios-worker:
+    container_name: aios-worker
+    build:
+      context: ../apps/worker
+      dockerfile: Dockerfile
+    image: aios-worker:local
+    command:
+    - node
+    - dist/worker.js
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-aios}
+      AIOS_API_URL: ${AIOS_API_URL:-http://aios-api:3001}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PAPERLESS_AI_API_TOKEN: ${PAPERLESS_AI_API_TOKEN}
+      TZ: America/Los_Angeles
+    networks:
+    - app_net
+    - data_net
+    depends_on:
+      temporal:
+        condition: service_healthy
+      aios-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - 'true'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  aios-scheduler:
+    container_name: aios-scheduler
+    build:
+      context: ../apps/worker
+      dockerfile: Dockerfile
+    image: aios-worker:local
+    command:
+    - node
+    - dist/scheduler.js
+    restart: on-failure
+    logging: *id001
+    environment:
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-aios}
+      AIOS_API_URL: ${AIOS_API_URL:-http://aios-api:3001}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      TZ: America/Los_Angeles
+    networks:
+    - app_net
+    - data_net
+    depends_on:
+      aios-worker:
+        condition: service_started
+      temporal:
+        condition: service_healthy
+  openclaw-runtime:
+    container_name: openclaw-runtime
+    init: true
+    image: ghcr.io/openclaw/openclaw:latest
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-openclaw_dev_token_changeme}
+      OPENCLAW_PROFILE: ${OPENCLAW_PROFILE:-default}
+      OPENCLAW_WORKSPACE: ${OPENCLAW_WORKSPACE:-/workspace}
+      OPENCLAW_CONFIG_PATH: ${OPENCLAW_CONFIG_PATH:-/config/openclaw.json}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AIOS_API_URL: ${AIOS_API_URL:-http://aios-api:3001}
+      TZ: America/Los_Angeles
+    volumes:
+    - openclaw_workspace:/workspace
+    - /opt/agency-ai-os/agents/openclaw/config:/config:ro
+    networks:
+    - app_net
+    expose:
+    - '47823'
+    - '47825'
+    depends_on:
+      aios-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - node -e "fetch('http://127.0.0.1:47823/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.openclaw.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/openclaw`)
+    - traefik.http.routers.openclaw.entrypoints=web
+    - traefik.http.routers.openclaw.priority=10
+    - traefik.http.services.openclaw.loadbalancer.server.port=47823
+    - traefik.http.middlewares.openclaw-strip.stripprefix.prefixes=/openclaw
+    - traefik.http.routers.openclaw.middlewares=openclaw-strip
+  nextcloud-db:
+    container_name: nextcloud-db
+    image: mariadb:11
+    restart: unless-stopped
+    logging: *id001
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    environment:
+      MYSQL_ROOT_PASSWORD: ${POSTGRES_PASSWORD:-nextcloud_dev}
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: ${POSTGRES_PASSWORD:-nextcloud_dev}
+      TZ: America/Los_Angeles
+    volumes:
+    - nextcloud_db_data:/var/lib/mysql
+    networks:
+    - data_net
+    expose:
+    - '3306'
+    healthcheck:
+      test:
+      - CMD
+      - healthcheck.sh
+      - --connect
+      - --innodb_initialized
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+  nextcloud-redis:
+    container_name: nextcloud-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - nextcloud_redis_data:/data
+    networks:
+    - data_net
+    expose:
+    - '6379'
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      TZ: America/Los_Angeles
+  nextcloud-app:
+    container_name: nextcloud-app
+    image: nextcloud:30-apache
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      MYSQL_HOST: nextcloud-db
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_dev}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-ncadmin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-ncadmin_dev_2024}
+      NEXTCLOUD_TRUSTED_DOMAINS: ${PUBLIC_DOMAIN} localhost
+      REDIS_HOST: nextcloud-redis
+      REDIS_HOST_PORT: 6379
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: ${PUBLIC_DOMAIN}
+      OVERWRITEWEBROOT: /nextcloud
+      OVERWRITECLIURL: https://${PUBLIC_DOMAIN}/nextcloud
+      TZ: America/Los_Angeles
+    volumes:
+    - nextcloud_html:/var/www/html
+    - nextcloud_data:/var/www/html/data
+    ports:
+    - 0.0.0.0:8090:80
+    networks:
+    - app_net
+    - data_net
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -f http://localhost/status.php || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.nextcloud.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/nextcloud`)
+    - traefik.http.routers.nextcloud.entrypoints=web
+    - traefik.http.routers.nextcloud.priority=10
+    - traefik.http.services.nextcloud.loadbalancer.server.port=80
+    - traefik.http.middlewares.nextcloud-strip.stripprefix.prefixes=/nextcloud
+    - traefik.http.routers.nextcloud.middlewares=nextcloud-strip
+  paperless-db:
+    container_name: paperless-db
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${PAPERLESS_DBPASS:-paperless_dev}
+      TZ: America/Los_Angeles
+    volumes:
+    - paperless_db_data:/var/lib/postgresql/data
+    networks:
+    - data_net
+    expose:
+    - '5432'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U paperless -d paperless
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  paperless-broker:
+    container_name: paperless-broker
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - paperless_broker_data:/data
+    networks:
+    - data_net
+    expose:
+    - '6379'
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      TZ: America/Los_Angeles
+  paperless-web:
+    container_name: paperless-web
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.13
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      PAPERLESS_REDIS: redis://paperless-broker:6379
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: paperless-db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${PAPERLESS_DBPASS:-paperless_dev}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_URL: https://${PUBLIC_DOMAIN}
+      PAPERLESS_FORCE_SCRIPT_NAME: /paperless
+      PAPERLESS_STATIC_URL: /paperless/static/
+      PAPERLESS_POST_CONSUME_SCRIPT: /usr/src/paperless/scripts/post-consume.sh
+      AIOS_API_URL: http://aios-api:3001
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-admin}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-paperless_admin_dev}
+      PAPERLESS_TIME_ZONE: America/Los_Angeles
+      PAPERLESS_OCR_LANGUAGE: eng
+      PAPERLESS_CONSUMER_POLLING: '60'
+      TZ: America/Los_Angeles
+    volumes:
+    - paperless_data:/usr/src/paperless/data
+    - paperless_media:/usr/src/paperless/media
+    - paperless_export:/usr/src/paperless/export
+    - paperless_consume:/usr/src/paperless/consume
+    - /opt/agency-ai-os/infra/scripts/paperless-post-consume.sh:/usr/src/paperless/scripts/post-consume.sh:ro
+    ports:
+    - 0.0.0.0:8010:8000
+    networks:
+    - app_net
+    - data_net
+    depends_on:
+      paperless-db:
+        condition: service_healthy
+      paperless-broker:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fs http://localhost:8000/api/ || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.paperless.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/paperless`)
+    - traefik.http.routers.paperless.entrypoints=web
+    - traefik.http.routers.paperless.priority=10
+    - traefik.http.services.paperless.loadbalancer.server.port=8000
+    - traefik.http.middlewares.paperless-strip.stripprefix.prefixes=/paperless
+    - traefik.http.routers.paperless.middlewares=paperless-strip
+  paperless-ai:
+    container_name: paperless-ai
+    image: clusterzx/paperless-ai:2.7.8
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      PAPERLESS_API_URL: http://paperless-web:8000/api
+      PAPERLESS_API_TOKEN: ${PAPERLESS_AI_API_TOKEN}
+      PAPERLESS_USERNAME: admin
+      AI_PROVIDER: custom
+      CUSTOM_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
+      CUSTOM_API_KEY: ${GEMINI_API_KEY}
+      CUSTOM_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.1-pro-preview}
+      SCAN_INTERVAL: 0 * * * *
+      PROCESS_PREDEFINED_DOCUMENTS: 'yes'
+      TZ: America/Los_Angeles
+    ports:
+    - 0.0.0.0:8501:3000
+    networks:
+    - app_net
+    depends_on:
+      paperless-web:
+        condition: service_healthy
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.paperless-ai.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/paperless-ai`)
+    - traefik.http.routers.paperless-ai.entrypoints=web
+    - traefik.http.routers.paperless-ai.priority=10
+    - traefik.http.services.paperless-ai.loadbalancer.server.port=3000
+    - traefik.http.middlewares.paperless-ai-strip.stripprefix.prefixes=/paperless-ai
+    - traefik.http.routers.paperless-ai.middlewares=paperless-ai-strip
+  node-exporter:
+    container_name: node-exporter
+    image: quay.io/prometheus/node-exporter:v1.8.2
+    restart: unless-stopped
+    logging: *id001
+    pid: host
+    network_mode: host
+    volumes:
+    - /:/host:ro,rslave
+    command:
+    - --path.rootfs=/host
+    environment:
+      TZ: America/Los_Angeles
+  postgres-exporter:
+    container_name: postgres-exporter
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    logging: *id001
+    networks:
+    - data_net
+    - app_net
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-aios}:${POSTGRES_PASSWORD:-aios_dev_password}@postgres-core:5432/postgres?sslmode=disable
+      TZ: America/Los_Angeles
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+  redis-exporter:
+    container_name: redis-exporter
+    image: oliver006/redis_exporter:v1.62.0
+    restart: unless-stopped
+    logging: *id001
+    networks:
+    - data_net
+    - app_net
+    environment:
+      REDIS_ADDR: redis://redis-core:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      TZ: America/Los_Angeles
+    depends_on:
+      redis-core:
+        condition: service_healthy
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - prometheus_data:/prometheus
+    - ./config/prometheus:/etc/prometheus:ro
+    networks:
+    - app_net
+    expose:
+    - '9090'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://localhost:9090/-/healthy || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --web.console.libraries=/etc/prometheus/console_libraries
+    - --web.console.templates=/etc/prometheus/consoles
+    - --web.enable-lifecycle
+    environment:
+      TZ: America/Los_Angeles
+  grafana:
+    container_name: grafana
+    init: true
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    logging: *id001
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: https://${PUBLIC_DOMAIN}/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
+      TZ: America/Los_Angeles
+    volumes:
+    - grafana_data:/var/lib/grafana
+    - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+    - app_net
+    ports:
+    - 0.0.0.0:3000:3000
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://localhost:3000/api/health || exit 1
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.grafana.rule=Host(`${PUBLIC_DOMAIN}`) && PathPrefix(`/grafana`)
+    - traefik.http.routers.grafana.entrypoints=web
+    - traefik.http.routers.grafana.priority=10
+    - traefik.http.services.grafana.loadbalancer.server.port=3000
+    - traefik.http.middlewares.grafana-strip.stripprefix.prefixes=/grafana
+    - traefik.http.routers.grafana.middlewares=grafana-strip
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - loki_data:/loki
+    - ./config/loki:/etc/loki:ro
+    networks:
+    - app_net
+    expose:
+    - '3100'
+    healthcheck:
+      test:
+      - NONE
+    command: -config.file=/etc/loki/loki.yaml
+    environment:
+      TZ: America/Los_Angeles
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:latest
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - /var/log:/var/log:ro
+    - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    - ./config/promtail:/etc/promtail:ro
+    - promtail_positions:/run/promtail
+    networks:
+    - app_net
+    expose:
+    - '9080'
+    healthcheck:
+      test:
+      - NONE
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    command: -config.file=/etc/promtail/config.yml
+    environment:
+      TZ: America/Los_Angeles
+  pgbouncer:
+    container_name: pgbouncer
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    logging: *id001
+    volumes:
+    - ./config/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+    - ./config/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    networks:
+    - data_net
+    expose:
+    - '5432'
+    depends_on:
+      postgres-core:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -p 5432 -U aios
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    environment:
+      TZ: America/Los_Angeles
+  n8n:
+    container_name: n8n
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      GENERIC_TIMEZONE: America/Los_Angeles
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: pgbouncer
+      DB_POSTGRESDB_PORT: '5432'
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_SCHEMA: public
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-aios}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-aios_dev_password}
+      DB_POSTGRESDB_POOL_SIZE: '2'
+      DB_POSTGRESDB_CONNECTION_TIMEOUT_MS: '60000'
+      DB_POSTGRESDB_IDLE_CONNECTION_TIMEOUT_MS: '30000'
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-n8n_dev_key_changeme}
+      N8N_HOST: 10.10.110.31
+      N8N_PORT: '5678'
+      N8N_PROTOCOL: http
+      N8N_PATH: /n8n/
+      N8N_SECURE_COOKIE: 'false'
+      WEBHOOK_URL: http://10.10.110.31:5678/
+      N8N_DIAGNOSTICS_ENABLED: 'false'
+      N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
+      EXECUTIONS_DATA_PRUNE_ON_STARTUP: 'true'
+      EXECUTIONS_DATA_SAVE_ON_PROGRESS: 'false'
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '168'
+    volumes:
+    - n8n_data:/home/node/.n8n:z
+    networks:
+    - app_net
+    - data_net
+    ports:
+    - 0.0.0.0:5678:5678
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://127.0.0.1:5678/healthz || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+  rclone-sync:
+    container_name: rclone-sync
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    entrypoint:
+    - /bin/sh
+    - -c
+    - apk add --no-cache docker-cli curl && /bin/sh /config/sync.sh
+    environment:
+      TZ: America/Los_Angeles
+      NAS_SUBFOLDER: 04 Clients
+      SYNC_MODE: ${SYNC_MODE:-gdrive}
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - rclone_state:/bisync_state
+    - /opt/agency-ai-os/infra/rclone/filters.txt:/config/filters.txt:ro
+    - /opt/agency-ai-os/infra/rclone/gdrive-archive-pull.sh:/config/gdrive-archive-pull.sh:ro
+    - /opt/agency-ai-os/infra/rclone/rclone.conf:/config/rclone/rclone.conf
+    - /opt/agency-ai-os/infra/rclone/service-account.json:/config/service-account.json:ro
+    - /opt/agency-ai-os/infra/rclone/sync.sh:/config/sync.sh:ro
+    networks:
+    - app_net
+  collabora:
+    container_name: collabora
+    image: collabora/code:latest
+    restart: unless-stopped
+    environment:
+      TZ: America/Los_Angeles
+      aliasgroup1: http://nextcloud-app
+      DONT_GEN_SSL_CERT: 'YES'
+      extra_params: --o:ssl.enable=false --o:ssl.termination=true
+    networks:
+    - app_net
+    expose:
+    - '9980'
