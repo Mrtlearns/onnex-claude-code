@@ -5,7 +5,6 @@
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Trash2 } from "lucide-react"
+import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Square, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { NextcloudFile } from "@/types/api"
 
@@ -168,46 +167,46 @@ export function NextcloudBrowser({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Breadcrumb + select toolbar */}
-      <div className="flex items-center gap-1 px-2 py-1.5 border-b bg-muted/20 flex-wrap">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground flex-1 flex-wrap min-w-0">
-          <button className="hover:text-foreground transition-colors shrink-0" onClick={() => navigateTo("")}>
-            Root
-          </button>
-          {breadcrumbs.map((segment, idx) => {
-            const path = breadcrumbs.slice(0, idx + 1).join("/")
-            return (
-              <span key={path} className="flex items-center gap-1">
-                <ChevronRightIcon className="h-3 w-3" />
-                <button className="hover:text-foreground transition-colors" onClick={() => navigateTo(path)}>
-                  {segment}
-                </button>
-              </span>
-            )
-          })}
-        </div>
-
-        <Button
-          variant={selectMode ? "secondary" : "ghost"}
-          size="sm"
+      {/* Selection toolbar */}
+      <div className="flex items-center gap-1 px-2 pt-2 pb-1">
+        <button
+          title={selectMode ? "Exit selection mode" : "Select files"}
+          className={cn(
+            "p-1 rounded transition-colors",
+            selectMode ? "bg-muted text-foreground" : "hover:bg-muted/50 text-muted-foreground",
+          )}
           onClick={handleToggleSelectMode}
-          className="h-7 px-2 text-xs gap-1 shrink-0"
         >
-          <CheckSquare className="h-3.5 w-3.5" />
-          {selectMode ? "Cancel" : "Select"}
-        </Button>
-
+          {selectMode ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+        </button>
         {selectMode && selected.size > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-7 px-2 text-xs gap-1 shrink-0"
+          <button
+            title={`Delete ${selected.size} item(s)`}
+            className="flex items-center gap-1 px-1.5 py-1 rounded text-xs text-red-500 hover:bg-red-500/10 transition-colors"
             onClick={handleDelete}
           >
             <Trash2 className="h-3.5 w-3.5" />
-            Delete ({selected.size})
-          </Button>
+            <span>{selected.size}</span>
+          </button>
         )}
+      </div>
+
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1 px-2 pb-1.5 text-xs text-muted-foreground flex-wrap">
+        <button className="hover:text-foreground transition-colors shrink-0" onClick={() => navigateTo("")}>
+          Root
+        </button>
+        {breadcrumbs.map((segment, idx) => {
+          const path = breadcrumbs.slice(0, idx + 1).join("/")
+          return (
+            <span key={path} className="flex items-center gap-1">
+              <ChevronRightIcon className="h-3 w-3" />
+              <button className="hover:text-foreground transition-colors" onClick={() => navigateTo(path)}>
+                {segment}
+              </button>
+            </span>
+          )
+        })}
       </div>
 
       {/* File/folder list */}
@@ -267,19 +266,14 @@ export function NextcloudBrowser({
                 </button>
 
                 {item.type === "directory" && onSelectFolder && !selectMode && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectFolder(item.path, item.name)
-                    }}
+                  <button
+                    className="flex items-center gap-1 h-7 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded hover:bg-muted/50"
+                    onClick={(e) => { e.stopPropagation(); onSelectFolder(item.path, item.name) }}
                     title="Link this folder"
                   >
-                    <FolderInput className="h-3.5 w-3.5 mr-1" />
+                    <FolderInput className="h-3.5 w-3.5" />
                     Link
-                  </Button>
+                  </button>
                 )}
               </div>
             )

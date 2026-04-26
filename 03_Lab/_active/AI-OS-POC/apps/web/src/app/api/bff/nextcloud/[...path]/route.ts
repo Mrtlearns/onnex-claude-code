@@ -9,6 +9,15 @@ const NC_URL = process.env.NEXTCLOUD_INTERNAL_URL ?? process.env.NEXTCLOUD_BASE_
 const NC_USER = process.env.NEXTCLOUD_USER ?? process.env.NEXTCLOUD_ADMIN_USER ?? "ncadmin"
 const NC_PASS = process.env.NEXTCLOUD_PASSWORD ?? process.env.NEXTCLOUD_ADMIN_PASSWORD ?? "ncadmin_dev_2024"
 const NC_BASE = `${NC_URL}/remote.php/dav/files/${NC_USER}`
+const API_URL = process.env.API_INTERNAL_URL ?? "http://aios-api:3001"
+
+function auditLog(action: string, path: string) {
+  fetch(`${API_URL}/api/v1/internal/document-audit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, path }),
+  }).catch(() => {})
+}
 
 // Module-level dedup cache — tracks lastModified to avoid re-uploading identical files
 const uploadedFiles = new Map<string, number>()
@@ -223,6 +232,7 @@ export async function DELETE(
         method: "DELETE",
         headers: { Authorization: `Basic ${basicAuth}` },
       })
+      if (res.ok) auditLog("hard_delete", fullPath)
       return NextResponse.json({ ok: res.ok })
     } else {
       // Soft delete — move to _deleted/
@@ -236,6 +246,7 @@ export async function DELETE(
           Overwrite: "T",
         },
       })
+      if (res.ok) auditLog("soft_delete", fullPath)
       return NextResponse.json({ ok: res.ok })
     }
   } catch {

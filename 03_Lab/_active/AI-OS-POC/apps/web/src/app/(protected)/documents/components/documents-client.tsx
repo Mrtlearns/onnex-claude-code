@@ -1,10 +1,9 @@
 "use client"
 // apps/web/src/app/(protected)/documents/components/documents-client.tsx
-// Two-panel layout with drag-drop upload, upload progress, toolbar, and document viewer
+// Two-panel layout matching NDT portal pattern — useRef uploads, icon-only toolbar, concurrent uploads
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 import { Upload, FolderUp, FolderPlus, Loader2, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Session } from "next-auth"
@@ -27,27 +26,23 @@ function encodePath(path: string) {
 }
 
 async function collectFilesFromEntries(
-  entries: FileSystemEntry[],
-  basePath = "",
-): Promise<Array<{ file: File; relativePath: string }>> {
-  const results: Array<{ file: File; relativePath: string }> = []
-  for (const entry of entries) {
-    if (entry.isFile) {
-      const file = await new Promise<File>((resolve) => (entry as FileSystemFileEntry).file(resolve))
-      results.push({ file, relativePath: basePath ? `${basePath}/${entry.name}` : entry.name })
-    } else if (entry.isDirectory) {
-      const reader = (entry as FileSystemDirectoryEntry).createReader()
-      const children = await new Promise<FileSystemEntry[]>((resolve, reject) =>
-        reader.readEntries(resolve, reject),
-      )
-      const nested = await collectFilesFromEntries(
-        children,
-        basePath ? `${basePath}/${entry.name}` : entry.name,
-      )
-      results.push(...nested)
-    }
+  entry: FileSystemEntry,
+  prefix: string,
+  results: Array<{ file: File; relativePath: string }>,
+): Promise<void> {
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve) => (entry as FileSystemFileEntry).file(resolve))
+    results.push({ file, relativePath: prefix + entry.name })
+  } else if (entry.isDirectory) {
+    const reader = (entry as FileSystemDirectoryEntry).createReader()
+    let batch: FileSystemEntry[]
+    do {
+      batch = await new Promise<FileSystemEntry[]>((resolve) => reader.readEntries(resolve))
+      for (const child of batch) {
+        await collectFilesFromEntries(child, prefix + entry.name + "/", results)
+      }
+    } while (batch.length > 0)
   }
-  return results
 }
 
 export function DocumentsClient({ session: _session }: DocumentsClientProps) {
@@ -57,6 +52,9 @@ export function DocumentsClient({ session: _session }: DocumentsClientProps) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [dragOver, setDragOver] = useState(false)
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
 
   const handleSelectPaperless = (doc: PaperlessDocument) => {
     setSelectedDoc(doc)
@@ -69,60 +67,70 @@ export function DocumentsClient({ session: _session }: DocumentsClientProps) {
   }
 
   async function uploadFiles(files: Array<{ file: File; relativePath: string }>) {
-    // Create parent directories first
-    const dirSet = new Set<string>()
-    for (const { relativePath } of files) {
-      const segments = relativePath.split("/")
-      for (let i = 1; i < segments.length; i++) {
-        dirSet.add([currentNcPath, ...segments.slice(0, i)].filter(Boolean).join("/"))
-      }
-    }
-    for (const dir of dirSet) {
-      await fetch(`/api/bff/nextcloud/mkdir/${encodePath(dir)}`, { method: "POST" })
+    // Create parent directories first (sequential — ordering matters for nested dirs)
+    const dirs = [
+      ...new Set(
+        files.flatMap(({ relativePath }) => {
+          const parts = relativePath.split("/").slice(0, -1)
+          return parts.map((_, i) => parts.slice(0, i + 1).join("/"))
+        }).filter(Boolean),
+      ),
+    ].sort((a, b) => a.split("/").length - b.split("/").length)
+
+    const base = currentNcPath ? currentNcPath + "/" : ""
+    for (const dir of dirs) {
+      await fetch(`/api/bff/nextcloud/mkdir/${encodePath(base + dir)}`, { method: "POST" })
     }
 
-    setUploads(files.map((f) => ({ name: f.relativePath, status: "uploading" })))
+    const items: UploadItem[] = files.map((f) => ({ name: f.relativePath, status: "uploading" }))
+    setUploads(items)
 
-    for (let i = 0; i < files.length; i++) {
-      const { file, relativePath } = files[i]
-      const uploadPath = [currentNcPath, relativePath].filter(Boolean).join("/")
-      try {
-        const res = await fetch(`/api/bff/nextcloud/${encodePath(uploadPath)}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type || "application/octet-stream",
-            "x-file-last-modified": String(file.lastModified),
-          },
-          body: file,
-        })
-        setUploads((prev) =>
-          prev.map((u, j) => (j === i ? { ...u, status: res.ok ? "done" : "error" } : u)),
-        )
-      } catch {
-        setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: "error" } : u)))
-      }
-    }
+    // Concurrent uploads
+    await Promise.all(
+      files.map(async ({ file, relativePath }, i) => {
+        const uploadPath = base + relativePath
+        try {
+          const res = await fetch(`/api/bff/nextcloud/${encodePath(uploadPath)}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type || "application/octet-stream",
+              "x-file-last-modified": String(file.lastModified),
+            },
+            body: file,
+          })
+          setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: res.ok ? "done" : "error" } : u)))
+        } catch {
+          setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: "error" } : u)))
+        }
+      }),
+    )
 
     setRefreshKey((k) => k + 1)
     setTimeout(() => setUploads([]), 3000)
   }
 
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragOver(false)
-    const entries = Array.from(e.dataTransfer.items)
-      .map((item) => item.webkitGetAsEntry())
-      .filter(Boolean) as FileSystemEntry[]
-    const files = await collectFilesFromEntries(entries)
+  async function handleFileInput(fileList: FileList) {
+    const files = Array.from(fileList).map((f) => ({ file: f, relativePath: f.name }))
     await uploadFiles(files)
   }
 
-  async function handleFiles(fileList: File[]) {
-    const files = fileList.map((f) => ({
+  async function handleFolderInput(fileList: FileList) {
+    const files = Array.from(fileList).map((f) => ({
       file: f,
       relativePath: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
     }))
     await uploadFiles(files)
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const collected: Array<{ file: File; relativePath: string }> = []
+    for (const item of Array.from(e.dataTransfer.items)) {
+      const entry = item.webkitGetAsEntry()
+      if (entry) await collectFilesFromEntries(entry, "", collected)
+    }
+    if (collected.length) await uploadFiles(collected)
   }
 
   async function handleNewFolder() {
@@ -148,68 +156,50 @@ export function DocumentsClient({ session: _session }: DocumentsClientProps) {
           </TabsList>
 
           <TabsContent value="nextcloud" className="flex-1 overflow-hidden mt-0 min-h-0">
-            {/* Drag-drop wrapper */}
             <div
               className={cn(
                 "flex flex-col h-full border rounded-lg overflow-hidden transition-colors",
-                dragOver && "border-primary bg-primary/5",
+                dragOver && "bg-primary/5 ring-2 ring-primary/30 ring-inset",
               )}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
             >
-              {/* Upload toolbar */}
-              <div className="flex items-center gap-1.5 px-2 py-1.5 border-b bg-muted/30 shrink-0 flex-wrap">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    multiple
-                    className="sr-only"
-                    onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
-                  />
-                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs pointer-events-none" asChild>
-                    <span><Upload className="h-3 w-3" /> Upload</span>
-                  </Button>
-                </label>
-
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    // @ts-expect-error webkitdirectory is non-standard
-                    webkitdirectory=""
-                    className="sr-only"
-                    onChange={(e) => handleFiles(Array.from(e.target.files ?? []))}
-                  />
-                  <Button variant="outline" size="sm" className="gap-1 h-7 text-xs pointer-events-none" asChild>
-                    <span><FolderUp className="h-3 w-3" /> Folder</span>
-                  </Button>
-                </label>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 h-7 text-xs"
+              {/* Header with icon-only upload toolbar */}
+              <div className="px-3 py-2 border-b flex items-center gap-1.5 shrink-0">
+                <span className="text-sm font-semibold flex-1 text-foreground/80">Files</span>
+                <button
+                  title="Upload files"
+                  className="p-1 rounded hover:bg-muted/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button
+                  title="Upload folder (or drag & drop)"
+                  className="p-1 rounded hover:bg-muted/50 transition-colors"
+                  onClick={() => folderInputRef.current?.click()}
+                >
+                  <FolderUp className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button
+                  title="New folder"
+                  className="p-1 rounded hover:bg-muted/50 transition-colors"
                   onClick={handleNewFolder}
                 >
-                  <FolderPlus className="h-3 w-3" /> New Folder
-                </Button>
+                  <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
               </div>
 
               {/* Upload progress */}
               {uploads.length > 0 && (
-                <div className="px-3 py-1.5 border-b space-y-0.5 shrink-0 max-h-24 overflow-auto">
+                <div className="px-2 py-1 space-y-0.5 border-b shrink-0 max-h-20 overflow-auto">
                   {uploads.map((u, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      {u.status === "uploading" && (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
-                      )}
-                      {u.status === "done" && (
-                        <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                      )}
-                      {u.status === "error" && (
-                        <XCircle className="h-3 w-3 text-destructive shrink-0" />
-                      )}
-                      <span className="truncate text-muted-foreground">{u.name}</span>
+                    <div key={i} className="flex items-center gap-1.5 text-xs">
+                      {u.status === "uploading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+                      {u.status === "done" && <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />}
+                      {u.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
+                      <span className="truncate text-muted-foreground">{u.name.split("/").pop()}</span>
                     </div>
                   ))}
                 </div>
@@ -219,11 +209,28 @@ export function DocumentsClient({ session: _session }: DocumentsClientProps) {
               <div className="flex-1 overflow-hidden min-h-0">
                 <NextcloudBrowser
                   onSelectFile={handleSelectNextcloud}
-                  onSelectFolder={undefined}
                   refreshKey={refreshKey}
                   onPathChange={setCurrentNcPath}
                 />
               </div>
+
+              {/* Hidden file inputs */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => { if (e.target.files?.length) handleFileInput(e.target.files); e.target.value = "" }}
+              />
+              <input
+                ref={folderInputRef}
+                type="file"
+                // @ts-expect-error webkitdirectory is non-standard
+                webkitdirectory=""
+                multiple
+                className="hidden"
+                onChange={(e) => { if (e.target.files?.length) handleFolderInput(e.target.files); e.target.value = "" }}
+              />
             </div>
           </TabsContent>
 

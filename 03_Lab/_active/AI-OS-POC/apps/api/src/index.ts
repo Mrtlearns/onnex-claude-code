@@ -46,6 +46,8 @@ import { documentSignRoutes } from "./routes/document-sign.js"
 import { staffRoutes } from "./routes/staff.js";
 // Plane integration proxy
 import { planeRoutes } from "./routes/plane.js";
+// Internal BFF → API endpoints (no auth, app_net only)
+import { internalRoutes } from "./routes/internal.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -295,6 +297,8 @@ async function main() {
   await fastify.register(staffRoutes);
   // Plane integration proxy
   await fastify.register(planeRoutes);
+  // Internal BFF endpoints
+  await fastify.register(internalRoutes);
 
   try {
     await fastify.listen({ port: PORT, host: HOST });

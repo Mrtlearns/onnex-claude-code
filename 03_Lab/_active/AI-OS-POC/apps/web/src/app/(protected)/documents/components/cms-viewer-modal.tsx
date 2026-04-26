@@ -2,7 +2,7 @@
 // apps/web/src/app/(protected)/documents/components/cms-viewer-modal.tsx
 // Modal for viewing linked files (iframe) or browsing linked folders (NextcloudBrowser)
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -31,13 +31,125 @@ interface CmsViewerModalProps {
   onClose: () => void
   mode: "file" | "folder"
   title: string
-  nextcloudPath?: string   // for file mode: path for BFF download
-  paperlessId?: number     // for file mode: paperless doc
-  folderPath?: string      // for folder mode: initial browse path
+  nextcloudPath?: string
+  paperlessId?: number
+  folderPath?: string
   entityType?: string
   entityId?: string
   documentSource?: string
   documentId?: string
+}
+
+function FolderBrowser({ folderPath, onClose }: { folderPath: string; onClose: () => void }) {
+  const [currentNcPath, setCurrentNcPath] = useState(folderPath)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [uploads, setUploads] = useState<UploadItem[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadFiles(files: Array<{ file: File; relativePath: string }>) {
+    setUploads(files.map((f) => ({ name: f.relativePath, status: "uploading" })))
+    const base = currentNcPath ? currentNcPath + "/" : ""
+    await Promise.all(
+      files.map(async ({ file, relativePath }, i) => {
+        try {
+          const res = await fetch(`/api/bff/nextcloud/${encodePath(base + relativePath)}`, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "application/octet-stream", "x-file-last-modified": String(file.lastModified) },
+            body: file,
+          })
+          setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: res.ok ? "done" : "error" } : u)))
+        } catch {
+          setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: "error" } : u)))
+        }
+      }),
+    )
+    setRefreshKey((k) => k + 1)
+    setTimeout(() => setUploads([]), 3000)
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const collected: Array<{ file: File; relativePath: string }> = []
+    for (const item of Array.from(e.dataTransfer.items)) {
+      const entry = item.webkitGetAsEntry()
+      if (entry?.isFile) {
+        const file = await new Promise<File>((r) => (entry as FileSystemFileEntry).file(r))
+        collected.push({ file, relativePath: file.name })
+      }
+    }
+    if (collected.length) await uploadFiles(collected)
+  }
+
+  async function handleNewFolder() {
+    const name = window.prompt("Folder name:")
+    if (!name?.trim()) return
+    await fetch(`/api/bff/nextcloud/mkdir/${encodePath([currentNcPath, name.trim()].filter(Boolean).join("/"))}`, { method: "POST" })
+    setRefreshKey((k) => k + 1)
+  }
+
+  return (
+    <div
+      className={cn("flex-1 overflow-hidden flex flex-col border rounded-lg transition-colors", dragOver && "border-primary bg-primary/5")}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+    >
+      {/* Header with icon-only toolbar */}
+      <div className="px-3 py-2 border-b flex items-center gap-1.5 shrink-0">
+        <span className="text-sm font-semibold flex-1 text-foreground/80">Files</span>
+        <button
+          title="Upload files"
+          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+        <button
+          title="New folder"
+          className="p-1 rounded hover:bg-muted/50 transition-colors"
+          onClick={handleNewFolder}
+        >
+          <FolderPlus className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </div>
+
+      {/* Upload progress */}
+      {uploads.length > 0 && (
+        <div className="px-2 py-1 border-b space-y-0.5 shrink-0">
+          {uploads.map((u, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-xs">
+              {u.status === "uploading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+              {u.status === "done" && <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />}
+              {u.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
+              <span className="truncate text-muted-foreground">{u.name.split("/").pop()}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-auto">
+        <NextcloudBrowser
+          initialPath={folderPath}
+          refreshKey={refreshKey}
+          onPathChange={setCurrentNcPath}
+        />
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length)
+            uploadFiles(Array.from(e.target.files).map((f) => ({ file: f, relativePath: f.name })))
+          e.target.value = ""
+        }}
+      />
+    </div>
+  )
 }
 
 export function CmsViewerModal({
@@ -54,125 +166,27 @@ export function CmsViewerModal({
   documentId,
 }: CmsViewerModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [currentNcPath, setCurrentNcPath] = useState(folderPath ?? "")
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [uploads, setUploads] = useState<UploadItem[]>([])
-  const [dragOver, setDragOver] = useState(false)
-
-  async function uploadFiles(files: Array<{ file: File; relativePath: string }>) {
-    const dirSet = new Set<string>()
-    for (const { relativePath } of files) {
-      const segments = relativePath.split("/")
-      for (let i = 1; i < segments.length; i++) {
-        dirSet.add([currentNcPath, ...segments.slice(0, i)].filter(Boolean).join("/"))
-      }
-    }
-    for (const dir of dirSet) {
-      await fetch(`/api/bff/nextcloud/mkdir/${encodePath(dir)}`, { method: "POST" })
-    }
-    setUploads(files.map((f) => ({ name: f.relativePath, status: "uploading" })))
-    for (let i = 0; i < files.length; i++) {
-      const { file, relativePath } = files[i]
-      const uploadPath = [currentNcPath, relativePath].filter(Boolean).join("/")
-      try {
-        const res = await fetch(`/api/bff/nextcloud/${encodePath(uploadPath)}`, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream", "x-file-last-modified": String(file.lastModified) },
-          body: file,
-        })
-        setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: res.ok ? "done" : "error" } : u)))
-      } catch {
-        setUploads((prev) => prev.map((u, j) => (j === i ? { ...u, status: "error" } : u)))
-      }
-    }
-    setRefreshKey((k) => k + 1)
-    setTimeout(() => setUploads([]), 3000)
-  }
-
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragOver(false)
-    const entries = Array.from(e.dataTransfer.items).map((item) => item.webkitGetAsEntry()).filter(Boolean) as FileSystemEntry[]
-    const collected: Array<{ file: File; relativePath: string }> = []
-    for (const entry of entries) {
-      if (entry.isFile) {
-        const file = await new Promise<File>((r) => (entry as FileSystemFileEntry).file(r))
-        collected.push({ file, relativePath: file.name })
-      }
-    }
-    await uploadFiles(collected)
-  }
-
-  async function handleNewFolder() {
-    const name = window.prompt("Folder name:")
-    if (!name?.trim()) return
-    await fetch(`/api/bff/nextcloud/mkdir/${encodePath([currentNcPath, name.trim()].filter(Boolean).join("/"))}`, { method: "POST" })
-    setRefreshKey((k) => k + 1)
-  }
 
   const bffUrl = nextcloudPath
-    ? `${window.location.origin}/api/bff/nextcloud/${encodeURIComponent(nextcloudPath)}?download=1`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/bff/nextcloud/${encodeURIComponent(nextcloudPath)}?download=1`
     : paperlessId != null
-    ? `${window.location.origin}/api/bff/paperless/${paperlessId}/download`
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/bff/paperless/${paperlessId}/download`
     : null
 
   const handleShare = () => {
     if (!bffUrl) return
-    navigator.clipboard.writeText(bffUrl).then(() => {
-      toast.success("Link copied to clipboard")
-    })
-  }
-
-  const handlePopout = () => {
-    if (!bffUrl) return
-    window.open(bffUrl, "_blank")
+    navigator.clipboard.writeText(bffUrl).then(() => toast.success("Link copied to clipboard"))
   }
 
   if (mode === "folder") {
     return (
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        {/* key={folderPath} forces remount when different folder is opened */}
+        <DialogContent key={folderPath} className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
-          <div
-            className={cn("flex-1 overflow-hidden flex flex-col border rounded-lg transition-colors", dragOver && "border-primary bg-primary/5")}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-          >
-            {/* Upload toolbar */}
-            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b bg-muted/30 shrink-0 flex-wrap">
-              <label className="cursor-pointer">
-                <input type="file" multiple className="sr-only" onChange={(e) => uploadFiles(Array.from(e.target.files ?? []).map((f) => ({ file: f, relativePath: f.name })))} />
-                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs pointer-events-none" asChild>
-                  <span><Upload className="h-3 w-3" /> Upload</span>
-                </Button>
-              </label>
-              <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={handleNewFolder}>
-                <FolderPlus className="h-3 w-3" /> New Folder
-              </Button>
-            </div>
-            {/* Upload progress */}
-            {uploads.length > 0 && (
-              <div className="px-3 py-1 border-b space-y-0.5 shrink-0">
-                {uploads.map((u, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    {u.status === "uploading" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                    {u.status === "done" && <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />}
-                    {u.status === "error" && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
-                    <span className="truncate text-muted-foreground">{u.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex-1 overflow-auto">
-              <NextcloudBrowser
-                initialPath={folderPath ?? ""}
-                refreshKey={refreshKey}
-                onPathChange={setCurrentNcPath}
-              />
-            </div>
-          </div>
+          <FolderBrowser folderPath={folderPath ?? ""} onClose={onClose} />
         </DialogContent>
       </Dialog>
     )
@@ -182,9 +196,7 @@ export function CmsViewerModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
         className={`overflow-hidden flex flex-col transition-all duration-200 ${
-          isFullscreen
-            ? "max-w-[98vw] h-[96vh]"
-            : "max-w-[90vw]"
+          isFullscreen ? "max-w-[98vw] h-[96vh]" : "max-w-[90vw]"
         }`}
       >
         <DialogHeader>
@@ -196,7 +208,7 @@ export function CmsViewerModal({
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleShare} title="Copy link">
                     <Share2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePopout} title="Open in new tab">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(bffUrl, "_blank")} title="Open in new tab">
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </>
