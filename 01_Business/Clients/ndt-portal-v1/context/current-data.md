@@ -1,7 +1,7 @@
 # NDT Portal — Current Data
 
 > Update after each development session or client interaction.
-> Last updated: 2026-04-23
+> Last updated: 2026-04-26
 
 ## Development Status
 - Pipeline architecture: Complete
@@ -38,18 +38,34 @@
 - Stable JWT signing cert: Unmanaged RS256 cert in seed.py prevents Authentik auto-rotation issues
 - Auto re-login on 401: AuthContext handles expired tokens gracefully
 
-## CI/CD Status (2026-04-23)
-- **GitLab runner (`ndtv1-shell-runner`)**: Online — 503 error resolved
-  - Runner is registered to project `ndt-portal-v1` (ID 7, runner ID 1)
-  - Last successful pipeline: 2026-04-12
-  - Last failed pipeline: 2026-04-15 (job 213, `script_failure` — log expired)
-  - Runner was in exponential backoff after Apr 23 05:00 TLS cert error; now recovered and polling
-- **GitLab remote** (`gitlab.botonomy.xyz/mrt/ndt-portal-v1`): Synced to 2026-04-23 ✓
-- **GitHub remote** (`github.com/Mrtlearns/ndt-portal-v1`): Synced to 2026-04-23 ✓
-- **VM `/opt/ndt-portal`**: Current — all source files present, dist built 2026-04-22
+## CI/CD Status (2026-04-26)
+- **GitLab runner (`ndtv1-shell-runner`)**: Online, healthy
+  - Runner registered to `ndt-portal-v1` (project ID 7, runner ID 1)
+  - Last successful pipelines: 189 ✅, 191 ✅ (fixed named-container race), 192 pending
+  - Pipeline 190 failed: `collabora` / `nextcloud-*` named-container name conflict in compose retry — fixed in `.gitlab-ci.yml`
+- **GitLab remote** (`gitlab.botonomy.xyz/mrt/ndt-portal-v1`): Synced to `63b7ef2` ✓
+- **GitHub remote** (`github.com/Mrtlearns/ndt-portal-v1`): Synced to `63b7ef2` ✓
+- **VM `/opt/ndt-portal`**: Current — all images rebuilt 2026-04-26, stack running 22 containers
 
-## Docker Stack (20 services)
-traefik, postgres, postgrest-rt, postgrest-ut, nginx, gotenberg, n8n, msg-api, presidio-analyzer, comply, sanitize, gateway, api, nextcloud-db, nextcloud-redis, nextcloud-app, authentik-db, authentik-redis, authentik, authentik-worker
+## Docker Stack (22 services) — versions as of 2026-04-26
+| Service | Image | Version |
+|---------|-------|---------|
+| traefik | traefik | v3.6 |
+| postgres (NDT) | postgres | 16-alpine |
+| postgrest-rt/ut | postgrest/postgrest | v14.10 |
+| nginx | nginx | 1.30-alpine |
+| gotenberg | gotenberg/gotenberg | 8 (latest 8.x) |
+| n8n | n8nio/n8n | latest |
+| authentik + worker | ghcr.io/goauthentik/server | **2026.2.2** |
+| authentik-db | postgres | 16-alpine |
+| authentik-redis | redis | 7-alpine |
+| nextcloud-app | nextcloud | **33-apache** (33.0.2.2) |
+| nextcloud-db | mariadb | 11 |
+| nextcloud-redis | redis | 7-alpine |
+| collabora | collabora/code | latest |
+| presidio-analyzer | mcr.microsoft.com/presidio-analyzer | latest |
+| presidio-image-redactor | mcr.microsoft.com/presidio-image-redactor | latest |
+| ndt-api/comply/sanitize/gateway/msg-api | custom | built 2026-04-24 |
 
 ## API Routes (19 modules)
 admin, bom, diagram-analyses, documents, email-checks, feedback, inbox, inspection-types, integrations, quote, quotes, rbac, rt-analyze, rt-plan, rt-quote, settings, sf-analysis, ut-calculate, ut-rules, workshop
@@ -73,6 +89,17 @@ admin, bom, diagram-analyses, documents, email-checks, feedback, inbox, inspecti
 - Target pipeline latency: < 60 seconds end-to-end
 - Renderer budget: 500K triangles at 60 FPS
 - LLM: Anthropic SDK primary, Ollama fallback
+
+## Recent Changes (2026-04-22 → 2026-04-26)
+- **Full infrastructure upgrade**: all Docker images updated (see table above)
+- **Authentik 2024.12 → 2026.2.2**: Required stepped upgrade via 2025.4 → 2025.8 → 2026.2.2 (2025.12 has broken migration `0056_user_roles`; upstream bug)
+- **Nextcloud 30 → 33**: Sequential: 30→31→32→33 (cannot skip versions; ~70s per step)
+- **PostgREST v12.2.3 → v14.10**: Drop-in replacement, no config changes needed
+- **29 orphan Docker volumes pruned**, 282MB build cache cleared
+- **CI fix**: named-container conflict (collabora/nextcloud-*) in retry logic now force-removed before retry
+- **seed.py**: `ak_groups` → `groups` (Authentik 2026.2.2 deprecation)
+- **ndt-portal-v1 git repo**: initialized locally as own repo, connected to GitLab + GitHub (was only in root workspace)
+- **Backups at** `/opt/backups/2026-04-26/`: NDT PG (41MB), Authentik PG (49MB), Nextcloud MariaDB (4.6MB)
 
 ## Recent Changes (since 2026-04-17)
 - Stage 2 model updated: anthropic/claude-sonnet-4-5 → anthropic/claude-sonnet-4-6 (rt-pipeline.ts)

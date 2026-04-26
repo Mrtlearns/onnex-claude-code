@@ -200,8 +200,8 @@ try:
             else:
                 skip(f"User '{spec['username']}' already exists")
 
-            if not user.ak_groups.filter(pk=admin_group.pk).exists():
-                user.ak_groups.add(admin_group)
+            if not user.groups.filter(pk=admin_group.pk).exists():
+                user.groups.add(admin_group)
                 changed(f"Added '{spec['username']}' to '{admin_group.name}' group (superuser)")
             else:
                 skip(f"'{spec['username']}' already in '{admin_group.name}' group")

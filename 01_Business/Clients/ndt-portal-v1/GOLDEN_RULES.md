@@ -4,7 +4,7 @@
 
 **Global rules:** `D:\Code\Claude\.claude-global\skills\core-execution\SKILL.md`
 
-**Last Updated:** 2026-04-13 (Login loop — Vite 8 tree-shaking + auth header sweep)
+**Last Updated:** 2026-04-26 (Infrastructure upgrade session — Docker, Authentik, Nextcloud, CI race condition)
 
 ---
 
@@ -211,6 +211,83 @@ git commit       ✓
 - **Affected files (fixed 2026-04-13):** InspectionTypesTab, RtMachineProfilesTab, ClaudeOAuthTab,
             useWorkshopMachines — all had raw fetch() without auth headers.
 
+### Docker Compose — Race Conditions on Restart
+```markdown
+## Named-container conflict (CRITICAL — causes CI failures)
+- **Gotcha:** Services with `container_name:` set (collabora, nextcloud-app, nextcloud-db,
+            nextcloud-redis) use fixed names. When `docker compose up -d --remove-orphans`
+            fails mid-run and the retry is `docker compose down && docker compose up -d`,
+            Docker may report "container name already in use" even though down just removed it —
+            the name deallocation isn't instant.
+- **Symptom:** CI deploy fails with `Error response from daemon: Conflict. The container name
+            "/collabora" is already in use`. Stack is actually healthy (containers came up
+            despite the error).
+- **Solution:** Before the retry `docker compose up -d`, force-remove the named containers:
+            `for cname in collabora nextcloud-app nextcloud-db nextcloud-redis; do docker rm -f "$cname" 2>/dev/null || true; done`
+            This guarantees the name is free before recreation. See step 7 in `.gitlab-ci.yml`.
+
+## Hash-prefixed container names (orphan detection failure)
+- **Gotcha:** When compose's `--remove-orphans` races with a container still stopping, the
+            replacement gets a hash prefix (`a2c59a2_ndt-portal-api-1`). These break service
+            discovery inside the compose network.
+- **Symptom:** Containers run but can't reach each other by service name.
+- **Solution:** `docker compose down && docker compose up -d` restores clean names. The CI
+            retry logic handles this automatically.
+```
+
+### Authentik Upgrades
+```markdown
+## Never jump more than 2 minor versions at once
+- **Gotcha:** Authentik 2024.12 → 2026.2.2 direct fails. Migration `authentik_core.0056_user_roles`
+            (data migration added in 2025.10) references `group_id` on the Role model, but
+            `authentik_rbac.0010` (added 2026.1) removes that field. When jumping directly,
+            Django runs 0010 before 0056 in some orderings, leaving 0056 with no `group_id`
+            to query → FieldError → crash loop.
+- **Confirmed working path:** 2024.12 → 2025.4 → 2025.8 → 2026.2.2 (skip 2025.12 — same bug)
+- **Workaround if stuck:** Mount a patched `0056_user_roles.py` with `RunPython.noop` replacing
+            the broken data migration, start the container to let schema operations run, then
+            remove the patch mount and restart clean. See `/opt/backups/2026-04-26/` for the
+            patched file used in this session.
+- **DB lock during migration restart loop:** Crashed Authentik processes leave `idle in transaction`
+            sessions that block the `ALTER TABLE authentik_core_group DROP CONSTRAINT` step.
+            Kill them: `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle in transaction';`
+
+## ak_groups → groups (Authentik 2026.2.2)
+- **Gotcha:** `User.ak_groups` is deprecated in 2026.2.2. Replaced by `User.groups`.
+            Still works but emits a deprecation warning in every seed.py run.
+- **Fix:** Replace `user.ak_groups.filter(...)` and `user.ak_groups.add(...)` with
+            `user.groups.filter(...)` and `user.groups.add(...)` in `authentik/seed.py`.
+
+## Sessions cleared on Authentik upgrade
+- **Expected:** All user sessions are invalidated after an Authentik version upgrade.
+            Users will see `error=login_required` and a 401 on first API call post-upgrade.
+            This is normal — they log in again and all is fine.
+```
+
+### Nextcloud Upgrades
+```markdown
+## Must upgrade sequentially — cannot skip major versions
+- **Gotcha:** Nextcloud 30 → 33 direct will fail or corrupt DB. Each major version runs its
+            own schema migrations; skipping means missing intermediate migrations.
+- **Correct path:** 30 → 31 → 32 → 33. Each step: change the image tag, docker compose up -d,
+            wait for healthcheck to go `healthy` (~60-90s per step).
+- **Maintenance mode:** Nextcloud briefly enters maintenance mode during upgrade. Healthcheck
+            correctly reports `starting` during this window. Do NOT restart — wait it out.
+- **Collabora (richdocuments):** Nextcloud auto-updates the Collabora app from the app store
+            during each upgrade step. Expect 10-20s extra per step for app update.
+```
+
+### PostgREST v12 → v14 Upgrade
+```markdown
+## Drop-in replacement — no config changes needed
+- **Confirmed:** All `PGRST_*` env vars remain identical between v12.2.3 and v14.10.
+            Schema cache loading, JWT validation, and basic CRUD all work unchanged.
+- **Schema cache:** v14 logs the cache load in <200ms. Log line changes slightly but
+            still emits "Schema cache loaded N Relations".
+- **Note:** v14 jumped from v12 (v13 was skipped in versioning). Do not worry about
+            the version gap — there is no missing v13.
+```
+
 ### Docker/Traefik
 ```markdown
 ## Routing
@@ -249,15 +326,34 @@ Setting up Authentik OIDC app?
 
 | Topic | File |
 |-------|------|
-| Auth setup steps | AUTH_DEPLOYMENT_STATUS.md |
-| Auth fix summary | AUTH_FIX_SUMMARY.md |
-| Test results | PLAYWRIGHT_TEST_RESULTS.md |
 | Project context | CLAUDE.md |
 | Architecture | files/ndtv1-complete-pipeline-spec.md |
+| Open items | TODO.md |
+| Current state | context/current-data.md |
 
 ---
 
 ## Evolution Log
+
+**2026-04-22 → 2026-04-26 (Infrastructure: CI/CD restoration + full upgrade session)**
+
+Five issues found and resolved across two sessions:
+
+1. **ndt-portal-v1 had no local `.git` repo** — Code was tracked in root `D:\Code\Claude` workspace but never pushed to its own `gitlab.botonomy.xyz/mrt/ndt-portal-v1` repo. Runner was online but had no jobs to pick up. Fixed by `git init`, connecting both GitLab and GitHub remotes, committing 72-file delta (April 14→23 changes), pushing to both. CI immediately triggered and ran successfully.
+
+2. **Docker compose race condition — two patterns** — (a) `removal already in progress` leaves hash-prefixed container names. (b) Named containers (`collabora`, `nextcloud-*`) report "name already in use" when `docker compose down && docker compose up -d` is retried too quickly. Fixed in `.gitlab-ci.yml` step 7: force-remove the four named containers before the retry, ensuring names are free.
+
+3. **Full Docker stack upgrade (2026-04-26)** — All images updated. Key learnings:
+   - Authentik: cannot jump 2024.12 → 2026.2.2 directly. `authentik_core.0056_user_roles` (added 2025.10) references `group_id` that `authentik_rbac.0010` (added 2026.1) removes. Correct path: 2024.12 → 2025.4 → 2025.8 → 2026.2.2 (skip 2025.12, same bug). During upgrade, stale `idle in transaction` DB sessions block ALTER TABLE — kill them with `pg_terminate_backend`.
+   - Nextcloud: must upgrade sequentially per major version (30→31→32→33). Each step ~70s.
+   - PostgREST v14.10: drop-in replacement for v12.2.3, no config changes.
+   - Traefik v3.6, nginx 1.30, all patch updates: no issues.
+
+4. **Authentik seed.py deprecation** — `User.ak_groups` renamed to `User.groups` in 2026.2.2. Was emitting deprecation warnings on every CI deploy seed run. Fixed by swapping two lines.
+
+5. **Pipeline 190 failure** — Named-container conflict (collabora). Fixed by pipeline 191 (success) with the force-remove retry logic. Root cause documented as a gotcha above.
+
+New rules added: Docker compose named-container race, Authentik stepped upgrade path, 0056_user_roles workaround, Nextcloud sequential upgrade requirement, PostgREST v14 compat, ak_groups deprecation.
 
 **2026-04-13 (Login Loop — GitHub Actions migration + auth header sweep)**
 
