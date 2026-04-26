@@ -170,10 +170,20 @@ deploy:
 
     # ── 7. Start / update services ─────────────────────────────────────────
     # docker compose up -d auto-recreates containers whose image ID changed.
-    # Retry once on failure: handles transient "removal already in progress"
-    # Docker race condition that leaves containers with hash-prefixed names.
+    # Retry on failure: handles two Docker race conditions:
+    #   a) "removal already in progress" → leaves hash-prefixed container names
+    #   b) "container name already in use" for explicitly-named containers
+    #      (collabora, nextcloud-*) whose names aren't auto-suffixed by compose
     - cd "$DEPLOY_DIR"
-    - docker compose up -d --remove-orphans || (docker compose down && docker compose up -d)
+    - |
+      if ! docker compose up -d --remove-orphans; then
+        echo "First compose up failed — force-removing stuck named containers and retrying"
+        for cname in collabora nextcloud-app nextcloud-db nextcloud-redis; do
+          docker rm -f "$cname" 2>/dev/null || true
+        done
+        docker compose down
+        docker compose up -d
+      fi
     - docker compose restart traefik
 
     # ── 7b. Authentik seed — apply idempotent config after services start ────
