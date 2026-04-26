@@ -117,17 +117,16 @@ export async function settingsRoutes(fastify: FastifyInstance) {
     handler: async (_request: any, reply: any) => {
       const value = await getSettingValue(pool, 'smtp')
       if (!value) {
-        return reply.code(200).send({
-          host: null,
-          port: null,
-          user: null,
-          from_address: null,
-          has_password: false,
-        })
+        return reply.code(200).send({ host: null, port: null, user: null, from_address: null, has_password: false })
       }
-      // Redact password — return boolean has_password instead
-      const { password: _password, ...safe } = value
-      return reply.code(200).send({ ...safe, has_password: !!value.password })
+      // Normalize legacy field names (from → from_address, pass → password)
+      return reply.code(200).send({
+        host: value.host ?? null,
+        port: value.port ?? null,
+        user: value.user ?? null,
+        from_address: value.from_address ?? value.from ?? null,
+        has_password: !!(value.password || value.pass),
+      })
     },
   })
 
@@ -137,10 +136,21 @@ export async function settingsRoutes(fastify: FastifyInstance) {
     handler: async (request: any, reply: any) => {
       const { host, port, user, from_address, password } = request.body as any
 
-      // Merge with existing (allow partial update)
-      const existing = (await getSettingValue(pool, 'smtp')) ?? {}
-      const updated = {
-        ...existing,
+      // Merge with existing — migrate legacy keys (from→from_address, pass→password)
+      const raw = (await getSettingValue(pool, 'smtp')) ?? {}
+      const base: Record<string, unknown> = {
+        host: raw.host,
+        port: raw.port,
+        user: raw.user,
+        from_address: raw.from_address ?? raw.from,
+        password: raw.password ?? raw.pass,
+        // preserve extra keys (from_name, secure, etc.)
+        ...Object.fromEntries(
+          Object.entries(raw).filter(([k]) => !['host','port','user','from_address','from','password','pass'].includes(k))
+        ),
+      }
+      const updated: Record<string, unknown> = {
+        ...base,
         ...(host !== undefined && { host }),
         ...(port !== undefined && { port }),
         ...(user !== undefined && { user }),
@@ -150,9 +160,13 @@ export async function settingsRoutes(fastify: FastifyInstance) {
 
       await upsertSettingValue(pool, 'smtp', updated)
 
-      // Return sanitized (no password)
-      const { password: _pw, ...safe } = updated
-      return reply.code(200).send({ ...safe, has_password: !!updated.password })
+      return reply.code(200).send({
+        host: updated.host ?? null,
+        port: updated.port ?? null,
+        user: updated.user ?? null,
+        from_address: (updated.from_address as string) ?? null,
+        has_password: !!(updated.password),
+      })
     },
   })
 
@@ -164,27 +178,32 @@ export async function settingsRoutes(fastify: FastifyInstance) {
 
       const config = await getSettingValue(pool, 'smtp')
       if (!config || !config.host) {
-        return reply.code(400).send({ error: 'SMTP configuration not found. Configure SMTP settings first.' })
+        return reply.code(200).send({ success: false, error: 'SMTP not configured — save settings first.' })
       }
+
+      // Normalize legacy field names
+      const smtpPass = config.password ?? config.pass
+      const smtpFrom = config.from_address ?? config.from ?? config.user
 
       try {
         const nodemailer = await import('nodemailer')
         const transporter = nodemailer.default.createTransport({
           host: config.host,
           port: parseInt(String(config.port ?? '587'), 10),
-          auth: config.user ? { user: config.user, pass: config.password } : undefined,
+          secure: config.secure ?? false,
+          auth: config.user && smtpPass ? { user: config.user, pass: smtpPass } : undefined,
         })
 
         await transporter.sendMail({
-          from: config.from_address ?? config.user,
+          from: smtpFrom,
           to: to ?? config.user,
           subject: 'Agency AI-OS — SMTP Test',
-          text: 'This is a test email from Agency AI-OS settings. Your SMTP configuration is working correctly.',
+          text: 'This is a test email from Agency AI-OS. Your SMTP configuration is working correctly.',
         })
 
         return reply.code(200).send({ success: true })
       } catch (err: any) {
-        return reply.code(500).send({ success: false, error: err?.message ?? 'Unknown SMTP error' })
+        return reply.code(200).send({ success: false, error: err?.message ?? 'SMTP error' })
       }
     },
   })

@@ -11,6 +11,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const body = await req.json()
-  const data = await apiTestSmtpSend(session.user.token, body.to)
-  return NextResponse.json(data)
+  try {
+    const data = await apiTestSmtpSend(session.user.token, body.to)
+    return NextResponse.json(data)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "SMTP test failed"
+    return NextResponse.json({ success: false, error: msg })
+  }
 }
