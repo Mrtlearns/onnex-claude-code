@@ -64,26 +64,19 @@ export async function planeRoutes(fastify: FastifyInstance) {
     preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
       try {
-        const { token, baseUrl } = await resolvePlane(pool, request.user.sub)
-
-        const wsData = await planeFetch<any>(baseUrl, token, '/api/v1/workspaces/')
-        const workspaces: any[] = wsData.results ?? wsData ?? []
-        if (!workspaces.length) return reply.send([])
-
-        const results: any[] = []
-        for (const ws of workspaces) {
-          const projData = await planeFetch<any>(baseUrl, token, `/api/v1/workspaces/${ws.slug}/projects/`)
-          const projects: any[] = projData.results ?? projData ?? []
-          for (const p of projects) {
-            results.push({
-              id: p.id,
-              name: p.name,
-              identifier: p.identifier,
-              workspace_slug: ws.slug,
-            })
-          }
+        const { token, baseUrl, cfg } = await resolvePlane(pool, request.user.sub)
+        const workspaceSlug: string | null = cfg.workspace_slug ?? null
+        if (!workspaceSlug) {
+          return reply.code(400).send({ error: 'Plane workspace slug not configured — set it in Settings → Integrations' })
         }
-        return reply.send(results)
+        const projData = await planeFetch<any>(baseUrl, token, `/api/v1/workspaces/${workspaceSlug}/projects/`)
+        const projects: any[] = projData.results ?? projData ?? []
+        return reply.send(projects.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          identifier: p.identifier,
+          workspace_slug: workspaceSlug,
+        })))
       } catch (err: any) {
         return reply.code(err.statusCode ?? 500).send({ error: err.message })
       }
@@ -103,11 +96,8 @@ export async function planeRoutes(fastify: FastifyInstance) {
 
         const { token, baseUrl, cfg } = await resolvePlane(pool, request.user.sub)
 
-        // Get workspace slug (use first workspace)
-        const wsData = await planeFetch<any>(baseUrl, token, '/api/v1/workspaces/')
-        const workspaces: any[] = wsData.results ?? wsData ?? []
-        if (!workspaces.length) return reply.code(400).send({ error: 'No Plane workspaces found' })
-        const workspaceSlug: string = workspaces[0].slug
+        const workspaceSlug: string | null = cfg.workspace_slug ?? null
+        if (!workspaceSlug) return reply.code(400).send({ error: 'Plane workspace slug not configured — set it in Settings → Integrations' })
 
         // Sanitize name + generate identifier
         const planeName = sanitizePlaneName(name)

@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useSession } from "next-auth/react"
 
 export function PlaneIntegrationForm() {
   const queryClient = useQueryClient()
+  const { data: session } = useSession()
+  const isAdmin = (session?.user as any)?.role === "owner" || (session?.user as any)?.role === "ops_manager"
+
   const [tokenInput, setTokenInput] = useState("")
+  const [slugInput, setSlugInput] = useState("")
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -18,6 +23,13 @@ export function PlaneIntegrationForm() {
     queryKey: ["me-integrations"],
     queryFn: () => fetch("/api/bff/me/integrations").then(r => r.json()),
     staleTime: 60_000,
+  })
+
+  const { data: workspaceSettings } = useQuery<{ workspace_slug: string | null; base_url: string }>({
+    queryKey: ["settings-plane"],
+    queryFn: () => fetch("/api/bff/settings/plane").then(r => r.json()),
+    staleTime: 60_000,
+    enabled: isAdmin,
   })
 
   const saveMutation = useMutation({
@@ -33,18 +45,33 @@ export function PlaneIntegrationForm() {
     },
   })
 
+  const saveSlugMutation = useMutation({
+    mutationFn: (slug: string) =>
+      fetch("/api/bff/settings/plane", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspace_slug: slug || null }),
+      }).then(r => { if (!r.ok) throw new Error("Save failed"); return r.json() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings-plane"] })
+      setSlugInput("")
+    },
+  })
+
   async function handleTest() {
     setTesting(true)
     setTestResult(null)
     try {
       const res = await fetch("/api/bff/plane/projects")
+      const body = await res.json().catch(() => ({}))
       if (res.status === 401) {
-        setTestResult({ ok: false, msg: "Token not configured or invalid" })
+        setTestResult({ ok: false, msg: "Token not configured or invalid — save your PAT below" })
+      } else if (res.status === 400) {
+        setTestResult({ ok: false, msg: body.error ?? "Plane workspace slug not configured" })
       } else if (!res.ok) {
-        setTestResult({ ok: false, msg: `Error ${res.status}` })
+        setTestResult({ ok: false, msg: body.error ?? `Error ${res.status}` })
       } else {
-        const projects = await res.json()
-        setTestResult({ ok: true, msg: `Connected — ${projects.length} project(s) found` })
+        setTestResult({ ok: true, msg: `Connected — ${body.length} project(s) found` })
       }
     } catch {
       setTestResult({ ok: false, msg: "Connection failed" })
@@ -71,6 +98,31 @@ export function PlaneIntegrationForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isAdmin && (
+          <div className="space-y-1.5 border-b pb-4">
+            <Label htmlFor="plane-slug" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workspace Config (Admin)</Label>
+            <div className="flex gap-2 mt-1">
+              <Input
+                id="plane-slug"
+                placeholder={workspaceSettings?.workspace_slug ?? "Workspace slug (e.g. onnex-projects)"}
+                value={slugInput}
+                onChange={e => setSlugInput(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={() => saveSlugMutation.mutate(slugInput)}
+                disabled={saveSlugMutation.isPending || !slugInput}
+                variant="outline"
+              >
+                {saveSlugMutation.isPending ? "Saving…" : "Save Slug"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The workspace slug from your Plane URL: plane.on-nex.us/<strong>slug</strong>/
+            </p>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <Label htmlFor="plane-token">Personal API Token</Label>
           <div className="flex gap-2">
