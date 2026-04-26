@@ -27,7 +27,7 @@ export async function POST() {
     const res = await fetch(settings.webhook_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ test: true, source: "aios-settings-test" }),
+      body: JSON.stringify({ event: "deal_won", test: true, source: "aios-settings-test" }),
       signal: AbortSignal.timeout(5000),
     })
     return NextResponse.json({ ok: res.ok || res.status < 500, status: res.status })
