@@ -148,16 +148,16 @@
     {
       "date": "2026-04-25",
       "tools": {
-        "Bash": 189,
-        "Read": 41,
-        "Edit": 14,
+        "Bash": 217,
+        "Read": 49,
+        "Edit": 21,
         "Agent": 5,
-        "Glob": 2,
+        "Glob": 4,
         "Grep": 2,
         "Write": 7
       },
-      "total_calls": 260,
-      "weight_total": 260
+      "total_calls": 305,
+      "weight_total": 295
     }
   ]
 }
