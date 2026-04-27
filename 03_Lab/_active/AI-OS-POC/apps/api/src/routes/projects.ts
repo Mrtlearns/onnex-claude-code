@@ -328,7 +328,7 @@ export async function projectsRoutes(fastify: FastifyInstance) {
           UNION ALL
 
           -- Tasks created
-          SELECT id::text, COALESCE((SELECT display_name FROM staff WHERE user_id = assignee_ids[1] LIMIT 1), 'System') AS actor_name,
+          SELECT id::text, COALESCE((SELECT display_name FROM user_profiles WHERE user_id = assignee_ids[1] LIMIT 1), 'System') AS actor_name,
                  'task_created' AS action, 'task' AS target_type, title AS target_label, created_at
           FROM tasks WHERE project_id = $1 AND tenant_id = $2
 
