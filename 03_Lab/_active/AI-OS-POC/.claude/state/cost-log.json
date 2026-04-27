@@ -162,7 +162,7 @@
     {
       "date": "2026-04-26",
       "tools": {
-        "Bash": 184,
+        "Bash": 187,
         "Glob": 12,
         "Read": 79,
         "Agent": 4,
@@ -172,8 +172,8 @@
         "Edit": 43,
         "Grep": 2
       },
-      "total_calls": 334,
-      "weight_total": 277
+      "total_calls": 337,
+      "weight_total": 280
     }
   ]
 }
