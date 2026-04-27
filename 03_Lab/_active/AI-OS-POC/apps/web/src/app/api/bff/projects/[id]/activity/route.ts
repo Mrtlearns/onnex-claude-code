@@ -14,6 +14,7 @@ export async function GET(
   const res = await fetch(`${AIOS_API}/api/v1/projects/${id}/activity`, {
     headers: { Authorization: `Bearer ${session.user.token}` },
   })
+  if (!res.ok) return NextResponse.json([], { status: 200 })
   const data = await res.json()
-  return NextResponse.json(data, { status: res.status })
+  return NextResponse.json(Array.isArray(data) ? data : [], { status: 200 })
 }

@@ -54,7 +54,9 @@ export function ProjectActivity({ projectId }: ProjectActivityProps) {
   const { data: events = [], isLoading } = useQuery<AuditLogEntry[]>({
     queryKey: ["project-activity", projectId],
     queryFn: () =>
-      fetch(`/api/bff/projects/${projectId}/activity`).then((r) => r.json()),
+      fetch(`/api/bff/projects/${projectId}/activity`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => Array.isArray(d) ? d : []),
     staleTime: 30_000,
   })
 

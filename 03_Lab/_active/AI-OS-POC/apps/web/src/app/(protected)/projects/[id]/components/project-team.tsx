@@ -42,13 +42,17 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
 
   const { data: members = [], isLoading } = useQuery<ProjectMember[]>({
     queryKey: ["project-members", projectId],
-    queryFn: () => fetch(`/api/bff/projects/${projectId}/members`).then(r => r.json()),
+    queryFn: () => fetch(`/api/bff/projects/${projectId}/members`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => Array.isArray(d) ? d : []),
     staleTime: 30_000,
   })
 
   const { data: staff = [] } = useQuery<StaffMember[]>({
     queryKey: ["staff"],
-    queryFn: () => fetch("/api/bff/staff").then(r => r.json()),
+    queryFn: () => fetch("/api/bff/staff")
+      .then(r => r.ok ? r.json() : [])
+      .then(d => Array.isArray(d) ? d : []),
     staleTime: 120_000,
   })
   const staffById = new Map(staff.map(s => [s.user_id, s]))
