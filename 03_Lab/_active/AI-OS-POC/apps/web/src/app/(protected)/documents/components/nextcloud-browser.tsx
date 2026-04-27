@@ -16,7 +16,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { FolderIcon, FileIcon, ChevronRightIcon, FolderInput, CheckSquare, Square, Trash2, ArrowLeft, ArrowRight, RefreshCw } from "lucide-react"
+import {
+  FolderIcon,
+  FileIcon,
+  ChevronRightIcon,
+  FolderInput,
+  CheckSquare,
+  Square,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  RefreshCw,
+  FileText,
+  FileSpreadsheet,
+  ImageIcon,
+  Archive,
+  Video,
+  File,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { NextcloudFile } from "@/types/api"
 
@@ -58,6 +75,19 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ─── File icon by extension ───────────────────────────────────────────────────
+
+function getFileIcon(name: string): { icon: React.ElementType; color: string } {
+  const ext = name.split(".").pop()?.toLowerCase() ?? ""
+  if (["pdf"].includes(ext)) return { icon: FileText, color: "text-red-400" }
+  if (["doc", "docx"].includes(ext)) return { icon: FileText, color: "text-blue-400" }
+  if (["xls", "xlsx", "csv"].includes(ext)) return { icon: FileSpreadsheet, color: "text-green-400" }
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return { icon: ImageIcon, color: "text-yellow-400" }
+  if (["zip", "tar", "gz"].includes(ext)) return { icon: Archive, color: "text-purple-400" }
+  if (["mp4", "mov", "avi"].includes(ext)) return { icon: Video, color: "text-pink-400" }
+  return { icon: File, color: "text-muted-foreground" }
 }
 
 interface NextcloudBrowserProps {
@@ -317,9 +347,10 @@ export function NextcloudBrowser({
                 >
                   {item.type === "directory" ? (
                     <FolderIcon className="h-4 w-4 text-yellow-500 shrink-0" />
-                  ) : (
-                    <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
+                  ) : (() => {
+                    const { icon: FileTypeIcon, color } = getFileIcon(item.name)
+                    return <FileTypeIcon className={cn("h-4 w-4 shrink-0", color)} />
+                  })()}
                   <span className="truncate">{item.name}</span>
                   {!selectMode && item.type === "file" && (
                     <span className="ml-auto text-xs text-muted-foreground shrink-0">

@@ -27,6 +27,7 @@ import { ProjectTeam } from "./components/project-team"
 import { ProjectPlaneTab } from "./components/project-plane-tab"
 import { PlaneLinkDialog } from "./components/plane-link-dialog"
 import { ProjectFilesTab } from "./components/project-files-tab"
+import { ProjectReporting } from "./components/project-reporting"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,20 +40,10 @@ import {
   Clock,
   DollarSign,
   ListTodo,
-  BarChart3,
   ExternalLink,
   ChevronDown,
   Loader2,
 } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts"
 import type { Project, TimeEntry, Task, TaskDependency } from "@/types/api"
 
 // ─── Health badge config ───────────────────────────────────────────────────────
@@ -227,12 +218,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const health = project.health ? HEALTH_CONFIG[project.health] : null
   const colorDot = COLOR_DOTS[project.color ?? "slate"] ?? COLOR_DOTS.slate
 
-  // ─── Finances chart data ───────────────────────────────────────────────────
-  const financeData = [
-    { label: "Phases", done: completedPhases, remaining: Math.max(0, totalPhases - completedPhases) },
-    { label: "Tasks", done: project.task_count ?? 0, remaining: 0 },
-  ]
-
   return (
     <div className="space-y-4">
 
@@ -361,7 +346,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             { value: "overview",  label: "Overview" },
             { value: "tasks",     label: "Tasks" },
             { value: "timeline",  label: "Timeline" },
-            { value: "finances",  label: "Finances" },
+            { value: "finances",  label: "Reporting" },
             { value: "files",     label: "Documents" },
             { value: "team",      label: "Team" },
             { value: "activity",  label: "Activity" },
@@ -380,6 +365,61 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
 
         {/* ── Overview ── */}
         <TabsContent value="overview" className="space-y-4 pt-4">
+          {/* Project Information */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Project Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Client</p>
+                  <p className="font-medium">{project.client_name ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Budget</p>
+                  <p className="font-medium">
+                    {project.budget ? `$${project.budget.toLocaleString()}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">Start Date</p>
+                  <p className="font-medium">
+                    {project.start_date
+                      ? new Date(project.start_date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">End Date</p>
+                  <p className="font-medium">
+                    {project.end_date
+                      ? new Date(project.end_date).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-muted-foreground mb-0.5">Progress</p>
+                  <p className="font-medium">
+                    {totalPhases > 0
+                      ? `${completionPct}% (${completedPhases}/${totalPhases} phases)`
+                      : project.task_count
+                      ? `${project.task_count} tasks`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <Card>
@@ -486,32 +526,6 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             </CardContent>
           </Card>
 
-          {/* Dates */}
-          {(project.start_date || project.end_date) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Dates</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Start</p>
-                  <p className="font-medium">
-                    {project.start_date
-                      ? new Date(project.start_date).toLocaleDateString()
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">End</p>
-                  <p className="font-medium">
-                    {project.end_date
-                      ? new Date(project.end_date).toLocaleDateString()
-                      : "—"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
           {/* Plane link card */}
           <Card>
             <CardHeader>
@@ -633,82 +647,9 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           )}
         </TabsContent>
 
-        {/* ── Finances ── */}
-        <TabsContent value="finances" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                  <DollarSign className="h-3.5 w-3.5" /> Budget
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">
-                  {project.budget ? `$${project.budget.toLocaleString()}` : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">Project budget</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" /> Logged Hours
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">{loggedHours.toFixed(1)}h</p>
-                <p className="text-xs text-muted-foreground mt-1">{timeEntries.length} time entries</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Completion
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">{completionPct}%</p>
-                <p className="text-xs text-muted-foreground mt-1">{completedPhases}/{totalPhases} phases done</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {totalPhases > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  Phase Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={financeData} barGap={4} barCategoryGap="30%">
-                    <XAxis dataKey="label" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "6px",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Bar dataKey="done" name="Done" stackId="a" radius={[0, 0, 0, 0]}>
-                      {financeData.map((_, i) => (
-                        <Cell key={i} fill="hsl(var(--primary))" opacity={0.85} />
-                      ))}
-                    </Bar>
-                    <Bar dataKey="remaining" name="Remaining" stackId="a" radius={[4, 4, 0, 0]}>
-                      {financeData.map((_, i) => (
-                        <Cell key={i} fill="hsl(var(--muted))" opacity={0.6} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+        {/* ── Reporting ── */}
+        <TabsContent value="finances" className="pt-4">
+          <ProjectReporting projectId={projectId} project={project} />
         </TabsContent>
 
         {/* ── Documents ── */}

@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select"
 import { UserPlus, Trash2, Users, Clock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import type { ProjectMember, StaffMember } from "@/types/api"
 
 const PROJECT_ROLES = [
@@ -178,55 +180,81 @@ export function ProjectTeam({ projectId }: ProjectTeamProps) {
           <p className="text-sm text-muted-foreground">No team members assigned. Click "Add Member" to get started.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {members.map(member => {
-            const s = staffById.get(member.user_id)
-            return (
-            <div
-              key={member.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md border border-border/50 hover:bg-muted/30 transition-colors"
-            >
-              <Avatar className="h-9 w-9 shrink-0">
-                <AvatarImage src={s?.avatar_url ?? member.avatar_url ?? undefined} />
-                <AvatarFallback className="text-xs bg-primary/15">
-                  {(s?.display_name ?? member.user_name ?? member.user_id).slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{member.user_name || member.user_id}</p>
-                <Select
-                  value={member.role}
-                  onValueChange={(role) => updateRoleMutation.mutate({ userId: member.user_id, role })}
-                >
-                  <SelectTrigger className="h-6 text-xs px-1.5 py-0 border-0 shadow-none hover:bg-muted/50 w-auto gap-1 text-muted-foreground font-normal capitalize">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROJECT_ROLES.map(r => (
-                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {member.logged_minutes > 0 && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                  <Clock className="h-3 w-3" />
-                  {(member.logged_minutes / 60).toFixed(1)}h
-                </div>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                onClick={() => removeMutation.mutate(member.user_id)}
-                disabled={removeMutation.isPending}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {members.map((member) => {
+                const s = staffById.get(member.user_id)
+                const displayName = member.user_name || member.user_id
+                const initials = displayName.slice(0, 2).toUpperCase()
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors"
+                  >
+                    {/* Larger avatar */}
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarImage src={s?.avatar_url ?? member.avatar_url ?? undefined} />
+                      <AvatarFallback className="text-sm font-medium bg-primary/15">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    {/* Name + role selector */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{displayName}</p>
+                      <Select
+                        value={member.role}
+                        onValueChange={(role) =>
+                          updateRoleMutation.mutate({ userId: member.user_id, role })
+                        }
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            "h-6 text-xs px-1.5 py-0 border-0 shadow-none",
+                            "hover:bg-muted/50 w-auto gap-1 text-muted-foreground font-normal capitalize",
+                          )}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROJECT_ROLES.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Logged hours badge */}
+                    {member.logged_minutes > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs shrink-0 gap-1 font-normal"
+                      >
+                        <Clock className="h-3 w-3" />
+                        {(member.logged_minutes / 60).toFixed(1)}h
+                      </Badge>
+                    )}
+
+                    {/* Remove button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => removeMutation.mutate(member.user_id)}
+                      disabled={removeMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )
+              })}
             </div>
-          )
-          })}
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
