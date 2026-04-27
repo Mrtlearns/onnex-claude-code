@@ -17,20 +17,23 @@ export async function projectsRoutes(fastify: FastifyInstance) {
       const tenantId = getTenantId(request)
       const { client_id, status } = request.query as Record<string, string>
 
-      let query = 'SELECT * FROM projects WHERE tenant_id = $1'
+      let query = `SELECT p.*, c.name AS client_name
+         FROM projects p
+         LEFT JOIN clients c ON c.id = p.client_id
+         WHERE p.tenant_id = $1`
       const params: unknown[] = [tenantId]
       let idx = 2
 
       if (client_id) {
-        query += ` AND client_id = $${idx++}`
+        query += ` AND p.client_id = $${idx++}`
         params.push(client_id)
       }
       if (status) {
-        query += ` AND status = $${idx++}`
+        query += ` AND p.status = $${idx++}`
         params.push(status)
       }
 
-      query += ' ORDER BY created_at DESC'
+      query += ' ORDER BY p.created_at DESC'
 
       const result = await pool.query(query, params)
       return reply.code(200).send({ projects: result.rows })
@@ -308,18 +311,44 @@ export async function projectsRoutes(fastify: FastifyInstance) {
 
   // ─── Project Activity ───────────────────────────────────────────────────────
 
-  // GET /api/v1/projects/:id/activity — audit log entries for this project
+  // GET /api/v1/projects/:id/activity — synthesized activity from project, tasks, members + audit_log
   fastify.get('/api/v1/projects/:id/activity', {
     preHandler: [(fastify as any).authenticate],
     handler: async (request: any, reply: any) => {
+      const tenantId = getTenantId(request)
       const { id } = request.params as any
       const result = await pool.query(
-        `SELECT id, actor_id, actor_name, action, target_type, target_id, target_label, payload, created_at
-         FROM audit_log
-         WHERE target_id = $1
-         ORDER BY created_at DESC
-         LIMIT 50`,
-        [id],
+        `SELECT id::text, actor_name, action, target_type, target_label, created_at FROM (
+
+          -- Project created
+          SELECT id::text, 'System' AS actor_name, 'project_created' AS action,
+                 'project' AS target_type, name AS target_label, created_at
+          FROM projects WHERE id = $1 AND tenant_id = $2
+
+          UNION ALL
+
+          -- Tasks created
+          SELECT id::text, COALESCE((SELECT display_name FROM staff WHERE user_id = assignee_ids[1] LIMIT 1), 'System') AS actor_name,
+                 'task_created' AS action, 'task' AS target_type, title AS target_label, created_at
+          FROM tasks WHERE project_id = $1 AND tenant_id = $2
+
+          UNION ALL
+
+          -- Team members added
+          SELECT id::text, user_name AS actor_name, 'member_added' AS action,
+                 'member' AS target_type, user_name AS target_label, added_at AS created_at
+          FROM project_members WHERE project_id = $1 AND tenant_id = $2
+
+          UNION ALL
+
+          -- Audit log entries (future mutations)
+          SELECT id::text, actor_name, action, target_type, target_label, created_at
+          FROM audit_log WHERE target_id = $1
+
+        ) combined
+        ORDER BY created_at DESC
+        LIMIT 50`,
+        [id, tenantId],
       )
       return reply.code(200).send(result.rows)
     },
