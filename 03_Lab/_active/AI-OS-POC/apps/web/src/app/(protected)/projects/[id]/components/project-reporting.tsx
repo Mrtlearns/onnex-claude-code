@@ -130,14 +130,18 @@ export function ProjectReporting({ projectId, project }: ProjectReportingProps) 
   const { data: invoices = [] } = useQuery<BffInvoice[]>({
     queryKey: ["invoices", { project_id: projectId }],
     queryFn: () =>
-      fetch(`/api/bff/invoices?project_id=${projectId}`).then((r) => r.json()),
+      fetch(`/api/bff/invoices?project_id=${projectId}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => Array.isArray(d) ? d : (Array.isArray((d as any)?.invoices) ? (d as any).invoices : [])),
     staleTime: 60_000,
   })
 
   const { data: timeEntries = [] } = useQuery<BffTimeEntry[]>({
     queryKey: ["time-entries", { project_id: projectId }],
     queryFn: () =>
-      fetch(`/api/bff/time-entries?project_id=${projectId}`).then((r) => r.json()),
+      fetch(`/api/bff/time-entries?project_id=${projectId}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => Array.isArray(d) ? d : []),
     staleTime: 60_000,
   })
 

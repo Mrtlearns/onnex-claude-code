@@ -12,8 +12,13 @@ export async function GET(req: NextRequest) {
   }
 
   const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries())
-  const invoices = await apiGetInvoices(session.user.token, searchParams)
-  return NextResponse.json(invoices)
+  try {
+    const invoices = await apiGetInvoices(session.user.token, searchParams)
+    return NextResponse.json(invoices)
+  } catch (err: any) {
+    const status = err?.message?.includes("Unauthorized") ? 401 : 500
+    return NextResponse.json([], { status })
+  }
 }
 
 export async function POST(req: NextRequest) {

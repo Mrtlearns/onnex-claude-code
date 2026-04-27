@@ -12,8 +12,13 @@ export async function GET(req: NextRequest) {
   }
 
   const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries())
-  const entries = await apiGetTimeEntries(session.user.token, searchParams)
-  return NextResponse.json(entries)
+  try {
+    const entries = await apiGetTimeEntries(session.user.token, searchParams)
+    return NextResponse.json(entries)
+  } catch (err: any) {
+    const status = err?.message?.includes("Unauthorized") ? 401 : 500
+    return NextResponse.json([], { status })
+  }
 }
 
 export async function POST(req: NextRequest) {

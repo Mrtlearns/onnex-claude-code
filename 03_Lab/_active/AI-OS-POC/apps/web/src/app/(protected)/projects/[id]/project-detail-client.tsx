@@ -101,7 +101,9 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { data: timeEntries = [] } = useQuery<TimeEntry[]>({
     queryKey: ["time-entries", { project_id: projectId }],
     queryFn: () =>
-      fetch(`/api/bff/time-entries?project_id=${projectId}`).then((r) => r.json()),
+      fetch(`/api/bff/time-entries?project_id=${projectId}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => Array.isArray(d) ? d : []),
     staleTime: 60_000,
   })
 
@@ -109,7 +111,9 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ["tasks", { project_id: projectId }],
     queryFn: () =>
-      fetch(`/api/bff/tasks?project_id=${projectId}`).then((r) => r.json()),
+      fetch(`/api/bff/tasks?project_id=${projectId}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => Array.isArray(d) ? d : []),
     enabled: activeTab === "tasks",
     staleTime: 60_000,
   })
@@ -118,7 +122,9 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
   const { data: ganttData } = useQuery<{ tasks: Task[]; dependencies: TaskDependency[] }>({
     queryKey: ["tasks", { project_id: projectId, view: "gantt" }],
     queryFn: () =>
-      fetch(`/api/bff/tasks?project_id=${projectId}&view=gantt`).then((r) => r.json()),
+      fetch(`/api/bff/tasks?project_id=${projectId}&view=gantt`)
+        .then((r) => r.ok ? r.json() : { tasks: [], dependencies: [] })
+        .then((d) => ({ tasks: Array.isArray(d?.tasks) ? d.tasks : [], dependencies: Array.isArray(d?.dependencies) ? d.dependencies : [] })),
     enabled: activeTab === "timeline",
     staleTime: 60_000,
   })
