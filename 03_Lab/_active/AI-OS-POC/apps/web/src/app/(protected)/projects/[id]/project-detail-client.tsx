@@ -1,6 +1,6 @@
 "use client"
 // apps/web/src/app/(protected)/projects/[id]/project-detail-client.tsx
-// Project detail — tabbed layout (Overview / Tasks / Timeline / Finances / Files / Team / Activity / Notes)
+// Project detail — tabbed layout (Overview / Tasks / Timeline / Finances / Documents / Team / Activity / Notes)
 
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -362,7 +362,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
             { value: "tasks",     label: "Tasks" },
             { value: "timeline",  label: "Timeline" },
             { value: "finances",  label: "Finances" },
-            { value: "files",     label: "Files" },
+            { value: "files",     label: "Documents" },
             { value: "team",      label: "Team" },
             { value: "activity",  label: "Activity" },
             { value: "notes",     label: "Notes" },
@@ -711,7 +711,7 @@ export function ProjectDetailClient({ projectId }: ProjectDetailClientProps) {
           )}
         </TabsContent>
 
-        {/* ── Files ── */}
+        {/* ── Documents ── */}
         <TabsContent value="files" className="pt-4">
           <ProjectFilesTab projectId={projectId} />
         </TabsContent>
