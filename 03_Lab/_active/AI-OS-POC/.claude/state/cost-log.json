@@ -164,17 +164,17 @@
       "tools": {
         "Bash": 277,
         "Glob": 32,
-        "Read": 150,
+        "Read": 151,
         "Agent": 6,
         "ToolSearch": 3,
-        "Write": 14,
+        "Write": 15,
         "ExitPlanMode": 1,
-        "Edit": 72,
+        "Edit": 73,
         "Grep": 25,
         "Skill": 1
       },
-      "total_calls": 581,
-      "weight_total": 428
+      "total_calls": 584,
+      "weight_total": 430
     }
   ]
 }
