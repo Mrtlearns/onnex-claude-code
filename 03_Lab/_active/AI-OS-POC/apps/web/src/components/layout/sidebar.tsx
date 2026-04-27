@@ -44,12 +44,17 @@ function SidebarNav({ role, open }: { role: UserRole | undefined; open: boolean 
   const pathname = usePathname()
   const visibleItems = NAV_ITEMS.filter((item) => canAccess(role, item.permission))
 
+  // Most-specific match wins — prevents /admin matching when /admin/system-settings is active
+  const activeHref = visibleItems
+    .filter(i => pathname === i.href || pathname.startsWith(i.href + "/"))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
+
   return (
     <ScrollArea className="flex-1 px-3">
       <nav className="space-y-1 py-4">
         {visibleItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname.startsWith(item.href)
+          const isActive = item.href === activeHref
           return (
             <Link
               key={item.href}

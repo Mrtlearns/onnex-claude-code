@@ -312,15 +312,45 @@ export async function ragRoutes(fastify: FastifyInstance) {
           messages: [
             {
               role: 'system',
-              content: 'Extract entities and relationships from this text. Return JSON: { "entities": [{"type": "person|company|project|concept|location|date", "name": "...", "aliases": [], "properties": {}}], "relationships": [{"from": "entity name", "to": "entity name", "rel_type": "works_for|mentioned_in|related_to|contracts_with|...", "context": "sentence where found"}] }',
+              content: `You are a knowledge graph extractor. Extract named entities and relationships from business documents.
+
+ENTITY TYPES — you MUST use ONLY these exact strings, no others:
+- "person"     — named individual humans
+- "company"    — organizations, businesses, agencies, firms
+- "project"    — named initiatives, programs, engagements
+- "technology" — software, tools, platforms, APIs, libraries, systems
+- "product"    — specific products or services offered/sold
+- "location"   — geographic places, cities, countries, addresses
+- "concept"    — business frameworks, methodologies, strategies, regulations
+
+DO NOT extract as entities: file names, error codes (e.g. 401, 404), HTTP status codes, screw or part numbers, time expressions (e.g. "10am", "30 days"), generic words, column headers, or email addresses.
+
+RELATIONSHIP TYPES — you MUST use ONLY these exact strings, no others:
+- "works_for"       — person is employed by / works at company
+- "contracts_with"  — company/person is contracted with another
+- "uses"            — entity uses a technology or product
+- "integrates_with" — technical integration between systems
+- "part_of"         — membership or hierarchy
+- "provides"        — company provides a product/service to another
+- "competes_with"   — market competition
+- "located_at"      — entity is located at a place
+- "related_to"      — general meaningful relationship (use sparingly)
+
+Return JSON only: { "entities": [{"type": "...", "name": "...", "aliases": [], "properties": {}}], "relationships": [{"from": "entity name", "to": "entity name", "rel_type": "...", "context": "verbatim sentence"}] }
+
+Only include entities with clear proper names. Only include relationships where both entities are extracted. Maximum 20 entities and 30 relationships per document chunk.`,
             },
             { role: 'user', content: text.slice(0, 8000) },
           ],
         })
 
         const raw = JSON.parse(completion.choices[0].message.content ?? '{}')
-        const entities: Array<{ type: string; name: string; aliases?: string[]; properties?: Record<string, unknown> }> = raw.entities ?? []
-        const relationships: Array<{ from: string; to: string; rel_type: string; context?: string }> = raw.relationships ?? []
+        const VALID_ENTITY_TYPES = new Set(['person', 'company', 'project', 'technology', 'product', 'location', 'concept'])
+        const VALID_REL_TYPES = new Set(['works_for', 'contracts_with', 'uses', 'integrates_with', 'part_of', 'provides', 'competes_with', 'located_at', 'related_to'])
+        const allEntities: Array<{ type: string; name: string; aliases?: string[]; properties?: Record<string, unknown> }> = raw.entities ?? []
+        const entities = allEntities.filter(e => e.name?.trim() && VALID_ENTITY_TYPES.has(e.type))
+        const allRelationships: Array<{ from: string; to: string; rel_type: string; context?: string }> = raw.relationships ?? []
+        const relationships = allRelationships.filter(r => VALID_REL_TYPES.has(r.rel_type))
 
         // Upsert entities
         const entityIdMap = new Map<string, string>()
