@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 
 export type OS = "mac" | "windows" | "linux";
 
@@ -12,12 +12,13 @@ const OSContext = createContext<Ctx | null>(null);
 const KEY = "vci.os";
 
 export const OSProvider = ({ children }: { children: ReactNode }) => {
-  const [os, setOSState] = useState<OS | null>(null);
-
-  useEffect(() => {
-    const v = localStorage.getItem(KEY) as OS | null;
-    if (v === "mac" || v === "windows" || v === "linux") setOSState(v);
-  }, []);
+  const [os, setOSState] = useState<OS | null>(() => {
+    try {
+      const v = localStorage.getItem(KEY) as OS | null;
+      if (v === "mac" || v === "windows" || v === "linux") return v;
+    } catch { /* ignore */ }
+    return null;
+  });
 
   const setOS = (v: OS) => {
     localStorage.setItem(KEY, v);
