@@ -2,22 +2,15 @@ import type { OS } from "@/context/OSContext";
 
 /**
  * Lesson content lives here. Edit freely.
- *
- * - `summary` and `title` are short and shown on the lesson index.
- * - `body` is the long-form lesson content. It accepts an object keyed by OS,
- *   or a single string if the lesson is OS-agnostic.
- * - Markdown is supported in `body` (rendered with react-markdown).
  */
 
 export type LessonKind = "pre-work" | "lesson";
 export type LessonIcon = "download" | "book" | "puzzle" | "plug" | "wrench" | "sparkles";
-
 export type LessonBody = string | Partial<Record<OS, string>>;
 
 export interface Lesson {
   slug: string;
   kind: LessonKind;
-  /** Lesson number for "LESSON N OF 12"; null for pre-work. */
   number: number | null;
   icon: LessonIcon;
   title: string;
@@ -200,7 +193,6 @@ While you're getting settled, keep these resources in your back pocket:
 
 In the next lesson, we’ll take our first "ride" and see how Claude actually interacts with your files!`,
     },
-    },
   },
   {
     slug: "installing-claude-code",
@@ -351,7 +343,6 @@ sudo apt update && sudo apt install ripgrep
 \`\`\`
 
 That’s it! You’ve got the engine under the hood. In the next lesson, we’ll take it for a spin and see what this tool can actually do for your workflow.`,
-    },
     },
   },
   {
@@ -954,7 +945,7 @@ We’ve only scratched the surface. To see the full list of what this agent can 
 **Dive deeper here:** [https://code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt)
 
 You’re ready to start vibe coding for real. Pick a project, fire up your terminal, and see where Claude can take you!`,
-  },
+  }
 ];
 
 export const getLesson = (slug: string) => lessons.find((l) => l.slug === slug);
