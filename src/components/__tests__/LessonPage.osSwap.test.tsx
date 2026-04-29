@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitForElementToBeRemoved } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OSProvider } from "@/context/OSContext";
@@ -41,7 +41,9 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
     // Windows marker — present in windows variant only. findByText awaits the
     // async markdown resolver in useResolvedMarkdown.
     expect(await screen.findByText(/Choosing Your Windows Path/i)).toBeInTheDocument();
-    expect(screen.queryByText(/macOS 13\.0 \(Ventura\)/i)).toBeNull();
+    // The mac marker may briefly persist while the markdown resolver promise
+    // settles; wait for it to actually be removed instead of polling once.
+    await waitForElementToBeRemoved(() => screen.queryByText(/macOS 13\.0 \(Ventura\)/i));
   });
 
   it("OS-variant notice is shown for lessons with multiple variants", async () => {
