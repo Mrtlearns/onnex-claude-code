@@ -49,8 +49,8 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
       () => expect(screen.getByText(/Choosing Your Windows Path/i)).toBeInTheDocument(),
       { timeout: 4000 },
     );
-    // Mac-only marker should be gone after the resolver swap.
-    await waitForElementToBeRemoved(() => screen.queryByText(/macOS 13\.0 \(Ventura\)/i));
+    // Mac-only marker should be gone now that the windows body has rendered.
+    expect(screen.queryByText(/macOS 13\.0 \(Ventura\)/i)).toBeNull();
   });
 
   it("OS-variant notice is shown for lessons with multiple variants", async () => {
