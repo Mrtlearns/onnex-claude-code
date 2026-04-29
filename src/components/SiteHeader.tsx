@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, Pencil, X } from "lucide-react";
+import { Search, SlidersHorizontal, Pencil, X, BookOpen } from "lucide-react";
 import { OSToggle } from "@/components/OSToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useOS } from "@/context/OSContext";
@@ -58,6 +58,14 @@ export const SiteHeader = () => {
               <Pencil className="h-3.5 w-3.5" /> Admin
             </button>
           )}
+          <Link
+            to="/docs"
+            aria-label="Documentation"
+            title="Documentation"
+            className="h-9 px-3 inline-flex items-center gap-1.5 rounded-full bg-card border border-border text-muted-foreground hover:text-foreground text-xs font-semibold transition"
+          >
+            <BookOpen className="h-3.5 w-3.5" /> Docs
+          </Link>
           <ThemeToggle />
           <IconBtn label="Search">
             <Search className="h-4 w-4" />
