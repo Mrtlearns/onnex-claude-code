@@ -180,6 +180,7 @@ const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
+              logPublishAll();
               publishDraft();
               toast({ title: "Published", description: "All drafts are now live." });
             }}
