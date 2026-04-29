@@ -33,8 +33,11 @@ describe("SiteHeader", () => {
   it("toggles theme via the header button", () => {
     wrap(<SiteHeader />);
     const btn = screen.getByRole("button", { name: /^Theme:/ });
+    // Default theme is "system" → resolved light → no .dark class.
+    // Cycle: system → light → dark, so click twice to land on dark.
     expect(document.documentElement.classList.contains("dark")).toBe(false);
-    act(() => { btn.click(); });
+    act(() => { btn.click(); }); // → light
+    act(() => { btn.click(); }); // → dark
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 

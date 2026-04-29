@@ -29,8 +29,8 @@ describe("assetUsage", () => {
     publishDraft(slug);
     setDraft(slug, { body: "lov-img://NEW" });
     const ids = computeReferencedIds();
-    expect(ids.has("new")).toBe(true);
-    expect(ids.has("old")).toBe(false);
+    expect(ids.has("NEW")).toBe(true);
+    expect(ids.has("OLD")).toBe(false);
     discardAllDrafts();
   });
 });
