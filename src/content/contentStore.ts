@@ -74,7 +74,12 @@ export const subscribe = (l: Listener) => {
 /** Hook returning lessons with overrides applied; re-renders on edits. */
 export const useLessons = (): Lesson[] => {
   const [, setTick] = useState(0);
-  useEffect(() => subscribe(() => setTick((t) => t + 1)), []);
+  useEffect(() => {
+    const unsub = subscribe(() => setTick((t) => t + 1));
+    return () => {
+      unsub();
+    };
+  }, []);
   const o = read();
   return defaultLessons.map((l) => merge(l, o[l.slug]));
 };
