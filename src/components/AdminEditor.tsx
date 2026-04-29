@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  ArrowLeft, Save, Trash2, Download, Upload, Rocket, CircleDot,
+  ArrowLeft, Save, Trash2, Download, Upload, Rocket, CircleDot, Check, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { TOTAL_LESSONS } from "@/content/lessons";
 import { useHistory } from "@/hooks/useHistory";
 import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useResolvedMarkdown } from "@/hooks/useResolvedMarkdown";
+import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { cn } from "@/lib/utils";
 
