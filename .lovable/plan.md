@@ -1,64 +1,100 @@
-# Admin editor: autosave, per-lesson publish, image uploads
+## Goals
 
-Three changes to the existing admin editor. Image uploads are largely already wired up — this plan finishes the loop and adds visible affordances.
+1. **Asset cleanup screen** — list uploaded images/PDFs, flag unused ones, allow safe deletion.
+2. **Publish activity log** — record every publish event with timestamp + title snapshot.
+3. **Per-lesson draft version history** — keep last 20 autosaved snapshots per lesson, view + restore.
+4. **Seed lesson content** — fetch from `docs.claude.com/claude-code` and `claude-code.lovable.app`, rephrase with Lovable AI, populate `src/content/lessons.ts` so lessons aren't placeholder text.
 
-## 1. Autosave of draft edits
+---
 
-Today, edits in the Single editor only hit the draft store when you press **Save draft**. If you refresh or click away the in-memory working copy is lost.
+## 1. Asset cleanup screen
 
-Change: every edit (title / summary / body / per-OS bodies) is auto-staged into the **Draft layer** after a short idle delay. The Draft layer already persists to `localStorage`, so a refresh restores your work; the Published layer is untouched until you press **Publish**.
+Extend `src/lib/imageStore.ts`:
+- `listAssets()` → returns `{ id, name, type, size, createdAt }[]` (no blob payload).
+- `deleteAsset(id)` → removes from IndexedDB + revokes cached object URL.
+- Track type properly so PDFs vs images can be filtered.
 
-- New hook `src/hooks/useDebouncedEffect.ts` (tiny: runs an effect after `delay` ms of idle).
-- In `SingleEditor`, a single debounced effect (~800 ms) watches `title.value`, `summary.value`, `mode`, and the four body buffers, then calls `setDraft(slug, { title, summary, body })` with the assembled `LessonBody`.
-- Skip the autosave on the first render after a lesson change (so opening a clean lesson doesn't write a no-op draft entry that lights up the "pending" pill).
-- Status line above the editor changes its three states:
-  - `Saving…` while the debounce is pending or in flight
-  - `Saved · just now` (relative time, ticks every 30 s) once the latest change is in the draft store
-  - `All changes published` when there's no draft for this slug
-- Keep the existing **Save draft** button as a manual flush (useful right before Publish, no behavior change), but it stops being the only thing that persists.
-- The dirty-vs-published warning (`useUnsavedChangesPrompt` + the in-app confirm when switching lessons) gets recomputed against the **published** layer instead of the draft+published merge, so it only fires when there are unpublished changes — which is now ~always true while editing. We'll reuse the existing `pendingSlugs.has(lesson.slug)` signal for that, and drop the per-keystroke "unsaved" badge in favor of the autosave status above.
+New utility `src/lib/assetUsage.ts`:
+- Scan all draft + published lesson bodies for `lov-img://<id>` references.
+- Return `Set<string>` of referenced ids → anything else is "unused".
 
-Bulk editor stays explicit (Stage as drafts → Publish) — autosave there would be surprising.
+New component `src/components/AssetManager.tsx` (rendered inside Admin via a new "Assets" tab on the toolbar):
+- Grid/list of assets with thumbnail (image preview via resolved object URL) or PDF icon.
+- Columns: preview, name, type, size, created, "Used in N lessons" (or "Unused" badge).
+- Filter chips: All / Unused only / Images / PDFs.
+- Bulk-select checkboxes + "Delete selected" with confirm dialog. "Delete all unused" shortcut.
+- Click "Used in N lessons" → popover listing the lesson titles linking to that asset.
 
-## 2. Per-lesson Publish button
+## 2. Publish activity log
 
-Two surfaces:
+New module `src/lib/activityLog.ts` (localStorage key `vci.activity.v1`):
+- `logPublish({ slug, title, summary, bodyPreview, at, scope: "single" | "all", count })`.
+- `getActivity()` → newest-first array, capped at 200 entries.
+- `clearActivity()`.
+- Reactive subscribe pattern matching `contentStore.ts`.
 
-**a. Inside the Single editor toolbar** (already exists, needs a small fix): the current "Publish" button calls `handleSaveDraft()` then `publishDraft(slug)` unconditionally. With autosave in place, drop the manual save call — `publishDraft(slug)` reads from the draft store directly. Disable the button when `!pendingSlugs.has(lesson.slug)` (nothing to publish for this lesson).
+Hook `publishDraft` calls in `AdminEditor.tsx`:
+- Per-lesson Publish (toolbar button, list-row rocket): log one entry with that lesson's snapshot.
+- Publish all: log one summary entry plus one per promoted slug.
 
-**b. Inline in the lesson list** (new): each row in `LessonList` that has a pending draft gets a small **Publish** icon-button (rocket, ghost, h-6) next to the orange dot. Clicking it shows a tiny confirm (`AlertDialog`, "Publish '<title>'?") then calls `publishDraft(slug)`. This lets you promote one lesson without leaving whatever lesson you're currently editing.
+New component `src/components/ActivityLog.tsx` shown as a third toolbar tab "History":
+- Reverse-chronological list grouped by day.
+- Each row: timestamp (relative + absolute on hover), lesson title, scope badge ("single" / "in batch"), expandable summary + body preview (first ~200 chars of markdown).
+- "Clear log" with confirm.
 
-**c. Toolbar rename**: the existing "Publish all" stays, just always visible (currently hidden when `pendingCount <= 1`); shown disabled when `pendingCount === 0`. Makes the mental model consistent: per-lesson publish in the list, publish-everything in the top bar.
+## 3. Per-lesson draft version history
 
-## 3. Image / file uploads (verify + polish)
+New module `src/lib/draftHistory.ts` (localStorage key `vci.draft-history.v1`, shape `Record<slug, Snapshot[]>`):
+- `Snapshot = { id, at, title, summary, body }`.
+- `pushSnapshot(slug, snapshot)` — dedupes if identical to the latest, caps at **20** per slug, evicts oldest.
+- `getHistory(slug)` / `useHistory(slug)` reactive hook.
+- `clearHistory(slug)`.
 
-The pipeline already exists end-to-end:
+Wire into `SingleEditor` autosave:
+- In the existing `useDebouncedEffect` autosave block, after `setDraft(...)`, also call `pushSnapshot(lesson.slug, ...)`.
+- After publish, push a final "published" marker snapshot.
 
-- `src/lib/imageStore.ts` — IndexedDB store, `saveImage(file)` returns `lov-img://<id>`.
-- `src/components/MarkdownEditor.tsx` — toolbar **Insert image** button (file picker), plus paste-image and drag-and-drop handlers, all routing through `saveImage`.
-- `src/hooks/useResolvedMarkdown.ts` — swaps `lov-img://` refs for blob URLs at render time.
-- `src/components/LessonPage.tsx` already uses `useResolvedMarkdown`, so uploaded images render on the public lesson too.
+New component `src/components/VersionHistoryDialog.tsx`:
+- Trigger: "History" button next to "Save now" / "Publish" in the editor toolbar (badge with count).
+- Left pane: list of snapshots (relative time, title diff indicator).
+- Right pane: read-only markdown preview of selected snapshot + side-by-side or unified diff against current draft (use a tiny line-diff helper, no heavy dep).
+- "Restore" button → swaps editor state to that snapshot (uses existing `useHistory` `reset`) and triggers an autosave; original current state still on the stack as the newest snapshot.
 
-What I'll change:
+## 4. Seed lesson content (rephrased from source)
 
-- **File-type widening**: today the picker only accepts `image/*`. Widen `accept` to `image/*,application/pdf` and let `saveImage` accept any file; non-image files get inserted as a Markdown link `[filename.pdf](lov-img://...)` rather than `![]()`. Detection by MIME prefix in `MarkdownEditor.handleFiles`.
-- **Upload progress / errors**: wrap each upload in a `try/catch`, toast on failure ("Upload failed: <name>"). Show a small spinner badge on the toolbar's image button while uploading.
-- **Storage caveat surfaced in UI**: short helper text under the editor — "Images are stored in this browser only. Use Export to back them up." (We'll skip building image export today; that's a separate feature.)
-- **Quick sanity checks in the preview pane**: confirm the preview's `useResolvedMarkdown` resolves freshly-uploaded ids without a remount (it should, because `md` changes → effect re-runs).
+**Sources**:
+- `https://docs.claude.com/en/docs/claude-code` (and key sub-pages: install, CLAUDE.md, skills, MCP, building projects).
+- `https://claude-code.lovable.app/` (lesson titles + structure are already mirrored).
+
+**Process** (one-off, runs during this build, not part of the app):
+1. Use `code--fetch_website` (markdown mode) to pull each docs page into `/tmp/source/`.
+2. For each lesson in `src/content/lessons.ts`, build a prompt: "Rewrite the following Claude Code docs into a friendly tutorial section titled '<lesson title>' for OS=<os>. Keep all commands accurate. Do not copy phrasing — restructure and rephrase. ~400-600 words. Markdown only."
+3. Run via the AI gateway skill (`/tmp/lovable_ai.py`, `google/gemini-3-flash-preview`) producing per-OS markdown for OS-specific lessons (`installing-claude-code`, `getting-ready`) and single-string body for the rest.
+4. Write the rephrased bodies back into `src/content/lessons.ts`, replacing all "Lesson body goes here." placeholders. Lessons 6–12 (currently generic "Lesson N") get retitled and filled with adjacent Claude Code topics (sub-agents, hooks, slash commands, headless mode, debugging workflows, cost/usage, and a wrap-up).
+5. Spot-check 2–3 lessons in the preview after writing.
+
+This populates the **default content** baked into the app — admins can still override per-lesson via the editor.
+
+---
 
 ## Files
 
 **New**
-- `src/hooks/useDebouncedEffect.ts`
+- `src/lib/assetUsage.ts`
+- `src/lib/activityLog.ts`
+- `src/lib/draftHistory.ts`
+- `src/components/AssetManager.tsx`
+- `src/components/ActivityLog.tsx`
+- `src/components/VersionHistoryDialog.tsx`
 
-**Modified**
-- `src/components/AdminEditor.tsx` — autosave wiring, per-row Publish in `LessonList`, toolbar tweaks, status text
-- `src/components/MarkdownEditor.tsx` — widen accept, link vs image insert, upload error handling
+**Edited**
+- `src/lib/imageStore.ts` — add `listAssets`, `deleteAsset`, change notifications.
+- `src/components/AdminEditor.tsx` — add "Editor / Assets / History" tab switch on toolbar; wire activity logging into publish actions; add History button + snapshot-on-autosave; show per-lesson Publish on list rows already exist (verify).
+- `src/content/lessons.ts` — replace placeholder bodies with rephrased content; rename lessons 6–12 to real Claude Code topics.
 
-**Unchanged but verified**
-- `src/lib/imageStore.ts`, `src/hooks/useResolvedMarkdown.ts`, `src/content/contentStore.ts`, `src/components/LessonPage.tsx`
+## Notes / trade-offs
 
-## Out of scope
-- Auth on `/admin` (still open, per earlier decision).
-- Cross-device sync of drafts/images (still browser-local; Lovable Cloud migration remains a one-shot follow-up if/when you want it).
-- Bulk-editor autosave.
+- All new persistence stays in **localStorage / IndexedDB** (no backend) consistent with existing store.
+- Cap sizes (200 activity entries, 20 snapshots/lesson) keep localStorage well under quota.
+- Asset deletion does **not** auto-rewrite markdown — broken `lov-img://` refs simply won't render. The "Used in" indicator + confirm dialog mitigates accidental deletion.
+- AI rephrasing happens at build time (one-off script), not at runtime — no API key needed in the shipped app.
