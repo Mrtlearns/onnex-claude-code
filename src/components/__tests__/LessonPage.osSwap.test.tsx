@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, act, waitForElementToBeRemoved } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, waitForElementToBeRemoved } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OSProvider } from "@/context/OSContext";
@@ -34,15 +34,17 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
     // macOS marker — present in mac variant only.
     expect(await screen.findByText(/macOS 13\.0 \(Ventura\)/i)).toBeInTheDocument();
 
-    // Click the Windows chip in the OS toggle.
+    // Click the Windows chip in the OS toggle. Press the button via fireEvent
+    // so the React state update is flushed synchronously inside RTL's act wrapper.
     const winBtn = screen.getByRole("button", { name: /^Win$/i });
-    act(() => { winBtn.click(); });
+    fireEvent.click(winBtn);
 
-    // Windows marker — present in windows variant only. findByText awaits the
-    // async markdown resolver in useResolvedMarkdown.
-    expect(await screen.findByText(/Choosing Your Windows Path/i)).toBeInTheDocument();
-    // The mac marker may briefly persist while the markdown resolver promise
-    // settles; wait for it to actually be removed instead of polling once.
+    // The Windows-only marker appears once the markdown resolver promise settles.
+    await waitFor(
+      () => expect(screen.getByText(/Choosing Your Windows Path/i)).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    // Mac-only marker should be gone after the resolver swap.
     await waitForElementToBeRemoved(() => screen.queryByText(/macOS 13\.0 \(Ventura\)/i));
   });
 
