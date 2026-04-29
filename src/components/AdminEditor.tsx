@@ -418,7 +418,7 @@ const SingleEditor = ({
         )}
 
         <p className="text-xs text-muted-foreground">
-          Drafts stay private until you Publish. Drop or paste images directly into the editor.
+          Edits autosave to a private draft. Drop or paste images and PDFs directly — they're stored in this browser.
         </p>
       </section>
 
