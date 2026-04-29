@@ -1,10 +1,11 @@
-import { useCallback, useImperativeHandle, useRef, forwardRef } from "react";
+import { useCallback, useImperativeHandle, useRef, forwardRef, useState } from "react";
 import {
   Bold, Italic, Heading1, Heading2, Heading3, Link as LinkIcon,
-  Code, Code2, List, ListOrdered, Image as ImageIcon, Undo2, Redo2, Quote,
+  Code, Code2, List, ListOrdered, Image as ImageIcon, Undo2, Redo2, Quote, Loader2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { saveImage } from "@/lib/imageStore";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 export interface MarkdownEditorHandle {
@@ -27,7 +28,8 @@ type Selection = { start: number; end: number };
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
   ({ value, onChange, onUndo, onRedo, canUndo, canRedo, className, minHeight = 400 }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+    const [uploading, setUploading] = useState(false);
+    const { toast } = useToast();
     useImperativeHandle(ref, () => ({
       focus: () => textareaRef.current?.focus(),
     }));
@@ -111,13 +113,30 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
 
     const handleFiles = async (files: FileList | null) => {
       if (!files || files.length === 0) return;
+      setUploading(true);
       const inserts: string[] = [];
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue;
-        const url = await saveImage(file);
-        inserts.push(`![${file.name.replace(/\.[^.]+$/, "")}](${url})`);
+      try {
+        for (const file of Array.from(files)) {
+          try {
+            const url = await saveImage(file);
+            const baseName = file.name.replace(/\.[^.]+$/, "") || "file";
+            if (file.type.startsWith("image/")) {
+              inserts.push(`![${baseName}](${url})`);
+            } else {
+              inserts.push(`[${file.name}](${url})`);
+            }
+          } catch (err) {
+            toast({
+              title: "Upload failed",
+              description: `${file.name}: ${err instanceof Error ? err.message : "unknown error"}`,
+              variant: "destructive",
+            });
+          }
+        }
+        if (inserts.length > 0) insertAtCursor(`\n${inserts.join("\n")}\n`);
+      } finally {
+        setUploading(false);
       }
-      if (inserts.length > 0) insertAtCursor(`\n${inserts.join("\n")}\n`);
     };
 
     const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -175,12 +194,16 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
           <ToolBtn label="Link (⌘K)" onClick={insertLink}><LinkIcon className="h-3.5 w-3.5" /></ToolBtn>
           <label
             className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
-            title="Insert image"
+            title="Insert image or file"
           >
-            <ImageIcon className="h-3.5 w-3.5" />
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImageIcon className="h-3.5 w-3.5" />
+            )}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => {

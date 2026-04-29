@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  ArrowLeft, Save, Trash2, Download, Upload, Rocket, CircleDot,
+  ArrowLeft, Save, Trash2, Download, Upload, Rocket, CircleDot, Check, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { TOTAL_LESSONS } from "@/content/lessons";
 import { useHistory } from "@/hooks/useHistory";
 import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useResolvedMarkdown } from "@/hooks/useResolvedMarkdown";
+import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { cn } from "@/lib/utils";
 
@@ -154,12 +155,11 @@ const Toolbar = ({
 
 const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
   const { toast } = useToast();
-  if (pendingCount <= 1) return null;
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="default">
-          <Rocket className="h-4 w-4" /> Publish all
+        <Button size="sm" variant="default" disabled={pendingCount === 0}>
+          <Rocket className="h-4 w-4" /> Publish all{pendingCount > 0 ? ` (${pendingCount})` : ""}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -221,17 +221,46 @@ const SingleEditor = ({
     typeof lesson.body === "string" ? lesson.body : lesson.body.linux ?? "",
   );
 
-  // Detect dirty: working copy vs the current draft+published merge
-  const dirty =
-    title.value !== lesson.title ||
-    summary.value !== lesson.summary ||
-    (mode === "single"
-      ? bodySingle.value !== (typeof lesson.body === "string" ? lesson.body : bodyFor(lesson.body, previewOS))
-      : bodyMac.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.mac ?? "") ||
-        bodyWin.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.windows ?? "") ||
-        bodyLinux.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.linux ?? ""));
+  // Assemble current working copy → LessonBody
+  const buildBody = (): LessonBody =>
+    mode === "single"
+      ? bodySingle.value
+      : { mac: bodyMac.value, windows: bodyWin.value, linux: bodyLinux.value };
 
-  useUnsavedChangesPrompt(dirty);
+  // Autosave to Draft layer (debounced).
+  // Skip the very first effect tick after a lesson change so opening a clean
+  // lesson doesn't write a no-op draft entry.
+  const skipNextAutosave = useRef(true);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [savePending, setSavePending] = useState(false);
+
+  // Mark "save pending" the moment any tracked field changes.
+  useEffect(() => {
+    if (skipNextAutosave.current) return;
+    setSavePending(true);
+  }, [title.value, summary.value, bodySingle.value, bodyMac.value, bodyWin.value, bodyLinux.value, mode]);
+
+  useDebouncedEffect(
+    () => {
+      if (skipNextAutosave.current) {
+        skipNextAutosave.current = false;
+        return;
+      }
+      setDraft(lesson.slug, {
+        title: title.value,
+        summary: summary.value,
+        body: buildBody(),
+      });
+      setSavedAt(Date.now());
+      setSavePending(false);
+    },
+    [title.value, summary.value, bodySingle.value, bodyMac.value, bodyWin.value, bodyLinux.value, mode],
+    800,
+  );
+
+  // Pending = there's a draft for this slug that isn't published yet.
+  const hasPendingDraft = pendingSlugs.has(lesson.slug);
+  useUnsavedChangesPrompt(savePending);
 
   const previewBody =
     mode === "single"
@@ -243,23 +272,32 @@ const SingleEditor = ({
   const eyebrow =
     lesson.kind === "pre-work" ? "PRE-WORK" : `LESSON ${lesson.number} OF ${TOTAL_LESSONS}`;
 
-  const handleSaveDraft = () => {
-    const body: LessonBody =
-      mode === "single"
-        ? bodySingle.value
-        : { mac: bodyMac.value, windows: bodyWin.value, linux: bodyLinux.value };
-    setDraft(lesson.slug, { title: title.value, summary: summary.value, body });
+  const handleSaveDraftNow = () => {
+    setDraft(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body: buildBody(),
+    });
+    setSavedAt(Date.now());
+    setSavePending(false);
     toast({ title: "Draft saved", description: `"${title.value}" staged for publish.` });
   };
 
   const handlePublish = () => {
-    handleSaveDraft();
+    // Flush any pending autosave first
+    setDraft(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body: buildBody(),
+    });
+    setSavePending(false);
     publishDraft(lesson.slug);
     toast({ title: "Published", description: `"${title.value}" is now live.` });
   };
 
   const handleDiscard = () => {
     discardDraft(lesson.slug);
+    skipNextAutosave.current = true;
     title.reset(lesson.title);
     summary.reset(lesson.summary);
     if (typeof lesson.body === "string") {
@@ -269,13 +307,15 @@ const SingleEditor = ({
       bodyWin.reset(lesson.body.windows ?? "");
       bodyLinux.reset(lesson.body.linux ?? "");
     }
+    setSavedAt(null);
+    setSavePending(false);
     toast({ title: "Discarded", description: "Draft removed." });
   };
 
-  // Confirm before switching lessons while dirty
+  // Confirm before switching lessons while a save is still pending
   const handleSelect = (slug: string) => {
     if (slug === lesson.slug) return;
-    if (dirty && !window.confirm("Unsaved changes will be lost. Continue?")) return;
+    if (savePending && !window.confirm("A change is still saving. Switch anyway?")) return;
     onSelect(slug);
   };
 
@@ -291,23 +331,17 @@ const SingleEditor = ({
       {/* Editor pane */}
       <section className="border-b lg:border-b-0 lg:border-r border-border p-4 sm:p-6 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between gap-2">
-          {dirty ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
-              <CircleDot className="h-3 w-3 animate-pulse" /> Unsaved changes
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">All changes saved.</span>
-          )}
+          <SaveStatus pending={savePending} savedAt={savedAt} hasPendingDraft={hasPendingDraft} />
           <div className="flex items-center gap-2">
-            {pendingSlugs.has(lesson.slug) && (
+            {hasPendingDraft && (
               <Button variant="outline" size="sm" onClick={handleDiscard}>
                 <Trash2 className="h-4 w-4" /> Discard
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={handleSaveDraft} disabled={!dirty}>
-              <Save className="h-4 w-4" /> Save draft
+            <Button size="sm" variant="outline" onClick={handleSaveDraftNow} disabled={!savePending}>
+              <Save className="h-4 w-4" /> Save now
             </Button>
-            <Button size="sm" onClick={handlePublish}>
+            <Button size="sm" onClick={handlePublish} disabled={!hasPendingDraft && !savePending}>
               <Rocket className="h-4 w-4" /> Publish
             </Button>
           </div>
@@ -384,7 +418,7 @@ const SingleEditor = ({
         )}
 
         <p className="text-xs text-muted-foreground">
-          Drafts stay private until you Publish. Drop or paste images directly into the editor.
+          Edits autosave to a private draft. Drop or paste images and PDFs directly — they're stored in this browser.
         </p>
       </section>
 
@@ -465,6 +499,52 @@ const PreviewCard = ({
 };
 
 // =====================================================================
+// Save status indicator
+// =====================================================================
+
+const SaveStatus = ({
+  pending, savedAt, hasPendingDraft,
+}: { pending: boolean; savedAt: number | null; hasPendingDraft: boolean }) => {
+  // Tick every 30s so "saved 2 min ago" updates.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+        <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+      </span>
+    );
+  }
+  if (savedAt) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Check className="h-3 w-3 text-accent" /> Saved {relativeTime(savedAt)}
+        {hasPendingDraft && <span className="ml-1 text-accent">· unpublished</span>}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground">
+      {hasPendingDraft ? "Draft pending publish." : "All changes published."}
+    </span>
+  );
+};
+
+const relativeTime = (ts: number) => {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+};
+
+// =====================================================================
 // Lesson list
 // =====================================================================
 
@@ -475,36 +555,85 @@ const LessonList = ({
   currentSlug: string;
   pendingSlugs: Set<string>;
   onSelect: (slug: string) => void;
-}) => (
-  <aside className="border-b lg:border-b-0 lg:border-r border-border p-3 overflow-y-auto max-h-[40vh] lg:max-h-none">
-    <p className="text-xs font-semibold tracking-wider text-muted-foreground px-2 py-1.5">CONTENT</p>
-    <ul className="space-y-0.5">
-      {lessons.map((l) => (
-        <li key={l.slug}>
-          <button
-            onClick={() => onSelect(l.slug)}
-            className={cn(
-              "w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors",
-              l.slug === currentSlug
-                ? "bg-accent-soft text-accent"
-                : "text-foreground/80 hover:bg-muted",
-            )}
-          >
-            <span className="flex items-center justify-between">
-              <span className="block text-[10px] tracking-wider text-muted-foreground">
-                {l.kind === "pre-work" ? "PRE-WORK" : `LESSON ${l.number}`}
-              </span>
-              {pendingSlugs.has(l.slug) && (
-                <CircleDot className="h-2.5 w-2.5 text-accent" />
-              )}
-            </span>
-            <span className="block truncate">{l.title}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  </aside>
-);
+}) => {
+  const { toast } = useToast();
+  const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
+  const confirmLesson = lessons.find((l) => l.slug === confirmSlug);
+
+  return (
+    <aside className="border-b lg:border-b-0 lg:border-r border-border p-3 overflow-y-auto max-h-[40vh] lg:max-h-none">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground px-2 py-1.5">CONTENT</p>
+      <ul className="space-y-0.5">
+        {lessons.map((l) => {
+          const pending = pendingSlugs.has(l.slug);
+          const active = l.slug === currentSlug;
+          return (
+            <li key={l.slug}>
+              <div
+                className={cn(
+                  "group w-full flex items-start gap-1 px-2 py-1.5 rounded-md text-sm transition-colors",
+                  active ? "bg-accent-soft text-accent" : "text-foreground/80 hover:bg-muted",
+                )}
+              >
+                <button
+                  onClick={() => onSelect(l.slug)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="block text-[10px] tracking-wider text-muted-foreground">
+                      {l.kind === "pre-work" ? "PRE-WORK" : `LESSON ${l.number}`}
+                    </span>
+                    {pending && <CircleDot className="h-2.5 w-2.5 text-accent shrink-0" />}
+                  </span>
+                  <span className="block truncate">{l.title}</span>
+                </button>
+                {pending && (
+                  <button
+                    type="button"
+                    title={`Publish "${l.title}"`}
+                    aria-label={`Publish ${l.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmSlug(l.slug);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-accent hover:bg-background"
+                  >
+                    <Rocket className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <AlertDialog open={!!confirmSlug} onOpenChange={(o) => !o && setConfirmSlug(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish "{confirmLesson?.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Promote this lesson's draft to the live site. Other pending drafts stay staged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmSlug) {
+                  publishDraft(confirmSlug);
+                  toast({ title: "Published", description: `"${confirmLesson?.title}" is now live.` });
+                }
+                setConfirmSlug(null);
+              }}
+            >
+              Publish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </aside>
+  );
+};
 
 // =====================================================================
 // Bulk editor
