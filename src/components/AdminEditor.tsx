@@ -708,9 +708,22 @@ const LessonList = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmSlug) {
+                if (confirmSlug && confirmLesson) {
                   publishDraft(confirmSlug);
-                  toast({ title: "Published", description: `"${confirmLesson?.title}" is now live.` });
+                  pushSnapshot(confirmSlug, {
+                    title: confirmLesson.title,
+                    summary: confirmLesson.summary,
+                    body: confirmLesson.body,
+                    publishedMarker: true,
+                  });
+                  logActivity({
+                    slug: confirmSlug,
+                    title: confirmLesson.title,
+                    summary: confirmLesson.summary,
+                    body: confirmLesson.body,
+                    scope: "single",
+                  });
+                  toast({ title: "Published", description: `"${confirmLesson.title}" is now live.` });
                 }
                 setConfirmSlug(null);
               }}
