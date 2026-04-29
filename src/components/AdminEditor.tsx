@@ -155,12 +155,11 @@ const Toolbar = ({
 
 const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
   const { toast } = useToast();
-  if (pendingCount <= 1) return null;
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="default">
-          <Rocket className="h-4 w-4" /> Publish all
+        <Button size="sm" variant="default" disabled={pendingCount === 0}>
+          <Rocket className="h-4 w-4" /> Publish all{pendingCount > 0 ? ` (${pendingCount})` : ""}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
