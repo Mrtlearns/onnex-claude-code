@@ -28,7 +28,8 @@ type Selection = { start: number; end: number };
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
   ({ value, onChange, onUndo, onRedo, canUndo, canRedo, className, minHeight = 400 }, ref) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+    const [uploading, setUploading] = useState(false);
+    const { toast } = useToast();
     useImperativeHandle(ref, () => ({
       focus: () => textareaRef.current?.focus(),
     }));
