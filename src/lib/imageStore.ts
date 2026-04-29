@@ -30,6 +30,24 @@ const getDB = () => {
 
 type StoredImage = { id: string; name: string; type: string; blob: Blob; createdAt: number };
 
+export type AssetMeta = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  createdAt: number;
+};
+
+type AssetListener = () => void;
+const assetListeners = new Set<AssetListener>();
+const notifyAssets = () => assetListeners.forEach((l) => l());
+export const subscribeAssets = (l: AssetListener) => {
+  assetListeners.add(l);
+  return () => {
+    assetListeners.delete(l);
+  };
+};
+
 const tx = async <T,>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
   const db = await getDB();
   return new Promise((resolve, reject) => {
