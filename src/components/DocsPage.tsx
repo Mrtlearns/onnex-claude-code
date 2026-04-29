@@ -5,10 +5,14 @@ import remarkGfm from "remark-gfm";
 import { FileText, ArrowLeft } from "lucide-react";
 // Import markdown source-of-truth at build time so the in-app docs and the
 // repo docs never drift. Add a new entry below to surface a new file.
+//
+// SECURITY: Only end-user-facing docs are surfaced here. Internal architecture
+// docs (CLAUDE.md, docs/SUPABASE_SCHEMA.md) are intentionally NOT bundled
+// into the client — they describe the planned backend, RLS policies, edge
+// function contracts, and known footguns, and would give an attacker a
+// significant head-start once the backend ships. Keep those in the repo only.
 import readme from "../../docs/README.md?raw";
 import testPlan from "../../docs/TEST_PLAN.md?raw";
-import schema from "../../docs/SUPABASE_SCHEMA.md?raw";
-import claudeMd from "../../CLAUDE.md?raw";
 import { cn } from "@/lib/utils";
 
 interface Doc {
@@ -20,9 +24,7 @@ interface Doc {
 
 const DOCS: Doc[] = [
   { slug: "readme", title: "App Overview", source: "docs/README.md", body: readme },
-  { slug: "claude", title: "Claude Pickup Brief", source: "CLAUDE.md", body: claudeMd },
   { slug: "test-plan", title: "Test Plan", source: "docs/TEST_PLAN.md", body: testPlan },
-  { slug: "supabase-schema", title: "Supabase Schema", source: "docs/SUPABASE_SCHEMA.md", body: schema },
 ];
 
 export const DocsPage = () => {
