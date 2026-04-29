@@ -39,9 +39,10 @@ export const SiteHeader = () => {
   return (
     <header className="absolute top-0 inset-x-0 z-30">
       <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
-        <Link to={admin ? "/admin" : "/lessons"} aria-label={`${BRAND.name} home`}>
-          <OSToggle />
-        </Link>
+        {/* The OSToggle must NOT be wrapped in a Link — clicking a chip would
+            navigate away from the current lesson. The brand-home affordance
+            lives on the dedicated logo/Docs links instead. */}
+        <OSToggle />
         <div className="flex items-center gap-1.5">
           {admin ? (
             <button
