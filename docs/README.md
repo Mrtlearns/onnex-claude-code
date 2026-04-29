@@ -104,6 +104,35 @@ src/content/lessons.ts  (default)
 - **Activity log** — `ActivityLog` component shows the last 200 publish events (single + batch) with timestamp, title snapshot, and body preview.
 - **Asset uploads** — `MarkdownEditor` accepts pasted/dragged images and PDFs; stores them in IndexedDB as blobs and embeds them as `lov-img://<id>` URLs that get resolved at render time.
 
+### Per-OS lesson model
+
+Lesson bodies are typed as `LessonBody = string | Partial<Record<OS, string>>`,
+where `OS = "mac" | "windows" | "linux"`. As of this revision, **all 13
+lessons** (the pre-work plus lessons 1–12) ship with all three OS variants
+populated.
+
+`LessonPage` resolves the active variant via `bodyFor(lesson.body, os)` and
+renders an OS-variant ribbon (`data-testid="os-variant-notice"`) only when the
+body has more than one populated variant. Switching the OS toggle in the
+header updates the body in place — the route does not change, so deep links
+to `/lessons/<slug>` always survive an OS switch.
+
+To add a new OS:
+
+1. Extend the `OS` union in `src/context/OSContext.tsx` and update `OS_LABELS`/`OS_SHORT`.
+2. Add the new key to each lesson body in `src/content/lessons.ts`.
+3. Update `osCoverage()` in `src/components/LessonIndex.tsx` so the coverage chip stays accurate.
+
+### `/docs` route
+
+`src/pages/Docs.tsx` mounts `DocsPage`, which imports the repository's
+markdown files (`docs/README.md`, `docs/TEST_PLAN.md`,
+`docs/SUPABASE_SCHEMA.md`, `CLAUDE.md`) at build time using Vite's `?raw`
+suffix. The sidebar selects between docs; the URL carries the active doc as
+`?d=<slug>` so links are shareable. Because the markdown is imported (not
+fetched), the docs page can never drift from the repo — every release ships
+the docs that match its source.
+
 ## Source content credits
 
 Lesson bodies were rephrased (not copied verbatim) from:

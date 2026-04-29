@@ -45,6 +45,8 @@ custom server. Use Lovable Cloud (Supabase under the hood) when you need a backe
 | Add to the unused-asset scan | `src/lib/assetUsage.ts` |
 | Tweak theme colours | `src/index.css` (HSL tokens, both `:root` and `.dark`) |
 | Change routes | `src/App.tsx` |
+| Edit the in-app docs viewer | `src/pages/Docs.tsx` + `src/components/DocsPage.tsx` (markdown imported via `?raw`) |
+| Add per-OS variants to a lesson | `src/content/lessons.ts` — body becomes `{ mac, windows, linux }` |
 
 ## Conventions (don't break these)
 
@@ -56,6 +58,8 @@ custom server. Use Lovable Cloud (Supabase under the hood) when you need a backe
 6. **No `console.log` in committed code.** Use the toast system (`@/hooks/use-toast`) for user-visible feedback.
 7. **Roles, when added, never live on the profile.** See `docs/SUPABASE_SCHEMA.md` § Roles. Privilege escalation via profile-stored roles is a known footgun.
 8. **Brand strings come from `BRAND` in `src/lib/brand.ts`.** Don't hardcode "On-Nex Training Portal" in JSX.
+9. **Per-OS lesson bodies live as `{ mac, windows, linux }` in `lessons.ts`.** To add a new OS variant, extend the `OS` union in `src/context/OSContext.tsx`, then add the key to each lesson body and to `osCoverage()` in `LessonIndex.tsx`. Plain-string bodies are still allowed and treated as "all OS."
+10. **Lesson resolution happens via `bodyFor(lesson.body, os)`.** Never read `lesson.body` directly in a renderer.
 
 ## Testing
 

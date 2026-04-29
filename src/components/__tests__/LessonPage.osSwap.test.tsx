@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OSProvider } from "@/context/OSContext";
@@ -29,18 +29,27 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
   });
 
   it("renders macOS body, then swaps to Windows body without leaving the page", async () => {
-    renderLesson("getting-ready");
+    const { container } = renderLesson("getting-ready");
 
     // macOS marker — present in mac variant only.
     expect(await screen.findByText(/macOS 13\.0 \(Ventura\)/i)).toBeInTheDocument();
 
     // Click the Windows chip in the OS toggle.
     const winBtn = screen.getByRole("button", { name: /^Win$/i });
-    act(() => { winBtn.click(); });
+    fireEvent.click(winBtn);
 
-    // Windows marker — present in windows variant only. findByText awaits the
-    // async markdown resolver in useResolvedMarkdown.
-    expect(await screen.findByText(/Choosing Your Windows Path/i)).toBeInTheDocument();
+    // Sanity check that we did NOT navigate away from the lesson route.
+    await waitFor(() => {
+      const article = container.querySelector("article");
+      expect(article).not.toBeNull();
+    });
+
+    // The Windows-only marker appears once the markdown resolver promise settles.
+    await waitFor(
+      () => expect(screen.getByText(/Choosing Your Windows Path/i)).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    // Mac-only marker should be gone now that the windows body has rendered.
     expect(screen.queryByText(/macOS 13\.0 \(Ventura\)/i)).toBeNull();
   });
 
