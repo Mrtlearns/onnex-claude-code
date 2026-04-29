@@ -12,6 +12,7 @@ import Index from "./pages/Index.tsx";
 import Lessons from "./pages/Lessons.tsx";
 import LessonRoute from "./pages/LessonRoute.tsx";
 import Admin from "./pages/Admin.tsx";
+import Docs from "./pages/Docs.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/lessons" element={<Lessons />} />
               <Route path="/lessons/:slug" element={<LessonRoute />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/docs" element={<Docs />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <CookieBanner />

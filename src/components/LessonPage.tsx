@@ -1,11 +1,11 @@
 import { Link, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Info } from "lucide-react";
 import { TOTAL_LESSONS } from "@/content/lessons";
 import { useLessons, bodyFor } from "@/content/contentStore";
 import { useResolvedMarkdown } from "@/hooks/useResolvedMarkdown";
-import { useOS } from "@/context/OSContext";
+import { useOS, OS_LABELS } from "@/context/OSContext";
 
 export const LessonPage = () => {
   const { slug = "" } = useParams();
@@ -31,6 +31,11 @@ export const LessonPage = () => {
     lesson.kind === "pre-work" ? "PRE-WORK" : `LESSON ${lesson.number} OF ${TOTAL_LESSONS}`;
   const resolvedBody = useResolvedMarkdown(bodyFor(lesson.body, os));
 
+  // Show the OS-variant ribbon only when the lesson actually has multiple variants.
+  const hasMultipleVariants =
+    typeof lesson.body !== "string" &&
+    Object.values(lesson.body).filter(Boolean).length > 1;
+
   return (
     <main className="min-h-svh px-4 sm:px-6 pt-24 pb-20">
       <article className="mx-auto max-w-3xl">
@@ -46,9 +51,19 @@ export const LessonPage = () => {
         <h1 className="font-serif text-4xl sm:text-5xl font-bold text-foreground mb-3">
           {lesson.title}
         </h1>
-        <p className="text-muted-foreground text-base sm:text-lg mb-10">{lesson.summary}</p>
+        <p className="text-muted-foreground text-base sm:text-lg mb-6">{lesson.summary}</p>
 
-        <div className="prose prose-neutral max-w-none prose-headings:font-serif prose-headings:text-foreground prose-h1:text-3xl prose-h2:text-2xl prose-p:text-foreground/85 prose-a:text-accent prose-img:rounded-lg prose-code:text-accent prose-code:bg-accent-soft prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-foreground prose-pre:text-background prose-strong:text-foreground">
+        {hasMultipleVariants && (
+          <div
+            data-testid="os-variant-notice"
+            className="mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-accent-soft px-3 py-1.5 text-xs text-accent"
+          >
+            <Info className="h-3.5 w-3.5" />
+            Showing <strong className="font-semibold">{OS_LABELS[os]}</strong> instructions — switch OS in the header.
+          </div>
+        )}
+
+        <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-serif prose-headings:text-foreground prose-h1:text-3xl prose-h2:text-2xl prose-p:text-foreground/85 prose-a:text-accent prose-img:rounded-lg prose-code:text-accent prose-code:bg-accent-soft prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-foreground prose-pre:text-background prose-strong:text-foreground">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{resolvedBody}</ReactMarkdown>
         </div>
 
