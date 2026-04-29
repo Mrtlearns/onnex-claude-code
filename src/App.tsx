@@ -4,11 +4,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OSProvider } from "@/context/OSContext";
+import { AdminProvider } from "@/context/AdminContext";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CookieBanner } from "@/components/CookieBanner";
 import Index from "./pages/Index.tsx";
 import Lessons from "./pages/Lessons.tsx";
 import LessonRoute from "./pages/LessonRoute.tsx";
+import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -20,14 +22,17 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <OSProvider>
-          <SiteHeader />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/lessons" element={<Lessons />} />
-            <Route path="/lessons/:slug" element={<LessonRoute />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <CookieBanner />
+          <AdminProvider>
+            <SiteHeader />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/lessons" element={<Lessons />} />
+              <Route path="/lessons/:slug" element={<LessonRoute />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <CookieBanner />
+          </AdminProvider>
         </OSProvider>
       </BrowserRouter>
     </TooltipProvider>

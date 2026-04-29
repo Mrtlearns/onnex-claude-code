@@ -2,13 +2,15 @@ import { Link, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { bodyFor, getLesson, lessons, TOTAL_LESSONS } from "@/content/lessons";
+import { TOTAL_LESSONS } from "@/content/lessons";
+import { useLessons, bodyFor } from "@/content/contentStore";
 import { useOS } from "@/context/OSContext";
 
 export const LessonPage = () => {
   const { slug = "" } = useParams();
   const { os } = useOS();
-  const lesson = getLesson(slug);
+  const lessons = useLessons();
+  const lesson = lessons.find((l) => l.slug === slug);
 
   if (!lesson || !os) {
     return (

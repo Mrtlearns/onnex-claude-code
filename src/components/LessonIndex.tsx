@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { BookOpen, Download, Plug, Puzzle, Sparkles, Wrench } from "lucide-react";
-import { lessons, TOTAL_LESSONS, type Lesson, type LessonIcon } from "@/content/lessons";
+import { TOTAL_LESSONS, type Lesson, type LessonIcon } from "@/content/lessons";
+import { useLessons } from "@/content/contentStore";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<LessonIcon, typeof BookOpen> = {
@@ -13,6 +14,7 @@ const ICONS: Record<LessonIcon, typeof BookOpen> = {
 };
 
 export const LessonIndex = () => {
+  const lessons = useLessons();
   const preWork = lessons.filter((l) => l.kind === "pre-work");
   const main = lessons.filter((l) => l.kind === "lesson");
 
