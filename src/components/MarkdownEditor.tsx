@@ -194,12 +194,16 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
           <ToolBtn label="Link (⌘K)" onClick={insertLink}><LinkIcon className="h-3.5 w-3.5" /></ToolBtn>
           <label
             className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
-            title="Insert image"
+            title="Insert image or file"
           >
-            <ImageIcon className="h-3.5 w-3.5" />
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImageIcon className="h-3.5 w-3.5" />
+            )}
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               multiple
               className="hidden"
               onChange={(e) => {
