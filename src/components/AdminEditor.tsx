@@ -822,6 +822,7 @@ const BulkEditor = ({
   };
 
   const publishStaged = () => {
+    logPublishAll();
     publishDraft();
     toast({ title: "Published", description: "All drafts are live." });
   };
