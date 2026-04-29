@@ -221,17 +221,46 @@ const SingleEditor = ({
     typeof lesson.body === "string" ? lesson.body : lesson.body.linux ?? "",
   );
 
-  // Detect dirty: working copy vs the current draft+published merge
-  const dirty =
-    title.value !== lesson.title ||
-    summary.value !== lesson.summary ||
-    (mode === "single"
-      ? bodySingle.value !== (typeof lesson.body === "string" ? lesson.body : bodyFor(lesson.body, previewOS))
-      : bodyMac.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.mac ?? "") ||
-        bodyWin.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.windows ?? "") ||
-        bodyLinux.value !== (typeof lesson.body === "string" ? lesson.body : lesson.body.linux ?? ""));
+  // Assemble current working copy → LessonBody
+  const buildBody = (): LessonBody =>
+    mode === "single"
+      ? bodySingle.value
+      : { mac: bodyMac.value, windows: bodyWin.value, linux: bodyLinux.value };
 
-  useUnsavedChangesPrompt(dirty);
+  // Autosave to Draft layer (debounced).
+  // Skip the very first effect tick after a lesson change so opening a clean
+  // lesson doesn't write a no-op draft entry.
+  const skipNextAutosave = useRef(true);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [savePending, setSavePending] = useState(false);
+
+  // Mark "save pending" the moment any tracked field changes.
+  useEffect(() => {
+    if (skipNextAutosave.current) return;
+    setSavePending(true);
+  }, [title.value, summary.value, bodySingle.value, bodyMac.value, bodyWin.value, bodyLinux.value, mode]);
+
+  useDebouncedEffect(
+    () => {
+      if (skipNextAutosave.current) {
+        skipNextAutosave.current = false;
+        return;
+      }
+      setDraft(lesson.slug, {
+        title: title.value,
+        summary: summary.value,
+        body: buildBody(),
+      });
+      setSavedAt(Date.now());
+      setSavePending(false);
+    },
+    [title.value, summary.value, bodySingle.value, bodyMac.value, bodyWin.value, bodyLinux.value, mode],
+    800,
+  );
+
+  // Pending = there's a draft for this slug that isn't published yet.
+  const hasPendingDraft = pendingSlugs.has(lesson.slug);
+  useUnsavedChangesPrompt(savePending);
 
   const previewBody =
     mode === "single"
@@ -243,23 +272,32 @@ const SingleEditor = ({
   const eyebrow =
     lesson.kind === "pre-work" ? "PRE-WORK" : `LESSON ${lesson.number} OF ${TOTAL_LESSONS}`;
 
-  const handleSaveDraft = () => {
-    const body: LessonBody =
-      mode === "single"
-        ? bodySingle.value
-        : { mac: bodyMac.value, windows: bodyWin.value, linux: bodyLinux.value };
-    setDraft(lesson.slug, { title: title.value, summary: summary.value, body });
+  const handleSaveDraftNow = () => {
+    setDraft(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body: buildBody(),
+    });
+    setSavedAt(Date.now());
+    setSavePending(false);
     toast({ title: "Draft saved", description: `"${title.value}" staged for publish.` });
   };
 
   const handlePublish = () => {
-    handleSaveDraft();
+    // Flush any pending autosave first
+    setDraft(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body: buildBody(),
+    });
+    setSavePending(false);
     publishDraft(lesson.slug);
     toast({ title: "Published", description: `"${title.value}" is now live.` });
   };
 
   const handleDiscard = () => {
     discardDraft(lesson.slug);
+    skipNextAutosave.current = true;
     title.reset(lesson.title);
     summary.reset(lesson.summary);
     if (typeof lesson.body === "string") {
@@ -269,13 +307,15 @@ const SingleEditor = ({
       bodyWin.reset(lesson.body.windows ?? "");
       bodyLinux.reset(lesson.body.linux ?? "");
     }
+    setSavedAt(null);
+    setSavePending(false);
     toast({ title: "Discarded", description: "Draft removed." });
   };
 
-  // Confirm before switching lessons while dirty
+  // Confirm before switching lessons while a save is still pending
   const handleSelect = (slug: string) => {
     if (slug === lesson.slug) return;
-    if (dirty && !window.confirm("Unsaved changes will be lost. Continue?")) return;
+    if (savePending && !window.confirm("A change is still saving. Switch anyway?")) return;
     onSelect(slug);
   };
 
@@ -291,23 +331,17 @@ const SingleEditor = ({
       {/* Editor pane */}
       <section className="border-b lg:border-b-0 lg:border-r border-border p-4 sm:p-6 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between gap-2">
-          {dirty ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
-              <CircleDot className="h-3 w-3 animate-pulse" /> Unsaved changes
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">All changes saved.</span>
-          )}
+          <SaveStatus pending={savePending} savedAt={savedAt} hasPendingDraft={hasPendingDraft} />
           <div className="flex items-center gap-2">
-            {pendingSlugs.has(lesson.slug) && (
+            {hasPendingDraft && (
               <Button variant="outline" size="sm" onClick={handleDiscard}>
                 <Trash2 className="h-4 w-4" /> Discard
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={handleSaveDraft} disabled={!dirty}>
-              <Save className="h-4 w-4" /> Save draft
+            <Button size="sm" variant="outline" onClick={handleSaveDraftNow} disabled={!savePending}>
+              <Save className="h-4 w-4" /> Save now
             </Button>
-            <Button size="sm" onClick={handlePublish}>
+            <Button size="sm" onClick={handlePublish} disabled={!hasPendingDraft && !savePending}>
               <Rocket className="h-4 w-4" /> Publish
             </Button>
           </div>
