@@ -125,6 +125,13 @@ export const useLessons = (): Lesson[] => {
   return defaultLessons.map((l) => merge(l, o[l.slug]));
 };
 
+/** Synchronous snapshot of draft-on-published-on-default lessons (no React). */
+export const getDraftLessonsSnapshot = (): Lesson[] => {
+  const pub = readKey(PUB_KEY);
+  const draft = readKey(DRAFT_KEY);
+  return defaultLessons.map((l) => merge(merge(l, pub[l.slug]), draft[l.slug]));
+};
+
 /** Admin-facing: lessons with DRAFT-on-top-of-PUBLISHED applied. */
 export const useDraftLessons = (): Lesson[] => {
   useStoreTick();

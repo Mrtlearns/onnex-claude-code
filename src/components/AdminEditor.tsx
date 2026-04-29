@@ -19,6 +19,7 @@ import { useOS, type OS, OS_LABELS } from "@/context/OSContext";
 import {
   useDraftLessons, setDraft, setManyDrafts, discardDraft,
   exportPublished, importPublished, publishDraft, usePendingSlugs, bodyFor,
+  getDraftLessonsSnapshot, getDrafts,
 } from "@/content/contentStore";
 import type { LessonBody } from "@/content/lessons";
 import { TOTAL_LESSONS } from "@/content/lessons";
@@ -27,10 +28,16 @@ import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useResolvedMarkdown } from "@/hooks/useResolvedMarkdown";
 import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { AssetManager } from "@/components/AssetManager";
+import { ActivityLog } from "@/components/ActivityLog";
+import { VersionHistoryDialog } from "@/components/VersionHistoryDialog";
+import { logActivity } from "@/lib/activityLog";
+import { pushSnapshot } from "@/lib/draftHistory";
+import type { Snapshot } from "@/lib/draftHistory";
 import { cn } from "@/lib/utils";
 
 type EditorMode = "single" | "perOS";
-type ViewMode = "single" | "bulk";
+type ViewMode = "single" | "bulk" | "assets" | "history";
 
 export const AdminEditor = () => {
   const lessons = useDraftLessons();
@@ -55,8 +62,12 @@ export const AdminEditor = () => {
           setPreviewOS={setPreviewOS}
           onSelect={setSelectedSlug}
         />
-      ) : (
+      ) : view === "bulk" ? (
         <BulkEditor lessons={lessons} pendingSlugs={pendingSlugs} />
+      ) : view === "assets" ? (
+        <AssetManager />
+      ) : (
+        <ActivityLog />
       )}
     </main>
   );
@@ -109,18 +120,15 @@ const Toolbar = ({
             <ArrowLeft className="h-4 w-4" /> Exit admin
           </Link>
           <div className="inline-flex rounded-md border border-border p-0.5 text-xs">
-            <button
-              onClick={() => setView("single")}
-              className={cn("px-2.5 py-1 rounded", view === "single" && "bg-muted")}
-            >
-              Single
-            </button>
-            <button
-              onClick={() => setView("bulk")}
-              className={cn("px-2.5 py-1 rounded", view === "bulk" && "bg-muted")}
-            >
-              Bulk
-            </button>
+            {(["single", "bulk", "assets", "history"] as ViewMode[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn("px-2.5 py-1 rounded capitalize", view === v && "bg-muted")}
+              >
+                {v === "single" ? "Editor" : v === "bulk" ? "Bulk" : v === "assets" ? "Assets" : "History"}
+              </button>
+            ))}
           </div>
           {pendingCount > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
@@ -153,6 +161,30 @@ const Toolbar = ({
   );
 };
 
+/** Log every pending draft as a "batch-item" plus a single "all" summary. */
+const logPublishAll = () => {
+  const snap = getDraftLessonsSnapshot();
+  const draftSlugs = new Set(Object.keys(getDrafts()));
+  const pending = snap.filter((l) => draftSlugs.has(l.slug));
+  for (const l of pending) {
+    logActivity({
+      slug: l.slug,
+      title: l.title,
+      summary: l.summary,
+      body: l.body,
+      scope: "batch-item",
+    });
+  }
+  logActivity({
+    slug: "*",
+    title: `Publish all (${pending.length})`,
+    summary: pending.map((l) => l.title).join(", "),
+    bodyPreview: "",
+    scope: "all",
+    count: pending.length,
+  });
+};
+
 const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
   const { toast } = useToast();
   return (
@@ -173,6 +205,7 @@ const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
+              logPublishAll();
               publishDraft();
               toast({ title: "Published", description: "All drafts are now live." });
             }}
@@ -246,10 +279,16 @@ const SingleEditor = ({
         skipNextAutosave.current = false;
         return;
       }
+      const body = buildBody();
       setDraft(lesson.slug, {
         title: title.value,
         summary: summary.value,
-        body: buildBody(),
+        body,
+      });
+      pushSnapshot(lesson.slug, {
+        title: title.value,
+        summary: summary.value,
+        body,
       });
       setSavedAt(Date.now());
       setSavePending(false);
@@ -285,14 +324,57 @@ const SingleEditor = ({
 
   const handlePublish = () => {
     // Flush any pending autosave first
+    const body = buildBody();
     setDraft(lesson.slug, {
       title: title.value,
       summary: summary.value,
-      body: buildBody(),
+      body,
     });
     setSavePending(false);
     publishDraft(lesson.slug);
+    pushSnapshot(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body,
+      publishedMarker: true,
+    });
+    logActivity({
+      slug: lesson.slug,
+      title: title.value,
+      summary: summary.value,
+      body,
+      scope: "single",
+    });
     toast({ title: "Published", description: `"${title.value}" is now live.` });
+  };
+
+  const handleRestoreSnapshot = (snap: Snapshot) => {
+    skipNextAutosave.current = true;
+    title.reset(snap.title);
+    summary.reset(snap.summary);
+    if (typeof snap.body === "string") {
+      setMode("single");
+      bodySingle.reset(snap.body);
+    } else {
+      setMode("perOS");
+      bodyMac.reset(snap.body.mac ?? "");
+      bodyWin.reset(snap.body.windows ?? "");
+      bodyLinux.reset(snap.body.linux ?? "");
+    }
+    // Stage restored content as the new draft + history entry.
+    setDraft(lesson.slug, {
+      title: snap.title,
+      summary: snap.summary,
+      body: snap.body,
+    });
+    pushSnapshot(lesson.slug, {
+      title: snap.title,
+      summary: snap.summary,
+      body: snap.body,
+    });
+    setSavedAt(Date.now());
+    setSavePending(false);
+    toast({ title: "Restored", description: "Snapshot loaded into the editor." });
   };
 
   const handleDiscard = () => {
@@ -332,7 +414,14 @@ const SingleEditor = ({
       <section className="border-b lg:border-b-0 lg:border-r border-border p-4 sm:p-6 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between gap-2">
           <SaveStatus pending={savePending} savedAt={savedAt} hasPendingDraft={hasPendingDraft} />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <VersionHistoryDialog
+              slug={lesson.slug}
+              currentTitle={title.value}
+              currentSummary={summary.value}
+              currentBody={buildBody()}
+              onRestore={handleRestoreSnapshot}
+            />
             {hasPendingDraft && (
               <Button variant="outline" size="sm" onClick={handleDiscard}>
                 <Trash2 className="h-4 w-4" /> Discard
@@ -619,9 +708,22 @@ const LessonList = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmSlug) {
+                if (confirmSlug && confirmLesson) {
                   publishDraft(confirmSlug);
-                  toast({ title: "Published", description: `"${confirmLesson?.title}" is now live.` });
+                  pushSnapshot(confirmSlug, {
+                    title: confirmLesson.title,
+                    summary: confirmLesson.summary,
+                    body: confirmLesson.body,
+                    publishedMarker: true,
+                  });
+                  logActivity({
+                    slug: confirmSlug,
+                    title: confirmLesson.title,
+                    summary: confirmLesson.summary,
+                    body: confirmLesson.body,
+                    scope: "single",
+                  });
+                  toast({ title: "Published", description: `"${confirmLesson.title}" is now live.` });
                 }
                 setConfirmSlug(null);
               }}
@@ -720,6 +822,7 @@ const BulkEditor = ({
   };
 
   const publishStaged = () => {
+    logPublishAll();
     publishDraft();
     toast({ title: "Published", description: "All drafts are live." });
   };
