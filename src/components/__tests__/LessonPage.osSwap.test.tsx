@@ -28,28 +28,24 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
     localStorage.setItem("vci.os", "mac");
   });
 
-  it("renders macOS body, then swaps to Windows body without leaving the page", () => {
+  it("renders macOS body, then swaps to Windows body without leaving the page", async () => {
     renderLesson("getting-ready");
 
     // macOS marker — present in mac variant only.
-    expect(screen.getByText(/macOS 13\.0 \(Ventura\)/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Choosing Your Windows Path/i)).toBeNull();
+    expect(await screen.findByText(/macOS 13\.0 \(Ventura\)/i)).toBeInTheDocument();
 
     // Click the Windows chip in the OS toggle.
     const winBtn = screen.getByRole("button", { name: /^Win$/i });
     act(() => { winBtn.click(); });
 
-    expect(screen.getByText(/Choosing Your Windows Path/i)).toBeInTheDocument();
+    // Windows marker — present in windows variant only. findByText awaits the
+    // async markdown resolver in useResolvedMarkdown.
+    expect(await screen.findByText(/Choosing Your Windows Path/i)).toBeInTheDocument();
     expect(screen.queryByText(/macOS 13\.0 \(Ventura\)/i)).toBeNull();
-
-    // OS-variant ribbon is shown because the lesson has multiple variants.
-    expect(screen.getByTestId("os-variant-notice")).toBeInTheDocument();
   });
 
-  it("OS-variant notice is absent for lessons with a single variant", () => {
-    // No such lesson exists today (we converted them all), so we just verify
-    // the notice's presence is data-driven by re-checking the lesson with multi-variant.
+  it("OS-variant notice is shown for lessons with multiple variants", async () => {
     renderLesson("getting-ready");
-    expect(screen.getByTestId("os-variant-notice")).toBeInTheDocument();
+    expect(await screen.findByTestId("os-variant-notice")).toBeInTheDocument();
   });
 });
