@@ -499,6 +499,52 @@ const PreviewCard = ({
 };
 
 // =====================================================================
+// Save status indicator
+// =====================================================================
+
+const SaveStatus = ({
+  pending, savedAt, hasPendingDraft,
+}: { pending: boolean; savedAt: number | null; hasPendingDraft: boolean }) => {
+  // Tick every 30s so "saved 2 min ago" updates.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+        <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+      </span>
+    );
+  }
+  if (savedAt) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Check className="h-3 w-3 text-accent" /> Saved {relativeTime(savedAt)}
+        {hasPendingDraft && <span className="ml-1 text-accent">· unpublished</span>}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground">
+      {hasPendingDraft ? "Draft pending publish." : "All changes published."}
+    </span>
+  );
+};
+
+const relativeTime = (ts: number) => {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+};
+
+// =====================================================================
 // Lesson list
 // =====================================================================
 
@@ -509,36 +555,85 @@ const LessonList = ({
   currentSlug: string;
   pendingSlugs: Set<string>;
   onSelect: (slug: string) => void;
-}) => (
-  <aside className="border-b lg:border-b-0 lg:border-r border-border p-3 overflow-y-auto max-h-[40vh] lg:max-h-none">
-    <p className="text-xs font-semibold tracking-wider text-muted-foreground px-2 py-1.5">CONTENT</p>
-    <ul className="space-y-0.5">
-      {lessons.map((l) => (
-        <li key={l.slug}>
-          <button
-            onClick={() => onSelect(l.slug)}
-            className={cn(
-              "w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors",
-              l.slug === currentSlug
-                ? "bg-accent-soft text-accent"
-                : "text-foreground/80 hover:bg-muted",
-            )}
-          >
-            <span className="flex items-center justify-between">
-              <span className="block text-[10px] tracking-wider text-muted-foreground">
-                {l.kind === "pre-work" ? "PRE-WORK" : `LESSON ${l.number}`}
-              </span>
-              {pendingSlugs.has(l.slug) && (
-                <CircleDot className="h-2.5 w-2.5 text-accent" />
-              )}
-            </span>
-            <span className="block truncate">{l.title}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  </aside>
-);
+}) => {
+  const { toast } = useToast();
+  const [confirmSlug, setConfirmSlug] = useState<string | null>(null);
+  const confirmLesson = lessons.find((l) => l.slug === confirmSlug);
+
+  return (
+    <aside className="border-b lg:border-b-0 lg:border-r border-border p-3 overflow-y-auto max-h-[40vh] lg:max-h-none">
+      <p className="text-xs font-semibold tracking-wider text-muted-foreground px-2 py-1.5">CONTENT</p>
+      <ul className="space-y-0.5">
+        {lessons.map((l) => {
+          const pending = pendingSlugs.has(l.slug);
+          const active = l.slug === currentSlug;
+          return (
+            <li key={l.slug}>
+              <div
+                className={cn(
+                  "group w-full flex items-start gap-1 px-2 py-1.5 rounded-md text-sm transition-colors",
+                  active ? "bg-accent-soft text-accent" : "text-foreground/80 hover:bg-muted",
+                )}
+              >
+                <button
+                  onClick={() => onSelect(l.slug)}
+                  className="min-w-0 flex-1 text-left"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="block text-[10px] tracking-wider text-muted-foreground">
+                      {l.kind === "pre-work" ? "PRE-WORK" : `LESSON ${l.number}`}
+                    </span>
+                    {pending && <CircleDot className="h-2.5 w-2.5 text-accent shrink-0" />}
+                  </span>
+                  <span className="block truncate">{l.title}</span>
+                </button>
+                {pending && (
+                  <button
+                    type="button"
+                    title={`Publish "${l.title}"`}
+                    aria-label={`Publish ${l.title}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmSlug(l.slug);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:text-accent hover:bg-background"
+                  >
+                    <Rocket className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <AlertDialog open={!!confirmSlug} onOpenChange={(o) => !o && setConfirmSlug(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish "{confirmLesson?.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Promote this lesson's draft to the live site. Other pending drafts stay staged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmSlug) {
+                  publishDraft(confirmSlug);
+                  toast({ title: "Published", description: `"${confirmLesson?.title}" is now live.` });
+                }
+                setConfirmSlug(null);
+              }}
+            >
+              Publish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </aside>
+  );
+};
 
 // =====================================================================
 // Bulk editor
