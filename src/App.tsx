@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OSProvider } from "@/context/OSContext";
 import { AdminProvider } from "@/context/AdminContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CookieBanner } from "@/components/CookieBanner";
 import Index from "./pages/Index.tsx";
@@ -17,12 +18,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <OSProvider>
-          <AdminProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <OSProvider>
+            <AdminProvider>
             <SiteHeader />
             <Routes>
               <Route path="/" element={<Index />} />
@@ -32,10 +34,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <CookieBanner />
-          </AdminProvider>
-        </OSProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+            </AdminProvider>
+          </OSProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
