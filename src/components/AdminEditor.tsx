@@ -279,10 +279,16 @@ const SingleEditor = ({
         skipNextAutosave.current = false;
         return;
       }
+      const body = buildBody();
       setDraft(lesson.slug, {
         title: title.value,
         summary: summary.value,
-        body: buildBody(),
+        body,
+      });
+      pushSnapshot(lesson.slug, {
+        title: title.value,
+        summary: summary.value,
+        body,
       });
       setSavedAt(Date.now());
       setSavePending(false);
