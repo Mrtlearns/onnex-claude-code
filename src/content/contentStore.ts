@@ -3,59 +3,94 @@ import type { OS } from "@/context/OSContext";
 import { lessons as defaultLessons, type Lesson, type LessonBody, bodyFor } from "@/content/lessons";
 
 /**
- * Content overlay store.
+ * Two-layer content store:
+ *   - PUBLISHED: what visitors see on /lessons and /lessons/:slug
+ *   - DRAFT:     what the admin editor reads/writes; promoted on Publish
  *
- * Lessons defined in `src/content/lessons.ts` are the baseline. Admin edits
- * are stored as a per-slug overlay in localStorage so the source file stays
- * clean and easy to edit by hand.
+ * Both are stored in localStorage as `slug -> partial Lesson` overlays
+ * on top of the source-of-truth in src/content/lessons.ts.
  */
 
-const KEY = "vci.content.overrides.v1";
+const PUB_KEY = "vci.content.published.v1";
+const DRAFT_KEY = "vci.content.draft.v1";
 
 export type LessonOverride = Partial<Pick<Lesson, "title" | "summary" | "body">>;
 export type Overrides = Record<string, LessonOverride>;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
+const notify = () => listeners.forEach((l) => l());
 
-const read = (): Overrides => {
+const readKey = (key: string): Overrides => {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Overrides) : {};
   } catch {
     return {};
   }
 };
-
-const write = (o: Overrides) => {
-  localStorage.setItem(KEY, JSON.stringify(o));
-  listeners.forEach((l) => l());
+const writeKey = (key: string, o: Overrides) => {
+  localStorage.setItem(key, JSON.stringify(o));
+  notify();
 };
 
-export const getOverrides = read;
+// ---------- Published layer ----------
+export const getPublished = () => readKey(PUB_KEY);
 
-export const setLessonOverride = (slug: string, patch: LessonOverride) => {
-  const o = read();
+// ---------- Draft layer ----------
+export const getDrafts = () => readKey(DRAFT_KEY);
+
+export const setDraft = (slug: string, patch: LessonOverride) => {
+  const o = readKey(DRAFT_KEY);
   o[slug] = { ...o[slug], ...patch };
-  write(o);
+  writeKey(DRAFT_KEY, o);
 };
 
-export const clearLessonOverride = (slug: string) => {
-  const o = read();
+export const setManyDrafts = (patches: Record<string, LessonOverride>) => {
+  const o = readKey(DRAFT_KEY);
+  for (const [slug, patch] of Object.entries(patches)) {
+    o[slug] = { ...o[slug], ...patch };
+  }
+  writeKey(DRAFT_KEY, o);
+};
+
+export const discardDraft = (slug: string) => {
+  const o = readKey(DRAFT_KEY);
   delete o[slug];
-  write(o);
+  writeKey(DRAFT_KEY, o);
 };
 
-export const clearAllOverrides = () => write({});
+export const discardAllDrafts = () => writeKey(DRAFT_KEY, {});
 
-export const exportOverrides = () => JSON.stringify(read(), null, 2);
+/** Promote one or all drafts to the published layer. */
+export const publishDraft = (slug?: string) => {
+  const drafts = readKey(DRAFT_KEY);
+  const pub = readKey(PUB_KEY);
+  if (slug) {
+    if (drafts[slug]) {
+      pub[slug] = { ...pub[slug], ...drafts[slug] };
+      delete drafts[slug];
+    }
+  } else {
+    for (const [s, patch] of Object.entries(drafts)) {
+      pub[s] = { ...pub[s], ...patch };
+    }
+    for (const s of Object.keys(drafts)) delete drafts[s];
+  }
+  writeKey(PUB_KEY, pub);
+  writeKey(DRAFT_KEY, drafts);
+};
 
-export const importOverrides = (json: string) => {
+// ---------- Import / export ----------
+export const exportPublished = () => JSON.stringify(readKey(PUB_KEY), null, 2);
+
+export const importPublished = (json: string) => {
   const parsed = JSON.parse(json);
   if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid JSON");
-  write(parsed as Overrides);
+  writeKey(PUB_KEY, parsed as Overrides);
 };
 
+// ---------- Merge helpers ----------
 const merge = (l: Lesson, o?: LessonOverride): Lesson => {
   if (!o) return l;
   return {
@@ -68,11 +103,12 @@ const merge = (l: Lesson, o?: LessonOverride): Lesson => {
 
 export const subscribe = (l: Listener) => {
   listeners.add(l);
-  return () => listeners.delete(l);
+  return () => {
+    listeners.delete(l);
+  };
 };
 
-/** Hook returning lessons with overrides applied; re-renders on edits. */
-export const useLessons = (): Lesson[] => {
+const useStoreTick = () => {
   const [, setTick] = useState(0);
   useEffect(() => {
     const unsub = subscribe(() => setTick((t) => t + 1));
@@ -80,13 +116,30 @@ export const useLessons = (): Lesson[] => {
       unsub();
     };
   }, []);
-  const o = read();
+};
+
+/** Public-facing: lessons with PUBLISHED overrides applied. */
+export const useLessons = (): Lesson[] => {
+  useStoreTick();
+  const o = readKey(PUB_KEY);
   return defaultLessons.map((l) => merge(l, o[l.slug]));
 };
 
-export const useLesson = (slug: string): Lesson | undefined => {
-  const all = useLessons();
-  return all.find((l) => l.slug === slug);
+/** Admin-facing: lessons with DRAFT-on-top-of-PUBLISHED applied. */
+export const useDraftLessons = (): Lesson[] => {
+  useStoreTick();
+  const pub = readKey(PUB_KEY);
+  const draft = readKey(DRAFT_KEY);
+  return defaultLessons.map((l) => merge(merge(l, pub[l.slug]), draft[l.slug]));
+};
+
+export const useLesson = (slug: string): Lesson | undefined =>
+  useLessons().find((l) => l.slug === slug);
+
+/** Reactive set of slugs that have pending draft changes. */
+export const usePendingSlugs = (): Set<string> => {
+  useStoreTick();
+  return new Set(Object.keys(readKey(DRAFT_KEY)));
 };
 
 export { bodyFor };
