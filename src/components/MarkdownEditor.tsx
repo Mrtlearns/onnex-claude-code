@@ -113,13 +113,30 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(
 
     const handleFiles = async (files: FileList | null) => {
       if (!files || files.length === 0) return;
+      setUploading(true);
       const inserts: string[] = [];
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue;
-        const url = await saveImage(file);
-        inserts.push(`![${file.name.replace(/\.[^.]+$/, "")}](${url})`);
+      try {
+        for (const file of Array.from(files)) {
+          try {
+            const url = await saveImage(file);
+            const baseName = file.name.replace(/\.[^.]+$/, "") || "file";
+            if (file.type.startsWith("image/")) {
+              inserts.push(`![${baseName}](${url})`);
+            } else {
+              inserts.push(`[${file.name}](${url})`);
+            }
+          } catch (err) {
+            toast({
+              title: "Upload failed",
+              description: `${file.name}: ${err instanceof Error ? err.message : "unknown error"}`,
+              variant: "destructive",
+            });
+          }
+        }
+        if (inserts.length > 0) insertAtCursor(`\n${inserts.join("\n")}\n`);
+      } finally {
+        setUploading(false);
       }
-      if (inserts.length > 0) insertAtCursor(`\n${inserts.join("\n")}\n`);
     };
 
     const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
