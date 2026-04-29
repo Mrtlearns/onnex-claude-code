@@ -17,7 +17,7 @@ export const LessonIndex = () => {
   const main = lessons.filter((l) => l.kind === "lesson");
 
   return (
-    <main className="min-h-svh px-4 sm:px-6 pt-24 pb-20">
+    <main className="min-h-svh px-4 sm:px-6 pt-24 pb-20 bg-foreground text-background">
       <div className="mx-auto max-w-3xl">
         <div className="text-center mb-12">
           <p className="text-accent text-sm font-medium mb-2">Claude Code Workshop</p>
