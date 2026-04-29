@@ -32,10 +32,11 @@ Walk through this on the published preview after non-trivial changes.
    - [ ] Theme toggle is present in the top-right and works on this page.
    - [ ] Choose macOS. Lands on `/lessons` with the new brand in the header banner.
 2. **Theme**
-   - [ ] Toggle from `system` → `light` → `dark` → `system` on `/`, `/lessons`, `/lessons/<any>`, `/admin`. The `.dark` class flips on `<html>`.
+   - [ ] Toggle from `system` → `light` → `dark` → `system` on `/`, `/lessons`, `/lessons/<any>`, `/admin`, `/docs`. The `.dark` class flips on `<html>` AND the visible background and text colours change on every route (no inverted tokens left).
    - [ ] Hard-refresh after picking dark — there is no flash of light theme.
 3. **Lesson rendering**
-   - [ ] Switch OS via the OS toggle in the header. Bodies that have per-OS variants visibly change (e.g., install commands).
+   - [ ] Switch OS via the OS toggle in the header on a lesson page. The body content swaps in place (no navigation away from `/lessons/<slug>`) and the OS-variant ribbon shows the new OS label.
+   - [ ] Bodies that have per-OS variants visibly change (e.g., install commands).
 4. **Admin flow**
    - [ ] Click Admin. Editor tab opens.
    - [ ] Edit a lesson body. Autosave indicator appears within 1 second; navigating away triggers the unsaved-change prompt only if dirty.
