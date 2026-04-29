@@ -119,18 +119,15 @@ const Toolbar = ({
             <ArrowLeft className="h-4 w-4" /> Exit admin
           </Link>
           <div className="inline-flex rounded-md border border-border p-0.5 text-xs">
-            <button
-              onClick={() => setView("single")}
-              className={cn("px-2.5 py-1 rounded", view === "single" && "bg-muted")}
-            >
-              Single
-            </button>
-            <button
-              onClick={() => setView("bulk")}
-              className={cn("px-2.5 py-1 rounded", view === "bulk" && "bg-muted")}
-            >
-              Bulk
-            </button>
+            {(["single", "bulk", "assets", "history"] as ViewMode[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn("px-2.5 py-1 rounded capitalize", view === v && "bg-muted")}
+              >
+                {v === "single" ? "Editor" : v === "bulk" ? "Bulk" : v === "assets" ? "Assets" : "History"}
+              </button>
+            ))}
           </div>
           {pendingCount > 0 && (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent">
