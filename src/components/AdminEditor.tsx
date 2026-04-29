@@ -414,7 +414,14 @@ const SingleEditor = ({
       <section className="border-b lg:border-b-0 lg:border-r border-border p-4 sm:p-6 space-y-4 overflow-y-auto">
         <div className="flex items-center justify-between gap-2">
           <SaveStatus pending={savePending} savedAt={savedAt} hasPendingDraft={hasPendingDraft} />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <VersionHistoryDialog
+              slug={lesson.slug}
+              currentTitle={title.value}
+              currentSummary={summary.value}
+              currentBody={buildBody()}
+              onRestore={handleRestoreSnapshot}
+            />
             {hasPendingDraft && (
               <Button variant="outline" size="sm" onClick={handleDiscard}>
                 <Trash2 className="h-4 w-4" /> Discard
