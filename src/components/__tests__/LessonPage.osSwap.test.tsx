@@ -29,15 +29,20 @@ describe("LessonPage OS swap (the OS-picker fix)", () => {
   });
 
   it("renders macOS body, then swaps to Windows body without leaving the page", async () => {
-    renderLesson("getting-ready");
+    const { container } = renderLesson("getting-ready");
 
     // macOS marker — present in mac variant only.
     expect(await screen.findByText(/macOS 13\.0 \(Ventura\)/i)).toBeInTheDocument();
 
-    // Click the Windows chip in the OS toggle. Press the button via fireEvent
-    // so the React state update is flushed synchronously inside RTL's act wrapper.
+    // Click the Windows chip in the OS toggle.
     const winBtn = screen.getByRole("button", { name: /^Win$/i });
     fireEvent.click(winBtn);
+
+    // Sanity check that we did NOT navigate away from the lesson route.
+    await waitFor(() => {
+      const article = container.querySelector("article");
+      expect(article).not.toBeNull();
+    });
 
     // The Windows-only marker appears once the markdown resolver promise settles.
     await waitFor(
