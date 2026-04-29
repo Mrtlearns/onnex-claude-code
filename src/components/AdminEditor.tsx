@@ -19,6 +19,7 @@ import { useOS, type OS, OS_LABELS } from "@/context/OSContext";
 import {
   useDraftLessons, setDraft, setManyDrafts, discardDraft,
   exportPublished, importPublished, publishDraft, usePendingSlugs, bodyFor,
+  getDraftLessonsSnapshot, getDrafts,
 } from "@/content/contentStore";
 import type { LessonBody } from "@/content/lessons";
 import { TOTAL_LESSONS } from "@/content/lessons";
