@@ -1,10 +1,11 @@
-import { useCallback, useImperativeHandle, useRef, forwardRef } from "react";
+import { useCallback, useImperativeHandle, useRef, forwardRef, useState } from "react";
 import {
   Bold, Italic, Heading1, Heading2, Heading3, Link as LinkIcon,
-  Code, Code2, List, ListOrdered, Image as ImageIcon, Undo2, Redo2, Quote,
+  Code, Code2, List, ListOrdered, Image as ImageIcon, Undo2, Redo2, Quote, Loader2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { saveImage } from "@/lib/imageStore";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 export interface MarkdownEditorHandle {
