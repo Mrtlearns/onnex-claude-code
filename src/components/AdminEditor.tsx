@@ -324,14 +324,57 @@ const SingleEditor = ({
 
   const handlePublish = () => {
     // Flush any pending autosave first
+    const body = buildBody();
     setDraft(lesson.slug, {
       title: title.value,
       summary: summary.value,
-      body: buildBody(),
+      body,
     });
     setSavePending(false);
     publishDraft(lesson.slug);
+    pushSnapshot(lesson.slug, {
+      title: title.value,
+      summary: summary.value,
+      body,
+      publishedMarker: true,
+    });
+    logActivity({
+      slug: lesson.slug,
+      title: title.value,
+      summary: summary.value,
+      body,
+      scope: "single",
+    });
     toast({ title: "Published", description: `"${title.value}" is now live.` });
+  };
+
+  const handleRestoreSnapshot = (snap: Snapshot) => {
+    skipNextAutosave.current = true;
+    title.reset(snap.title);
+    summary.reset(snap.summary);
+    if (typeof snap.body === "string") {
+      setMode("single");
+      bodySingle.reset(snap.body);
+    } else {
+      setMode("perOS");
+      bodyMac.reset(snap.body.mac ?? "");
+      bodyWin.reset(snap.body.windows ?? "");
+      bodyLinux.reset(snap.body.linux ?? "");
+    }
+    // Stage restored content as the new draft + history entry.
+    setDraft(lesson.slug, {
+      title: snap.title,
+      summary: snap.summary,
+      body: snap.body,
+    });
+    pushSnapshot(lesson.slug, {
+      title: snap.title,
+      summary: snap.summary,
+      body: snap.body,
+    });
+    setSavedAt(Date.now());
+    setSavePending(false);
+    toast({ title: "Restored", description: "Snapshot loaded into the editor." });
   };
 
   const handleDiscard = () => {
