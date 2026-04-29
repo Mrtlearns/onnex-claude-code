@@ -160,6 +160,31 @@ const Toolbar = ({
   );
 };
 
+/** Log every pending draft as a "batch-item" plus a single "all" summary. */
+const logPublishAll = () => {
+  // Read drafts from contentStore via useDraftLessons isn't available here (sync helper),
+  // so we rely on the snapshot at call time.
+  const lessonsSnapshot = (window as unknown as { __vciLessonsSnapshot__?: ReturnType<typeof useDraftLessons> }).__vciLessonsSnapshot__;
+  const pending = (lessonsSnapshot ?? []).filter((l) => (window as unknown as { __vciPending__?: Set<string> }).__vciPending__?.has(l.slug));
+  for (const l of pending) {
+    logActivity({
+      slug: l.slug,
+      title: l.title,
+      summary: l.summary,
+      body: l.body,
+      scope: "batch-item",
+    });
+  }
+  logActivity({
+    slug: "*",
+    title: `Publish all (${pending.length})`,
+    summary: pending.map((l) => l.title).join(", "),
+    bodyPreview: "",
+    scope: "all",
+    count: pending.length,
+  });
+};
+
 const PublishAllButton = ({ pendingCount }: { pendingCount: number }) => {
   const { toast } = useToast();
   return (
