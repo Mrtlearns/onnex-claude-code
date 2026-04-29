@@ -27,10 +27,16 @@ import { useUnsavedChangesPrompt } from "@/hooks/useUnsavedChangesPrompt";
 import { useResolvedMarkdown } from "@/hooks/useResolvedMarkdown";
 import { useDebouncedEffect } from "@/hooks/useDebouncedEffect";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { AssetManager } from "@/components/AssetManager";
+import { ActivityLog } from "@/components/ActivityLog";
+import { VersionHistoryDialog } from "@/components/VersionHistoryDialog";
+import { logActivity } from "@/lib/activityLog";
+import { pushSnapshot } from "@/lib/draftHistory";
+import type { Snapshot } from "@/lib/draftHistory";
 import { cn } from "@/lib/utils";
 
 type EditorMode = "single" | "perOS";
-type ViewMode = "single" | "bulk";
+type ViewMode = "single" | "bulk" | "assets" | "history";
 
 export const AdminEditor = () => {
   const lessons = useDraftLessons();
@@ -55,8 +61,12 @@ export const AdminEditor = () => {
           setPreviewOS={setPreviewOS}
           onSelect={setSelectedSlug}
         />
-      ) : (
+      ) : view === "bulk" ? (
         <BulkEditor lessons={lessons} pendingSlugs={pendingSlugs} />
+      ) : view === "assets" ? (
+        <AssetManager />
+      ) : (
+        <ActivityLog />
       )}
     </main>
   );
