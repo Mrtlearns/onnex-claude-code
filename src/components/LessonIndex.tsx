@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { BookOpen, Download, Plug, Puzzle, Sparkles, Wrench } from "lucide-react";
 import { TOTAL_LESSONS, type Lesson, type LessonIcon } from "@/content/lessons";
 import { useLessons } from "@/content/contentStore";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<LessonIcon, typeof BookOpen> = {
@@ -24,7 +25,7 @@ export const LessonIndex = () => {
         <div className="text-center mb-12">
           <p className="text-accent text-sm font-medium mb-2">Claude Code Workshop</p>
           <p className="uppercase tracking-widest text-xs text-background/60 mb-6">
-            Vibe Coding Incubator
+            {BRAND.name}
           </p>
           <h1 className="font-serif text-4xl sm:text-5xl font-bold text-background mb-3">
             Choose a Lesson

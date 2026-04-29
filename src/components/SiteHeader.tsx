@@ -1,15 +1,16 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, SlidersHorizontal, Sun, Pencil, X } from "lucide-react";
+import { Search, SlidersHorizontal, Pencil, X } from "lucide-react";
 import { OSToggle } from "@/components/OSToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useOS } from "@/context/OSContext";
 import { useAdmin } from "@/context/AdminContext";
+import { BRAND } from "@/lib/brand";
 
 export const SiteHeader = () => {
   const { os } = useOS();
   const { admin, setAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
-  if (!os) return null;
 
   const enterAdmin = () => {
     setAdmin(true);
@@ -20,10 +21,25 @@ export const SiteHeader = () => {
     if (location.pathname.startsWith("/admin")) navigate("/lessons");
   };
 
+  // On the OS picker (no OS chosen yet) we still render a slim header
+  // so the theme toggle is reachable. Other controls are hidden.
+  if (!os) {
+    return (
+      <header className="absolute top-0 inset-x-0 z-30">
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
+          <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+            {BRAND.short}
+          </span>
+          <ThemeToggle />
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="absolute top-0 inset-x-0 z-30">
       <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4">
-        <Link to={admin ? "/admin" : "/lessons"} aria-label="Lessons home">
+        <Link to={admin ? "/admin" : "/lessons"} aria-label={`${BRAND.name} home`}>
           <OSToggle />
         </Link>
         <div className="flex items-center gap-1.5">
@@ -42,9 +58,7 @@ export const SiteHeader = () => {
               <Pencil className="h-3.5 w-3.5" /> Admin
             </button>
           )}
-          <IconBtn label="Theme">
-            <Sun className="h-4 w-4" />
-          </IconBtn>
+          <ThemeToggle />
           <IconBtn label="Search">
             <Search className="h-4 w-4" />
           </IconBtn>

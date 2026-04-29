@@ -31,7 +31,7 @@ export const lessons: Lesson[] = [
     body: {
       mac: `# Getting Ready
 
-Welcome to the incubator! Before we start "vibe coding," we need to get your environment ready. Claude Code is an agentic tool—meaning it doesn't just suggest text; it actually looks at your files, runs terminal commands, and helps build your project from the inside out.
+Welcome to the On-Nex Training Portal! Before we start "vibe coding," we need to get your environment ready. Claude Code is an agentic tool—meaning it doesn't just suggest text; it actually looks at your files, runs terminal commands, and helps build your project from the inside out.
 
 On macOS, things are pretty straightforward. Let’s get you set up.
 

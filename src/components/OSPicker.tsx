@@ -1,6 +1,7 @@
 import { Apple, Monitor, Terminal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useOS, type OS, OS_LABELS } from "@/context/OSContext";
+import { BRAND } from "@/lib/brand";
 
 const options: { id: OS; Icon: typeof Apple }[] = [
   { id: "mac", Icon: Apple },
@@ -21,7 +22,7 @@ export const OSPicker = () => {
     <main className="min-h-svh flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-3xl text-center">
         <p className="text-accent text-sm font-medium tracking-wide mb-4">
-          VIBE CODING INCUBATOR
+          {BRAND.name.toUpperCase()}
         </p>
         <h1 className="font-serif text-4xl sm:text-5xl font-bold text-foreground mb-4">
           What system are you on?
