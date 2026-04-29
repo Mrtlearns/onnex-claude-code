@@ -21,13 +21,13 @@ export const LessonIndex = () => {
       <div className="mx-auto max-w-3xl">
         <div className="text-center mb-12">
           <p className="text-accent text-sm font-medium mb-2">Claude Code Workshop</p>
-          <p className="uppercase tracking-widest text-xs text-muted-foreground mb-6">
+          <p className="uppercase tracking-widest text-xs text-background/60 mb-6">
             Vibe Coding Incubator
           </p>
-          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-foreground mb-3">
+          <h1 className="font-serif text-4xl sm:text-5xl font-bold text-background mb-3">
             Choose a Lesson
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg">
+          <p className="text-background/70 text-base sm:text-lg">
             Pick up where you left off or start a new lesson.
           </p>
         </div>
@@ -57,17 +57,17 @@ const LessonCard = ({ lesson, highlighted }: { lesson: Lesson; highlighted?: boo
     <Link
       to={`/lessons/${lesson.slug}`}
       className={cn(
-        "block rounded-2xl border p-5 sm:p-6 transition-all hover:border-accent hover:shadow-card",
+        "block rounded-2xl border p-5 sm:p-6 transition-all hover:border-accent",
         highlighted
-          ? "bg-card border-accent/30 ring-1 ring-accent/20"
-          : "bg-card border-border"
+          ? "bg-background/[0.04] border-accent/40 ring-1 ring-accent/30"
+          : "bg-background/[0.04] border-background/10 hover:bg-background/[0.07]"
       )}
     >
       <div className="flex items-start gap-4">
         <div
           className={cn(
             "shrink-0 h-10 w-10 rounded-xl flex items-center justify-center",
-            highlighted ? "bg-accent-soft text-accent" : "bg-secondary text-foreground"
+            highlighted ? "bg-accent-soft text-accent" : "bg-background/[0.06] text-background/80"
           )}
         >
           <Icon className="h-5 w-5" strokeWidth={1.75} />
@@ -76,15 +76,15 @@ const LessonCard = ({ lesson, highlighted }: { lesson: Lesson; highlighted?: boo
           <p
             className={cn(
               "text-xs font-semibold tracking-wider mb-1",
-              highlighted ? "text-accent" : "text-muted-foreground"
+              highlighted ? "text-accent" : "text-background/50"
             )}
           >
             {eyebrow}
           </p>
-          <h2 className="font-serif text-lg sm:text-xl font-bold text-foreground mb-1.5">
+          <h2 className="font-serif text-lg sm:text-xl font-bold text-background mb-1.5">
             {lesson.title}
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{lesson.summary}</p>
+          <p className="text-sm text-background/60 leading-relaxed">{lesson.summary}</p>
         </div>
       </div>
     </Link>
