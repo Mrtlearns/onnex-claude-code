@@ -1,82 +1,64 @@
-# Admin Editor v2
+# Admin editor: autosave, per-lesson publish, image uploads
 
-## A note on SQLite
+Three changes to the existing admin editor. Image uploads are largely already wired up — this plan finishes the loop and adds visible affordances.
 
-This project is a Vite + React browser app with no Node server, so a real SQLite file isn't available. Closest equivalents in the browser:
+## 1. Autosave of draft edits
 
-- **IndexedDB** — native, ideal for binary blobs like images. I'll use this for image storage.
-- **localStorage** — already used for content overrides; I'll keep using it for JSON drafts/published.
+Today, edits in the Single editor only hit the draft store when you press **Save draft**. If you refresh or click away the in-memory working copy is lost.
 
-If you later want a real SQL database (and image hosting that survives across browsers/devices), the right move is to enable Lovable Cloud (Postgres + Storage). Migration from this implementation is straightforward — only two modules (`contentStore.ts`, `imageStore.ts`) need to be swapped.
+Change: every edit (title / summary / body / per-OS bodies) is auto-staged into the **Draft layer** after a short idle delay. The Draft layer already persists to `localStorage`, so a refresh restores your work; the Published layer is untouched until you press **Publish**.
 
-## What gets built
+- New hook `src/hooks/useDebouncedEffect.ts` (tiny: runs an effect after `delay` ms of idle).
+- In `SingleEditor`, a single debounced effect (~800 ms) watches `title.value`, `summary.value`, `mode`, and the four body buffers, then calls `setDraft(slug, { title, summary, body })` with the assembled `LessonBody`.
+- Skip the autosave on the first render after a lesson change (so opening a clean lesson doesn't write a no-op draft entry that lights up the "pending" pill).
+- Status line above the editor changes its three states:
+  - `Saving…` while the debounce is pending or in flight
+  - `Saved · just now` (relative time, ticks every 30 s) once the latest change is in the draft store
+  - `All changes published` when there's no draft for this slug
+- Keep the existing **Save draft** button as a manual flush (useful right before Publish, no behavior change), but it stops being the only thing that persists.
+- The dirty-vs-published warning (`useUnsavedChangesPrompt` + the in-app confirm when switching lessons) gets recomputed against the **published** layer instead of the draft+published merge, so it only fires when there are unpublished changes — which is now ~always true while editing. We'll reuse the existing `pendingSlugs.has(lesson.slug)` signal for that, and drop the per-keystroke "unsaved" badge in favor of the autosave status above.
 
-### 1. Two-layer content store (Draft + Published)
-Refactor `src/content/contentStore.ts`:
-- **Published layer** (`vci.content.published.v1`): what visitors see on `/lessons` and `/lessons/:slug`.
-- **Draft layer** (`vci.content.draft.v1`): what the admin edits.
-- `useLessons()` reads Published; `useDraftLessons()` reads Draft-on-top-of-Published.
-- New actions: `setDraft`, `setManyDrafts`, `discardDraft`, `discardAllDrafts`, `publishDraft(slug?)`, `usePendingSlugs()`.
+Bulk editor stays explicit (Stage as drafts → Publish) — autosave there would be surprising.
 
-### 2. Image uploads (IndexedDB)
-New `src/lib/imageStore.ts`:
-- Saves files as Blobs under a generated id; returns a `lov-img://<id>` URL written into Markdown.
-- New hook `useResolvedMarkdown(md)` swaps `lov-img://` refs for short-lived blob URLs at preview/render time.
-- Wire into `LessonPage` and admin preview so images appear everywhere they're referenced.
+## 2. Per-lesson Publish button
 
-### 3. Markdown formatting toolbar (new `MarkdownEditor` component)
-Buttons: Bold, Italic, H1/H2/H3, bulleted list, numbered list, quote, inline code, code block, link, image upload, undo, redo. Keyboard shortcuts: ⌘B / ⌘I / ⌘K / ⌘Z / ⌘⇧Z. Drag-and-drop and paste-image support inserts an image upload + Markdown ref automatically.
+Two surfaces:
 
-### 4. Undo / redo with coalescing
-New `src/hooks/useHistory.ts`: per-field history stack with 600ms typing coalescing (so one word ≠ many entries), capped at 100 steps. Wired into title, summary, and each body field.
+**a. Inside the Single editor toolbar** (already exists, needs a small fix): the current "Publish" button calls `handleSaveDraft()` then `publishDraft(slug)` unconditionally. With autosave in place, drop the manual save call — `publishDraft(slug)` reads from the draft store directly. Disable the button when `!pendingSlugs.has(lesson.slug)` (nothing to publish for this lesson).
 
-### 5. Dirty-state indicator + leave warning
-- Compare working copy against the current draft+published merge; show a "Unsaved changes" badge in the toolbar when different.
-- `beforeunload` warning when dirty.
-- React Router navigation guard via a custom `useBlocker`-style prompt before leaving the editor route while dirty.
-- Save button is disabled when clean; Publish button is disabled unless there are pending drafts.
+**b. Inline in the lesson list** (new): each row in `LessonList` that has a pending draft gets a small **Publish** icon-button (rocket, ghost, h-6) next to the orange dot. Clicking it shows a tiny confirm (`AlertDialog`, "Publish '<title>'?") then calls `publishDraft(slug)`. This lets you promote one lesson without leaving whatever lesson you're currently editing.
 
-### 6. Mass-edit mode
-A second tab in the editor: **Single** (current) and **Bulk**.
-Bulk mode UI:
-- Lesson list becomes multi-select with checkboxes (Select all / Pre-work / Lessons quick filters).
-- A single large textarea + a mode picker:
-  - **Same body to all selected** — paste once, applies as the body to every selected lesson.
-  - **Per-slug blocks** — paste a block formatted with `---slug: <slug>---` separators; each block populates that lesson's body.
-- "Apply to drafts" stages the changes (doesn't publish).
-- Live summary: "Will update body for N lessons."
+**c. Toolbar rename**: the existing "Publish all" stays, just always visible (currently hidden when `pendingCount <= 1`); shown disabled when `pendingCount === 0`. Makes the mental model consistent: per-lesson publish in the list, publish-everything in the top bar.
 
-## Toolbar layout (admin)
+## 3. Image / file uploads (verify + polish)
 
-```text
-[← Exit]  [Single | Bulk]   ● Unsaved · 3 drafts pending
-                              [Import] [Export] [Discard] [Save Draft] [Publish]
-```
+The pipeline already exists end-to-end:
 
-- **Save Draft** writes the working copy into the Draft layer.
-- **Publish** promotes the current lesson's draft (or all drafts via dropdown) to Published.
-- **Discard** drops the current lesson's draft.
+- `src/lib/imageStore.ts` — IndexedDB store, `saveImage(file)` returns `lov-img://<id>`.
+- `src/components/MarkdownEditor.tsx` — toolbar **Insert image** button (file picker), plus paste-image and drag-and-drop handlers, all routing through `saveImage`.
+- `src/hooks/useResolvedMarkdown.ts` — swaps `lov-img://` refs for blob URLs at render time.
+- `src/components/LessonPage.tsx` already uses `useResolvedMarkdown`, so uploaded images render on the public lesson too.
+
+What I'll change:
+
+- **File-type widening**: today the picker only accepts `image/*`. Widen `accept` to `image/*,application/pdf` and let `saveImage` accept any file; non-image files get inserted as a Markdown link `[filename.pdf](lov-img://...)` rather than `![]()`. Detection by MIME prefix in `MarkdownEditor.handleFiles`.
+- **Upload progress / errors**: wrap each upload in a `try/catch`, toast on failure ("Upload failed: <name>"). Show a small spinner badge on the toolbar's image button while uploading.
+- **Storage caveat surfaced in UI**: short helper text under the editor — "Images are stored in this browser only. Use Export to back them up." (We'll skip building image export today; that's a separate feature.)
+- **Quick sanity checks in the preview pane**: confirm the preview's `useResolvedMarkdown` resolves freshly-uploaded ids without a remount (it should, because `md` changes → effect re-runs).
 
 ## Files
 
 **New**
-- `src/lib/imageStore.ts` — IndexedDB image CRUD + markdown URL resolver
-- `src/hooks/useResolvedMarkdown.ts` — resolves `lov-img://` refs to blob URLs
-- `src/hooks/useHistory.ts` — undo/redo stack with coalescing
-- `src/hooks/useUnsavedChangesPrompt.ts` — beforeunload + router blocker
-- `src/components/MarkdownEditor.tsx` — toolbar + textarea + image drop/paste
-- `src/components/admin/BulkEditor.tsx` — mass-edit UI
-- `src/components/admin/SingleEditor.tsx` — extracted from current AdminEditor
+- `src/hooks/useDebouncedEffect.ts`
 
 **Modified**
-- `src/content/contentStore.ts` — split into draft + published layers
-- `src/components/AdminEditor.tsx` — orchestrates Single/Bulk tabs, dirty state, publish controls
-- `src/components/LessonPage.tsx` — render images via `useResolvedMarkdown`
+- `src/components/AdminEditor.tsx` — autosave wiring, per-row Publish in `LessonList`, toolbar tweaks, status text
+- `src/components/MarkdownEditor.tsx` — widen accept, link vs image insert, upload error handling
+
+**Unchanged but verified**
+- `src/lib/imageStore.ts`, `src/hooks/useResolvedMarkdown.ts`, `src/content/contentStore.ts`, `src/components/LessonPage.tsx`
 
 ## Out of scope
-- Auth on `/admin` (still open per earlier decision).
-- Cross-device sync — images and drafts live in this browser. Export/Import remains the bridge.
-
-## Migration path to Lovable Cloud (later, one-line ask)
-- `contentStore.ts` → Postgres `lesson_overrides` table, `published` boolean column.
-- `imageStore.ts` → Supabase Storage bucket; `lov-img://<id>` becomes the public storage URL directly. Markdown stays valid.
+- Auth on `/admin` (still open, per earlier decision).
+- Cross-device sync of drafts/images (still browser-local; Lovable Cloud migration remains a one-shot follow-up if/when you want it).
+- Bulk-editor autosave.
