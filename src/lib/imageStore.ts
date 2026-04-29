@@ -71,7 +71,51 @@ export const saveImage = async (file: File): Promise<string> => {
     createdAt: Date.now(),
   };
   await tx("readwrite", (s) => s.put(record));
+  notifyAssets();
   return `lov-img://${id}`;
+};
+
+/** Lightweight metadata listing (no blobs loaded into memory). */
+export const listAssets = async (): Promise<AssetMeta[]> => {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(STORE, "readonly");
+    const store = t.objectStore(STORE);
+    const out: AssetMeta[] = [];
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (cursor) {
+        const v = cursor.value as StoredImage;
+        out.push({
+          id: v.id,
+          name: v.name,
+          type: v.type,
+          size: v.blob?.size ?? 0,
+          createdAt: v.createdAt,
+        });
+        cursor.continue();
+      } else {
+        out.sort((a, b) => b.createdAt - a.createdAt);
+        resolve(out);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+};
+
+export const deleteAsset = async (id: string): Promise<void> => {
+  await tx("readwrite", (s) => s.delete(id));
+  const cached = urlCache.get(id);
+  if (cached) {
+    URL.revokeObjectURL(cached);
+    urlCache.delete(id);
+  }
+  notifyAssets();
+};
+
+export const deleteAssets = async (ids: string[]): Promise<void> => {
+  for (const id of ids) await deleteAsset(id);
 };
 
 export const getImage = async (id: string): Promise<StoredImage | undefined> => {
