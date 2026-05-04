@@ -31,6 +31,19 @@
       },
       "total_calls": 156,
       "weight_total": 115
+    },
+    {
+      "date": "2026-05-04",
+      "tools": {
+        "Skill": 1,
+        "Read": 33,
+        "Bash": 2,
+        "Glob": 3,
+        "Grep": 3,
+        "Agent": 1
+      },
+      "total_calls": 43,
+      "weight_total": 13
     }
   ]
 }
