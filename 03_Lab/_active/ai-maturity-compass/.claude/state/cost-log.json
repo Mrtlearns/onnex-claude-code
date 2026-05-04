@@ -41,10 +41,10 @@
         "Glob": 3,
         "Grep": 3,
         "Agent": 1,
-        "PowerShell": 3
+        "PowerShell": 6
       },
-      "total_calls": 49,
-      "weight_total": 19
+      "total_calls": 52,
+      "weight_total": 22
     }
   ]
 }
