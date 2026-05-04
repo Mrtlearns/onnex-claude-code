@@ -1381,3 +1381,4 @@
 {"display":"all of the projects in the monorepo should be independent git repos. do a check for those that have th same gap as this repo had","pastedContents":{},"timestamp":1777895794840,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ai-maturity-compass","sessionId":"ababcd91-e6da-4865-87c9-be6917d473f1"}
 {"display":"/exit","pastedContents":{},"timestamp":1777896124993,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ai-maturity-compass","sessionId":"ababcd91-e6da-4865-87c9-be6917d473f1"}
 {"display":"yes","pastedContents":{},"timestamp":1777898402064,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ai-maturity-compass","sessionId":"ababcd91-e6da-4865-87c9-be6917d473f1"}
+{"display":"all repos must be delinked from the monorepo and be their own repo. confirm this is so","pastedContents":{},"timestamp":1777900190256,"project":"D:\\Code\\Claude\\03_Lab\\_active\\ai-maturity-compass","sessionId":"ababcd91-e6da-4865-87c9-be6917d473f1"}
