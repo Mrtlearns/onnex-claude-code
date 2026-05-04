@@ -1,2 +1,0 @@
-ALTER TABLE poc_personal_to_do.nodes
-  ADD COLUMN IF NOT EXISTS due_date TIMESTAMP NULL DEFAULT NULL;

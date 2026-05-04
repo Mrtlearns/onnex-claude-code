@@ -1,1 +1,0 @@
-ALTER TABLE sf.quotes ADD COLUMN IF NOT EXISTS created_date TIMESTAMPTZ;

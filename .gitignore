@@ -94,3 +94,21 @@ pnpm-debug.log*
 .claude-global/.claude.json
 .claude-global/.claude.json*
 .claude-global/backups/
+
+# Delinked standalone repos — tracked by their own .git
+00_Frameworks/claude-workspace-base/
+00_Frameworks/claude-workspace-pro/
+01_Business/Clients/ndt-portal-v1/
+01_Business/Onnex/agency-os/
+01_Business/Onnex/atomic-ai-bp/
+01_Business/Onnex/email-triage/
+03_Lab/_active/AI-OS-POC/
+03_Lab/_active/ai-maturity-compass/
+03_Lab/_active/ai-sentinel/
+03_Lab/_active/cmmc4msp/
+03_Lab/_active/ib_subcontractor/
+03_Lab/_active/personal-to-do/
+03_Lab/_active/pi-lawyer-os/
+03_Lab/_active/ragv1/
+03_Lab/_adopt/ib_subby/
+03_Lab/_archive/pai/

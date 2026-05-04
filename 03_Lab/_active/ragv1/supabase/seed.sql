@@ -1,7 +1,0 @@
--- Seed file for local development with `supabase db reset`
--- This runs AFTER all migrations.
---
--- The storage bucket is created in the initial migration.
--- No seed data is needed — users create projects via the UI.
---
--- To test locally, sign up at /auth after running `supabase start`.

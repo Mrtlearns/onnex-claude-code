@@ -1,3 +1,0 @@
-# Challenges
-
-## Active Challenges
