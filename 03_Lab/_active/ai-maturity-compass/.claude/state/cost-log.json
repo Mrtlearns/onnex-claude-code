@@ -40,10 +40,11 @@
         "Bash": 5,
         "Glob": 3,
         "Grep": 3,
-        "Agent": 1
+        "Agent": 1,
+        "PowerShell": 3
       },
-      "total_calls": 46,
-      "weight_total": 16
+      "total_calls": 49,
+      "weight_total": 19
     }
   ]
 }
