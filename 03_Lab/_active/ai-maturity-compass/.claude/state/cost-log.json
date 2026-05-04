@@ -37,13 +37,13 @@
       "tools": {
         "Skill": 1,
         "Read": 33,
-        "Bash": 2,
+        "Bash": 5,
         "Glob": 3,
         "Grep": 3,
         "Agent": 1
       },
-      "total_calls": 43,
-      "weight_total": 13
+      "total_calls": 46,
+      "weight_total": 16
     }
   ]
 }
