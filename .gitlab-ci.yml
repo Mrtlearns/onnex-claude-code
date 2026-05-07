@@ -38,10 +38,8 @@ deploy:
     # ── 2. Sync to server ─────────────────────────────────────────────────
     - |
       ssh ${DEPLOY_USER}@${DEPLOY_HOST} "mkdir -p ${DEPLOY_DIR}"
-      rsync -az --delete \
-        --exclude='.git/' \
-        --exclude='node_modules/' \
-        dist/ \
+      rsync -az \
+        dist \
         docker-compose.yml \
         Dockerfile.deploy \
         nginx.conf \
