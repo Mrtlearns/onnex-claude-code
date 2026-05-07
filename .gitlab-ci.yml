@@ -1,0 +1,59 @@
+stages:
+  - deploy
+
+# ── onnex-claude-code — build + deploy to poc-backend ─────────────────────
+#
+# Runner:  ndt-runner (shell executor, Ubuntu, 10.10.110.32)
+# Server:  10.10.110.34  /opt/pocs/onnex-claude-code
+# URL:     https://onnex-claude-code.poc.playsap.us
+#
+# Required GitLab CI/CD variables:
+#   DEPLOY_SSH_KEY  — private key for mrt@10.10.110.34
+# ──────────────────────────────────────────────────────────────────────────
+
+variables:
+  DEPLOY_HOST: "10.10.110.34"
+  DEPLOY_USER: "mrt"
+  DEPLOY_DIR:  "/opt/pocs/onnex-claude-code"
+
+deploy:
+  stage: deploy
+  tags:
+    - ndt-runner
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  environment:
+    name: production
+    url: https://onnex-claude-code.poc.playsap.us
+  before_script:
+    - which rsync || sudo apt-get install -y -q rsync
+    - eval $(ssh-agent -s)
+    - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    # ── 1. Build ───────────────────────────────────────────────────────────
+    - npm ci --prefer-offline
+    - npm run build
+    # ── 2. Sync to server ─────────────────────────────────────────────────
+    - |
+      ssh ${DEPLOY_USER}@${DEPLOY_HOST} "mkdir -p ${DEPLOY_DIR}"
+      rsync -az --delete \
+        --exclude='.git/' \
+        --exclude='node_modules/' \
+        dist/ \
+        docker-compose.yml \
+        Dockerfile.deploy \
+        nginx.conf \
+        "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/"
+      echo "[rsync] synced to ${DEPLOY_HOST}:${DEPLOY_DIR}"
+    # ── 3. Rebuild + restart ───────────────────────────────────────────────
+    - |
+      ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
+        set -e
+        cd ${DEPLOY_DIR}
+        docker compose up -d --build --remove-orphans
+        docker image prune -f
+        echo '=== Deploy complete ==='
+        docker compose ps
+      "

@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.deploy
+    container_name: onnex-claude-code-app
+    ports:
+      - "3120:80"
+    restart: unless-stopped
+    networks:
+      - poc-net
+
+networks:
+  poc-net:
+    external: true
