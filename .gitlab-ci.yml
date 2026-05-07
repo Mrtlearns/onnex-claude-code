@@ -33,7 +33,7 @@ deploy:
     - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
   script:
     # ── 1. Build ───────────────────────────────────────────────────────────
-    - npm ci --prefer-offline
+    - npm install --prefer-offline
     - npm run build
     # ── 2. Sync to server ─────────────────────────────────────────────────
     - |
