@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# graphify
+graphify-out/graph.json
+graphify-out/cache/
+graphify_chunks/
+.graphify_*.json
+graphify_extract*.log
+graphify_embed*.log
