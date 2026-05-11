@@ -1,0 +1,458 @@
+{
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\eslint.config.js": {
+    "mtime": 1778123173.7645173,
+    "hash": "bc484741cdf3591af5da7d9f3da3a647"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\postcss.config.js": {
+    "mtime": 1778123173.7645173,
+    "hash": "33fad9c02cb0ec6d6030369ef6347d57"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\tailwind.config.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "553c9497d8aff5cb5b2f816502da7b59"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\vite.config.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "d3e862dbfa98adeaab751b1c06913ca8"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\vitest.config.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "8800905cca6b71b675e406a15d2d5b13"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\App.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "79fd536da6f3b55cf2e3b7e3f112e295"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\main.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "3ad492668e71c9fb3069381cb93760ed"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\vite-env.d.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "8f68c27c3fc38817b2726b20e2d4f1ee"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ActivityLog.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "7f7c07de38897c1e953cd82197a1d32a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\AdminEditor.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "adac1daee88e8c53e45af5268f8f2b20"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\AssetManager.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "14f84042f10b61ce34607e8ce83ba26c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\CookieBanner.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "e04f711d872e21608f3a9501cf859e36"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\DocsPage.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "c7a1206485089f31ceea13acb3413ec7"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\LessonIndex.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "f5272135d6cc6e85da86f7f987df1a8b"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\LessonPage.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "b087b58521ae8e920052ed19db02c3c4"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\MarkdownEditor.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "81e70ca1b99c984e0915b1c3aff67981"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\NavLink.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "889a81fd2eb948eb406c9ccabe175918"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\OSPicker.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "6dbee0df081f5150aa38ce6b034391d9"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\OSToggle.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "4a79997a9990eba493e45f10b450cb36"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\SiteHeader.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "43f8a4d9494ea9e5107219e9cec6bd6f"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ThemeToggle.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "ca8b2ebff4a0753635d63ad6334b787a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\VersionHistoryDialog.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "7633b4b6ebb902a4a3ace2be0491be04"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\accordion.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "ff8f54b79a7a2bc4fed8c092dd7a1f4b"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\alert-dialog.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "9e4e4984ede953adcc023d60c017a968"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\alert.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "eba34d3096d7c23bcdf5dfb1e725ecff"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\aspect-ratio.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "14c12661aad8c80328c86a18b506c088"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\avatar.tsx": {
+    "mtime": 1778123173.7777255,
+    "hash": "7b447f617f7d654c70050259fbf6dbc0"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\badge.tsx": {
+    "mtime": 1778123173.7777255,
+    "hash": "09261d891c581ebf021af2989fe75d60"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\breadcrumb.tsx": {
+    "mtime": 1778123173.77842,
+    "hash": "c277fb2bb0886444a6c8a00296ad924e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\button.tsx": {
+    "mtime": 1778123173.7789414,
+    "hash": "854ce263491269d5b7db6d0828a63f9a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\calendar.tsx": {
+    "mtime": 1778123173.7789414,
+    "hash": "1a2e76319e667991b06dc99e74b9b631"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\card.tsx": {
+    "mtime": 1778123173.779498,
+    "hash": "0e2d94c650cf4fae76b4c5e0f14dd858"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\carousel.tsx": {
+    "mtime": 1778123173.780032,
+    "hash": "7d3e5a6ed21d4690d498e8a60b52868a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\chart.tsx": {
+    "mtime": 1778123173.780032,
+    "hash": "4360d46060e32c8aafbc140a482a03fa"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\checkbox.tsx": {
+    "mtime": 1778123173.7807498,
+    "hash": "76ca6b8de39bdac0ff7620b301077963"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\collapsible.tsx": {
+    "mtime": 1778123173.7807498,
+    "hash": "72fafa9d8b58f83ec9b7c8f141bfdd42"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\command.tsx": {
+    "mtime": 1778123173.7812896,
+    "hash": "0390099f76c1a9eeb97041c572c752c0"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\context-menu.tsx": {
+    "mtime": 1778123173.7818265,
+    "hash": "bf02a92d910af3af76b1e417a76cbd6a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\dialog.tsx": {
+    "mtime": 1778123173.7823608,
+    "hash": "8c4a577dcf79d0ba30c2749f909fa932"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\drawer.tsx": {
+    "mtime": 1778123173.7823608,
+    "hash": "a73521d8fbccde731eae7f2f81f5875b"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\dropdown-menu.tsx": {
+    "mtime": 1778123173.7828994,
+    "hash": "deab6e248bcccb2e52ad13736bf5952e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\form.tsx": {
+    "mtime": 1778123173.783459,
+    "hash": "4d27bc8211e0505103bbd930275570c6"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\hover-card.tsx": {
+    "mtime": 1778123173.783459,
+    "hash": "a7927cc49ef796b0c725ecd0869c9f95"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\input-otp.tsx": {
+    "mtime": 1778123173.7839954,
+    "hash": "7217a7c6bceca8030298e2252204ae40"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\input.tsx": {
+    "mtime": 1778123173.784544,
+    "hash": "c9e808ff72f69a97513b516a31d5705a"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\label.tsx": {
+    "mtime": 1778123173.7851133,
+    "hash": "a8c075269b5971c2ab072603b5166cc2"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\menubar.tsx": {
+    "mtime": 1778123173.7851133,
+    "hash": "8d6dd42e35e9410e97a725c64c02f0a6"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\navigation-menu.tsx": {
+    "mtime": 1778123173.7856946,
+    "hash": "2d91ffeee8627f37b4733949b3373a23"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\pagination.tsx": {
+    "mtime": 1778123173.7862322,
+    "hash": "4d09c500f83dd4b754b74d03b79527ba"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\popover.tsx": {
+    "mtime": 1778123173.7862322,
+    "hash": "63380a8f575f8a1a5277caeb4971919f"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\progress.tsx": {
+    "mtime": 1778123173.7867775,
+    "hash": "b0d4b1791f1da120f5eed107f235edce"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\radio-group.tsx": {
+    "mtime": 1778123173.787325,
+    "hash": "6c2a4c39fb3f889fe94b854b7198b5ed"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\resizable.tsx": {
+    "mtime": 1778123173.787325,
+    "hash": "ed49053e380e461e2ca75f7a3fe67236"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\scroll-area.tsx": {
+    "mtime": 1778123173.7878664,
+    "hash": "f86e3f716ed7c692309c1a48d85ce2c9"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\select.tsx": {
+    "mtime": 1778123173.7878664,
+    "hash": "7a89fad24599af514ca0e28a9f5c4370"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\separator.tsx": {
+    "mtime": 1778123173.7883897,
+    "hash": "1810b24a008c00cd43c0b5ad9f3e4c6b"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\sheet.tsx": {
+    "mtime": 1778123173.7889216,
+    "hash": "d01d85069ebcb54849277fce060ebfea"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\sidebar.tsx": {
+    "mtime": 1778123173.7889216,
+    "hash": "47158040377f0ab1d4610e976529ef9c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\skeleton.tsx": {
+    "mtime": 1778123173.789451,
+    "hash": "6433d7c535e132083b2c1bcb57373fff"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\slider.tsx": {
+    "mtime": 1778123173.7899835,
+    "hash": "977286428ad957ed73e428525450f9cb"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\sonner.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "f375774f847d020348cd21d524d28c75"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\switch.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "57fa755b8dcfe75538bc523ac3e0bb0e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\table.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "d73905fa73678181cb9f8baa91b3f222"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\tabs.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "33c494eaa3811114e89a89fbbb0a1a02"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\textarea.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "05d1ec7d6c3a836dc5b28d56935174fd"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\toast.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "0e2ba363f7d8b176dea467284711fea5"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\toaster.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "0f5d0fdbcc2d4611e59994af4393e27e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\toggle-group.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "fc5bff5bf4bb6714e6eaf85dcdeb65b9"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\toggle.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "2342cfa40b5b31148997f87d1642359e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\tooltip.tsx": {
+    "mtime": 1778123173.7905602,
+    "hash": "c050f1e97cf8e200ecf88681073c90cb"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\ui\\use-toast.ts": {
+    "mtime": 1778123173.7905602,
+    "hash": "5bff9ea3904b15a9e1908b128c88e75f"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\__tests__\\LessonPage.osSwap.test.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "5e4bff030d9bd4f2972326a5de9d601c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\__tests__\\OSPicker.test.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "99ae3696d418fcf485277396436a4394"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\__tests__\\SiteHeader.test.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "db3b86ac2954f7acfc82a6b8a0ba7e3e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\components\\__tests__\\themeRoutes.test.tsx": {
+    "mtime": 1778123173.7645173,
+    "hash": "6012ff091d19c2da1f315642cfb5fd1d"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\content\\contentStore.ts": {
+    "mtime": 1778123173.7905602,
+    "hash": "0a2f5c05c5dc40308d5680c7cde51097"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\content\\lessons.ts": {
+    "mtime": 1778123173.7905602,
+    "hash": "dadac79a7d16070b8123d844d42170c5"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\content\\__tests__\\contentStore.test.ts": {
+    "mtime": 1778123173.7905602,
+    "hash": "b71d5e4417dd6bd407a7311a975ad0b6"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\context\\AdminContext.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "694e43ba33776f8443b8b0cb3dcd7546"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\context\\OSContext.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "b4a795469d204546a1fb05609cdd123c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\context\\ThemeContext.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "6d96b23e0ef1acde3686f3a8dc7a5154"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\context\\__tests__\\ThemeContext.test.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "2a40aea4e44c4f2d7db2e8c8dbbac4bc"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\use-mobile.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "1bb3ebac7752b497a78d34e341975bbd"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\use-toast.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "895be3e18021c7c5cd4fac68ea522dd4"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\useDebouncedEffect.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "47c8b67453a195909dbe64ef0c291216"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\useHistory.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "171c7c3fdba434d4e23f7854eb64e787"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\useResolvedMarkdown.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "182e215808c381f7d1e8d970cedd09f2"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\hooks\\useUnsavedChangesPrompt.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "5f2e8dfd5267ac36785723d8fc0ec048"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\activityLog.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "3136b3c330d343cec33b0aa30ca679df"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\assetUsage.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "c9fe6032d2be80444f7b9a3289b4dfc9"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\brand.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "c3e4b78c2b6a6cd6ba9542b033b85397"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\draftHistory.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "a05a439316a4fa7d2d5d43597aa3f875"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\imageStore.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "6f01c23928de76d5381ae0a497295673"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\utils.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "e3f848f1b39f863e6164cf58b5a8e752"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\__tests__\\activityLog.test.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "e7a6cd1e46c8a192ea00e9ae98fec262"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\__tests__\\assetUsage.test.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "ebe7fb6f3604cc57fca5616ab75c7393"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\lib\\__tests__\\draftHistory.test.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "aeaf1aea6de7dbc56db3ea726e94bb92"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\Admin.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "d92bb9b033fbdd7c0da9ae6cf987852f"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\Docs.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "c0e0e3ff6c71bf74e5e5f09437be6ae3"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\Index.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "9e735104a26415434b3a29831ffd00ea"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\LessonRoute.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "e80384ce9db52ce0e0ace9ef95e9a2f9"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\Lessons.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "e8098313bd52cdfaf0daf5ca2818f927"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\pages\\NotFound.tsx": {
+    "mtime": 1778123173.7960987,
+    "hash": "56c0e8759328865e67fc2c480b916804"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\test\\example.test.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "e9e7bb15aba58b53a65f23498219603e"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\src\\test\\setup.ts": {
+    "mtime": 1778123173.7960987,
+    "hash": "db4e510e61f5af8f75847c94c5e102b3"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\CLAUDE.md": {
+    "mtime": 1778333207.3940663,
+    "hash": "263974f0301aabe2d6e8bb9f6d110c9c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\docker-compose.yml": {
+    "mtime": 1778123395.3162916,
+    "hash": "6c856227a247a5587c44ad28f305f37c"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\index.html": {
+    "mtime": 1778123173.7645173,
+    "hash": "f97351d2f13722165d446280dd57bd05"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\README.md": {
+    "mtime": 1778123173.748524,
+    "hash": "60ec3638dbe5d72835d9f840e0e2ce4d"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\docs\\README.md": {
+    "mtime": 1778123173.7614777,
+    "hash": "fa363aacefe8b2d740ad0c5e7f9b6713"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\docs\\SUPABASE_SCHEMA.md": {
+    "mtime": 1778123173.7614777,
+    "hash": "755882771031d5a84439ac87e83a0fb3"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\docs\\TEST_PLAN.md": {
+    "mtime": 1778123173.7614777,
+    "hash": "944aa34b0e246f1bc9954111217f3633"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\public\\robots.txt": {
+    "mtime": 1778123173.7645173,
+    "hash": "a9b03494151fe90e5decd2405400e106"
+  },
+  "D:\\Code\\Claude\\01_Business\\Onnex\\onnex-claude-code\\public\\placeholder.svg": {
+    "mtime": 1778123173.7645173,
+    "hash": "4a57334f2b44f8eed3356ede2944d8a4"
+  }
+}
