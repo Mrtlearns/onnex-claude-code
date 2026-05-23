@@ -1,0 +1,89 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+vendor/
+bower_components/
+
+# ── Python artifacts ───────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+.eggs/
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+.output/
+standalone/
+*.tsbuildinfo
+*.min.js
+*.min.css
+
+# ── Test & coverage artifacts ─────────────────────────────────────────────────
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+*.lcov
+__snapshots__/
+
+# ── Tooling caches ────────────────────────────────────────────────────────────
+.vite/
+.cache/
+.turbo/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# ── Graphify temp + outputs ───────────────────────────────────────────────────
+graphify-out/
+graphify_chunks/
+.graphify_*.json
+graphify_extract*.log
+graphify_embed*.log
+
+# ── Git / IDE ──────────────────────────────────────────────────────────────────
+.git/
+.idea/
+.vscode/settings.json
+
+# ── OS cruft ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs & secrets ────────────────────────────────────────────────────────────
+*.log
+logs/
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+
+# ── Binaries & archives ───────────────────────────────────────────────────────
+*.7z
+*.zip
+*.tar.gz
+*.tar
+*.gz
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+
+# ── Session/state files ────────────────────────────────────────────────────────
+.claude/state/
+.claude/worktrees/
+
+# ── Infrastructure ────────────────────────────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.backup
