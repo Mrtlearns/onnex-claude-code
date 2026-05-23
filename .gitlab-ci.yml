@@ -3,7 +3,8 @@ stages:
 
 # ── onnex-claude-code — build + deploy to poc-backend ─────────────────────
 #
-# Runner:  ndt-runner (shell executor, Ubuntu, 10.10.110.32)
+# Runner:  shared-shell-runner (gitlab-runner-1, bash on linux/amd64)
+#          Untagged — picked up by the instance shared runner.
 # Server:  10.10.110.34  /opt/pocs/onnex-claude-code
 # URL:     https://onnex-claude-code.poc.playsap.us
 #
@@ -18,15 +19,17 @@ variables:
 
 deploy:
   stage: deploy
-  tags:
-    - ndt-runner
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
   environment:
     name: production
     url: https://onnex-claude-code.poc.playsap.us
   before_script:
-    - which rsync || sudo apt-get install -y -q rsync
+    # Activate node via nvm (preinstalled on shared-shell-runner)
+    - export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    - nvm use 20 >/dev/null || nvm install 20
+    - node --version && npm --version
+    - command -v rsync >/dev/null || { echo "rsync missing on runner"; exit 1; }
     - eval $(ssh-agent -s)
     - echo "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
