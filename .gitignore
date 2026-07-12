@@ -30,3 +30,7 @@ graphify_chunks/
 .graphify_*.json
 graphify_extract*.log
 graphify_embed*.log
+
+# Claude Code local state — never commit
+.claude/state/
+.claude/worktrees/
