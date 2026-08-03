@@ -20,5 +20,8 @@
         ]
       }
     ]
+  },
+  "env": {
+    "OTEL_RESOURCE_ATTRIBUTES": "org=onnex,project=mrt/onnex-claude-code"
   }
 }
